@@ -4,6 +4,7 @@ import { config } from "dotenv";
 import { eq, inArray } from "drizzle-orm";
 
 import { closeDatabase, getDatabase } from "../src/db";
+import { resolveStaffRole } from "../src/modules/auth/admin-roles";
 import {
   officeServiceCategories,
   officeSourceEvidence,
@@ -24,6 +25,15 @@ import {
   OfficePublicationError,
   publishOffice,
 } from "../src/modules/moderation/publish-office";
+import {
+  getReviewItem,
+  listReviewQueue,
+  ReviewQueueFilterError,
+} from "../src/modules/moderation/review-repository";
+import {
+  resolveReview,
+  ReviewResolutionError,
+} from "../src/modules/moderation/resolve-review";
 
 config({ path: ".env.local", quiet: true });
 config({ quiet: true });
@@ -54,6 +64,28 @@ async function main() {
 
   try {
     await cleanup();
+
+    assert.equal(
+      resolveStaffRole("user-admin", {
+        adminUserIds: "user-admin",
+        reviewerUserIds: "user-reviewer,user-admin",
+      }),
+      "admin",
+    );
+    assert.equal(
+      resolveStaffRole("user-reviewer", {
+        adminUserIds: "user-admin",
+        reviewerUserIds: " user-reviewer ",
+      }),
+      "reviewer",
+    );
+    assert.equal(
+      resolveStaffRole("user-unknown", {
+        adminUserIds: "user-admin",
+        reviewerUserIds: "user-reviewer",
+      }),
+      null,
+    );
 
     const [region] = await db
       .select({ id: regions.id })
@@ -210,14 +242,34 @@ async function main() {
       (error: unknown) => isPublicationError(error, "missing_evidence"),
     );
 
+    await assert.rejects(
+      publishOffice({
+        officeId: validOfficeId,
+        reviewItemId: validReviewId,
+        actorId: "synthetic-reviewer",
+        reason: "짧음",
+        expectedUpdatedAt: validOffice.updatedAt,
+      }),
+      (error: unknown) => isPublicationError(error, "invalid_review_item"),
+    );
+
     const published = await publishOffice({
       officeId: validOfficeId,
       reviewItemId: validReviewId,
-      actorId: "synthetic-reviewer",
-      reason: "합성 데이터 공개 전환 검증",
+      actorId: " synthetic-reviewer ",
+      reason: "  합성 데이터 공개 전환 검증  ",
       expectedUpdatedAt: validOffice.updatedAt,
     });
     assert.equal(published.status, "published");
+    const [approvalAction] = await db
+      .select({ actorId: reviewActions.actorId, reason: reviewActions.reason })
+      .from(reviewActions)
+      .where(eq(reviewActions.reviewItemId, validReviewId))
+      .limit(1);
+    assert.deepEqual(approvalAction, {
+      actorId: "synthetic-reviewer",
+      reason: "합성 데이터 공개 전환 검증",
+    });
 
     const list = await listPublicOffices({
       region: "gyeonggi",
@@ -257,6 +309,75 @@ async function main() {
       (error: unknown) => isPublicationError(error, "concurrent_change"),
     );
 
+    const pendingQueue = await listReviewQueue("pending");
+    assert.deepEqual(
+      pendingQueue.map((item) => item.id),
+      [invalidReviewId],
+    );
+    const pendingReview = await getReviewItem(invalidReviewId);
+    assert(pendingReview);
+    assert.equal(pendingReview.office?.id, invalidOfficeId);
+    assert.equal(pendingReview.actions.length, 0);
+
+    await assert.rejects(
+      listReviewQueue("unsupported"),
+      (error: unknown) =>
+        error instanceof ReviewQueueFilterError && error.field === "status",
+    );
+
+    const heldReview = await resolveReview({
+      reviewItemId: invalidReviewId,
+      decision: "on_hold",
+      actorId: "synthetic-reviewer",
+      reason: "출처 근거 보강이 필요합니다.",
+      expectedUpdatedAt: pendingReview.updatedAt,
+    });
+    assert.equal(heldReview.status, "on_hold");
+    assert.equal(heldReview.resolvedAt, null);
+    assert.deepEqual(
+      (await listReviewQueue("on_hold")).map((item) => item.id),
+      [invalidReviewId],
+    );
+
+    await assert.rejects(
+      publishOffice({
+        officeId: invalidOfficeId,
+        reviewItemId: invalidReviewId,
+        actorId: "synthetic-reviewer",
+        reason: "보류 항목 재검토 검증",
+        expectedUpdatedAt: invalidOffice.updatedAt,
+      }),
+      (error: unknown) => isPublicationError(error, "missing_evidence"),
+    );
+
+    const rejectedReview = await resolveReview({
+      reviewItemId: invalidReviewId,
+      decision: "rejected",
+      actorId: "synthetic-reviewer",
+      reason: "필수 출처 근거가 확인되지 않았습니다.",
+      expectedUpdatedAt: heldReview.updatedAt,
+    });
+    assert.equal(rejectedReview.status, "rejected");
+    assert(rejectedReview.resolvedAt);
+    const rejectedDetail = await getReviewItem(invalidReviewId);
+    assert(rejectedDetail);
+    assert.deepEqual(
+      rejectedDetail.actions.map((action) => action.decision),
+      ["rejected", "on_hold"],
+    );
+    await assert.rejects(
+      resolveReview({
+        reviewItemId: invalidReviewId,
+        decision: "rejected",
+        actorId: "synthetic-reviewer",
+        reason: "동시성 충돌 검증 사유입니다.",
+        expectedUpdatedAt: heldReview.updatedAt,
+      }),
+      (error: unknown) =>
+        error instanceof ReviewResolutionError &&
+        error.reason === "concurrent_change",
+    );
+
     await assert.rejects(
       db.insert(offices).values({
         slug: "sample-invalid-published-office",
@@ -274,7 +395,9 @@ async function main() {
         error.cause.code === "23514",
     );
 
-    console.log("Publication and public directory verification completed.");
+    console.log(
+      "Publication, public directory, role, and moderation verification completed.",
+    );
   } finally {
     await cleanup();
     await closeDatabase();

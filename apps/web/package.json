@@ -16,6 +16,7 @@
     "db:verify-publication": "tsx scripts/verify-publication.ts"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.5.20",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "next": "16.2.11",

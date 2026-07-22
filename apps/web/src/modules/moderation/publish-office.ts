@@ -42,7 +42,10 @@ type PublishOfficeInput = {
 };
 
 export async function publishOffice(input: PublishOfficeInput) {
-  if (input.actorId.trim().length === 0 || input.reason.trim().length === 0) {
+  const actorId = input.actorId.trim();
+  const reason = input.reason.trim();
+
+  if (!actorId || reason.length < 5 || reason.length > 1000) {
     throw new OfficePublicationError("invalid_review_item");
   }
 
@@ -103,9 +106,10 @@ export async function publishOffice(input: PublishOfficeInput) {
         and(
           eq(reviewItems.id, input.reviewItemId),
           eq(reviewItems.officeId, input.officeId),
-          eq(reviewItems.status, "pending"),
+          inArray(reviewItems.status, ["pending", "on_hold"]),
         ),
       )
+      .for("update")
       .limit(1);
 
     if (!reviewItem) {
@@ -208,9 +212,9 @@ export async function publishOffice(input: PublishOfficeInput) {
 
     await tx.insert(reviewActions).values({
       reviewItemId: input.reviewItemId,
-      actorId: input.actorId,
+      actorId,
       decision: "approved",
-      reason: input.reason,
+      reason,
     });
     await tx
       .update(reviewItems)

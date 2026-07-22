@@ -55,8 +55,12 @@ Route Handler와 Server Action은 인증, 입력 검증, 유스케이스 호출,
 
 - `src/modules/directory/public-office-repository.ts`: 공개 상태 목록·상세와 지역/업무 분야 필터
 - `src/modules/moderation/publish-office.ts`: 공개 전 조건 확인, 검수 이력과 상태 변경 트랜잭션
+- `src/modules/moderation/review-repository.ts`: 검수 대기열·상세와 출처·감사 이력 조회
+- `src/modules/moderation/resolve-review.ts`: 보류·반려 결정과 감사 이력 트랜잭션
+- `src/modules/auth`: Clerk 사용자 ID의 서버 역할 판정과 리소스별 권한 검사
 - `src/app/offices/page.tsx`: 공개 업체 목록, 사무소 소재 지역·업무 분야 필터
 - `src/app/offices/[slug]/page.tsx`: 공개 업체 상세, 전화 연결과 검증 출처 표시
+- `src/app/admin/reviews`: 인증된 검수자의 대기열·비교·결정 화면과 Server Action
 
 ## 5. 렌더링과 클라이언트 경계
 
@@ -84,7 +88,8 @@ Route Handler와 Server Action은 인증, 입력 검증, 유스케이스 호출,
 ## 8. 인증과 권한
 
 - 공개 조회와 전화 링크는 인증 없이 접근한다.
-- 관리자 기능은 인증이 필요하며 최소 권한을 적용한다.
+- 관리자 신원과 세션은 Clerk로 확인하고, 서버 전용 allowlist로 `reviewer`와 `admin` 최소 권한을 적용한다.
+- Proxy, Layout, Page와 Server Action 중 하나만 신뢰하지 않고 보호 데이터와 변경 동작 가까이에서 권한을 다시 확인한다.
 - 승인·비공개 전환 같은 쓰기는 서버에서 역할을 재검증하고 감사 로그를 남긴다.
 - 수집기 DB 자격 증명은 후보 적재에 필요한 권한으로 제한하고 공개 운영값 직접 수정 권한을 주지 않는 구성을 지향한다.
 

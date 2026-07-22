@@ -6,7 +6,7 @@
 
 ## 현재 단계
 
-현재 저장소는 **데이터 계층 기반 구현 단계**입니다. Next.js와 Python 프로젝트의 기본 골격, PostgreSQL 초기 스키마·migration·seed는 있으나 실제 업체 데이터, 공개 검색·상세 화면, 관리자 검수 흐름과 실행 DB 연결은 아직 구현되지 않았습니다. 최신 진행 상황은 [docs/STATUS.md](docs/STATUS.md)를 기준으로 확인합니다.
+현재 저장소는 **핵심 MVP 기능 구현 단계**입니다. PostgreSQL 초기 스키마·migration·seed, 공개 업체 검색·상세 화면과 관리자 인증·검수 흐름을 구현했습니다. 실제 업체 데이터, 지속형 개발·운영 DB와 운영 배포는 아직 준비 전입니다. 최신 진행 상황은 [docs/STATUS.md](docs/STATUS.md)를 기준으로 확인합니다.
 
 ## MVP
 
@@ -85,8 +85,8 @@ uv run python main.py
 
 - 제품: [PRD](docs/product/PRD.md), [MVP 범위](docs/product/MVP_SCOPE.md), [사용자 흐름](docs/product/USER_FLOWS.md)
 - 설계: [아키텍처](docs/architecture/ARCHITECTURE.md), [데이터 모델](docs/architecture/DATA_MODEL.md), [API 규칙](docs/architecture/API_CONVENTIONS.md)
-- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [지역 seed](docs/operations/REGION_SEED.md), [로컬 PostgreSQL](docs/operations/LOCAL_DATABASE.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
-- 결정: [ADR-0001](docs/decisions/ADR-0001-monorepo.md), [ADR-0002](docs/decisions/ADR-0002-nextjs-monolith.md), [ADR-0003](docs/decisions/ADR-0003-postgresql.md), [ADR-0004](docs/decisions/ADR-0004-drizzle-orm.md)
+- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [관리자 인증](docs/operations/ADMIN_AUTH.md), [지역 seed](docs/operations/REGION_SEED.md), [로컬 PostgreSQL](docs/operations/LOCAL_DATABASE.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
+- 결정: [ADR-0001](docs/decisions/ADR-0001-monorepo.md), [ADR-0002](docs/decisions/ADR-0002-nextjs-monolith.md), [ADR-0003](docs/decisions/ADR-0003-postgresql.md), [ADR-0004](docs/decisions/ADR-0004-drizzle-orm.md), [ADR-0005](docs/decisions/ADR-0005-clerk-admin-auth.md)
 
 ## 작업 원칙
 
