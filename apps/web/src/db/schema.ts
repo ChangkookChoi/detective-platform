@@ -297,6 +297,8 @@ export const collectedRecords = pgTable(
     extractedValues: jsonb("extracted_values").notNull(),
     normalizedValues: jsonb("normalized_values").notNull(),
     contentHash: text("content_hash").notNull(),
+    etag: text("etag"),
+    lastModified: text("last_modified"),
   },
   (table) => [
     uniqueIndex("collected_records_run_source_key_uidx").on(

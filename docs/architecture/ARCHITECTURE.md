@@ -65,6 +65,14 @@ Route Handler와 Server Action은 인증, 입력 검증, 유스케이스 호출,
 - `src/app/admin/reviews`: 인증된 검수자의 대기열·비교·결정 화면과 Server Action
 - `src/app/api/analytics/events/route.ts`: 같은 출처의 최소 이벤트만 받는 공개 POST 경계
 
+수집기 초기 구현 위치:
+
+- `collector/config.py`: 출처별 승인 정책과 제한 검증
+- `collector/http_client.py`: URL·IP 안전성, timeout, redirect·응답 크기와 재시도 경계
+- `collector/adapters/jsonld.py`: 허용된 JSON-LD 타입과 최소 필드 추출
+- `collector/normalize.py`, `collector/change_detection.py`: 정규화 해시와 검수 후보 비교
+- `collector/repository.py`, `collector/pipeline.py`: 수집 실행, 레코드와 검수 후보의 트랜잭션 적재
+
 ## 5. 렌더링과 클라이언트 경계
 
 - 공개 목록·상세의 핵심 정보는 React Server Component에서 렌더링한다.

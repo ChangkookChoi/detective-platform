@@ -1,0 +1,29 @@
+[[sources]]
+name = "replace-with-approved-source"
+adapter = "jsonld_local_business"
+extractor_version = "jsonld-v1"
+start_urls = ["https://example.invalid/offices/sample"]
+allowed_hosts = ["example.invalid"]
+allowed_path_prefixes = ["/offices/"]
+allowed_fields = ["name", "telephone", "address", "description"]
+allowed_schema_types = ["LocalBusiness", "ProfessionalService", "Organization"]
+policy_checked_by = "replace-with-reviewer"
+policy_checked_at = 2026-07-22
+robots_checked_by = "replace-with-reviewer"
+robots_checked_at = 2026-07-22
+robots_allowed = true
+user_agent = "DetectivePlatformCollector/0.1 (+replace-with-contact-url)"
+request_interval_seconds = 2.0
+max_response_bytes = 1000000
+max_redirects = 2
+
+[sources.timeout]
+connect_seconds = 5.0
+read_seconds = 10.0
+write_seconds = 5.0
+pool_seconds = 5.0
+
+[sources.retry]
+max_attempts = 3
+initial_backoff_seconds = 1.0
+max_backoff_seconds = 8.0
