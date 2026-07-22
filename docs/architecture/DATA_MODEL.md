@@ -195,6 +195,7 @@ collection_runs 1 ── N collected_records ── N review_items
 - 초기 업체 표본을 입력하기 전에 동일 브랜드 복수 지점, 공유 전화번호, 경기 지역의 가변 계층 사례로 모델을 검증한다.
 
 합성 표본을 사용한 최초 검증 결과는 [DATA_MODEL_VALIDATION.md](DATA_MODEL_VALIDATION.md)에 기록한다.
+지역 기준 데이터의 출처, 범위와 갱신 절차는 [REGION_SEED.md](../operations/REGION_SEED.md)에 기록한다.
 
 ## 7. 보존과 삭제
 
