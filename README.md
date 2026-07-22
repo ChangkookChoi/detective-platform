@@ -65,6 +65,12 @@ npm run lint
 npm run build
 ```
 
+PostgreSQL 17 이상이 설치된 환경에서는 저장소 루트에서 임시 DB 통합 검증을 실행할 수 있습니다.
+
+```bash
+./scripts/verify-local-postgres.sh
+```
+
 ### 수집기
 
 ```bash
@@ -79,7 +85,7 @@ uv run python main.py
 
 - 제품: [PRD](docs/product/PRD.md), [MVP 범위](docs/product/MVP_SCOPE.md), [사용자 흐름](docs/product/USER_FLOWS.md)
 - 설계: [아키텍처](docs/architecture/ARCHITECTURE.md), [데이터 모델](docs/architecture/DATA_MODEL.md), [API 규칙](docs/architecture/API_CONVENTIONS.md)
-- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
+- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [로컬 PostgreSQL](docs/operations/LOCAL_DATABASE.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
 - 결정: [ADR-0001](docs/decisions/ADR-0001-monorepo.md), [ADR-0002](docs/decisions/ADR-0002-nextjs-monolith.md), [ADR-0003](docs/decisions/ADR-0003-postgresql.md), [ADR-0004](docs/decisions/ADR-0004-drizzle-orm.md)
 
 ## 작업 원칙

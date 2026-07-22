@@ -1,48 +1,57 @@
 import { config } from "dotenv";
 
-config({ path: ".env.local" });
-config();
+config({ path: ".env.local", quiet: true });
+config({ quiet: true });
 
-const [{ getDatabase }, { regions, serviceCategories }, seedData] =
-  await Promise.all([
+async function main() {
+  const [{ closeDatabase, getDatabase }, schema, seedData] = await Promise.all([
     import("../src/db"),
     import("../src/db/schema"),
     import("../src/db/seed-data"),
   ]);
+  const db = getDatabase();
 
-const db = getDatabase();
+  try {
+    for (const region of seedData.regionSeed) {
+      await db
+        .insert(schema.regions)
+        .values({ ...region, isActive: true })
+        .onConflictDoUpdate({
+          target: schema.regions.slug,
+          set: {
+            parentId: region.parentId,
+            type: region.type,
+            name: region.name,
+            displayOrder: region.displayOrder,
+            isActive: true,
+            updatedAt: new Date(),
+          },
+        });
+    }
 
-for (const region of seedData.regionSeed) {
-  await db
-    .insert(regions)
-    .values({ ...region, isActive: true })
-    .onConflictDoUpdate({
-      target: regions.slug,
-      set: {
-        parentId: region.parentId,
-        type: region.type,
-        name: region.name,
-        displayOrder: region.displayOrder,
-        isActive: true,
-        updatedAt: new Date(),
-      },
-    });
+    for (const category of seedData.serviceCategorySeed) {
+      await db
+        .insert(schema.serviceCategories)
+        .values({ ...category, isActive: true })
+        .onConflictDoUpdate({
+          target: schema.serviceCategories.slug,
+          set: {
+            name: category.name,
+            description: category.description,
+            displayOrder: category.displayOrder,
+            isActive: true,
+            updatedAt: new Date(),
+          },
+        });
+    }
+
+    console.log("Region and service category seed completed.");
+  } finally {
+    await closeDatabase();
+  }
 }
 
-for (const category of seedData.serviceCategorySeed) {
-  await db
-    .insert(serviceCategories)
-    .values({ ...category, isActive: true })
-    .onConflictDoUpdate({
-      target: serviceCategories.slug,
-      set: {
-        name: category.name,
-        description: category.description,
-        displayOrder: category.displayOrder,
-        isActive: true,
-        updatedAt: new Date(),
-      },
-    });
-}
-
-console.log("Region and service category seed completed.");
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : "Seed failed.");
+  process.exitCode = 1;
+});

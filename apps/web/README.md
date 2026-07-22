@@ -27,6 +27,12 @@ npm run db:check
 npm run db:validate-seed
 ```
 
+실제 PostgreSQL migration·seed·제약 통합 검증은 저장소 루트에서 실행합니다.
+
+```bash
+./scripts/verify-local-postgres.sh
+```
+
 ## 데이터베이스
 
 [`./.env.example`](.env.example)을 참고해 로컬 `.env.local`에 `DATABASE_URL`을 설정합니다. 실제 자격 증명은 Git에 커밋하지 않습니다.
