@@ -54,7 +54,7 @@ Route Handler와 Server Action은 인증, 입력 검증, 유스케이스 호출,
 초기 구현 위치:
 
 - `src/modules/directory/public-office-repository.ts`: 공개 상태 목록·상세와 지역/업무 분야 필터
-- `src/modules/moderation/publish-office.ts`: 공개 전 조건 확인, 검수 이력과 상태 변경 트랜잭션
+- `src/modules/moderation/approve-review.ts`: 신규 업체 생성, 허용 필드 수정, 출처·근거·감사 이력과 공개 전환 트랜잭션
 - `src/modules/moderation/review-repository.ts`: 검수 대기열·상세와 출처·감사 이력 조회
 - `src/modules/moderation/resolve-review.ts`: 보류·반려 결정과 감사 이력 트랜잭션
 - `src/modules/auth`: Clerk 사용자 ID의 서버 역할 판정과 리소스별 권한 검사

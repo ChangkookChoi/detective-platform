@@ -144,11 +144,11 @@
 
 ### `review_items`
 
-신규 업체 또는 필드 변경 후보다. 대상 업체, 후보 유형, 이전값과 제안값, 위험도, 상태(`pending`, `approved`, `approved_with_edits`, `rejected`, `on_hold`), 생성 원인과 시각을 기록한다. 값 스냅샷은 필요한 필드만 저장한다.
+신규 업체 또는 필드 변경 후보다. 대상 업체, 후보 유형, 이전값과 제안값, 위험도, 상태(`pending`, `approved`, `approved_with_edits`, `rejected`, `on_hold`), 생성 원인과 시각을 기록한다. 신규 후보는 승인 트랜잭션에서 생성된 운영 업체를 `office_id`로 연결한다. 값 스냅샷은 필요한 필드만 저장한다.
 
 ### `review_actions`
 
-검수 이력이다. 검수 항목, 처리자, 결정, 수정값, 사유, 처리 시각을 저장한다. 승인 이력은 일반 애플리케이션 기능으로 덮어쓰지 않는다.
+검수 이력이다. 검수 항목, 처리자, 결정, 수정값, 사유, 처리 시각을 저장한다. `approved_with_edits`는 승인에 실제 사용한 업체 필드 스냅샷을 `edited_values`에 남긴다. 승인 이력은 일반 애플리케이션 기능으로 덮어쓰지 않는다.
 
 ### `analytics_events`와 `office_daily_metrics`
 

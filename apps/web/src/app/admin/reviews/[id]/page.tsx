@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { requireReviewer } from "@/modules/auth/admin-authorization";
+import { approvalSourceTypes } from "@/modules/moderation/approve-review";
 import {
   presentReviewValues,
   reviewDecisionLabels,
@@ -10,11 +11,14 @@ import {
   reviewStatusLabels,
   reviewTypeLabels,
 } from "@/modules/moderation/review-presentation";
-import { getReviewItem } from "@/modules/moderation/review-repository";
+import {
+  getReviewItem,
+  listReviewFormOptions,
+} from "@/modules/moderation/review-repository";
 
 import {
+  approveReviewAction,
   holdReviewAction,
-  publishReviewAction,
   rejectReviewAction,
 } from "./actions";
 
@@ -38,14 +42,26 @@ const errorMessages: Record<string, string> = {
   inactive_category: "비활성 업무 분야가 연결되어 있습니다.",
   inactive_region: "비활성 지역이 연결되어 있습니다.",
   invalid_review_item: "현재 상태에서 처리할 수 없는 검수 항목입니다.",
+  invalid_edited_values: "수정한 업체 정보의 형식이나 길이를 확인하세요.",
+  invalid_proposed_values: "수집 제안값이 공개 가능한 형식이 아닙니다.",
+  invalid_slug: "slug는 영문 소문자, 숫자와 하이픈으로 3~80자여야 합니다.",
+  invalid_source_type: "지원하지 않는 출처 유형입니다.",
   invalid_source_url: "대표 출처 URL이 안전한 HTTP(S) 주소가 아닙니다.",
   invalid_status: "현재 상태에서 해당 결정을 적용할 수 없습니다.",
   missing_category: "업무 분야가 연결되어 있지 않습니다.",
+  missing_collection: "연결된 수집 레코드를 찾을 수 없습니다.",
   missing_evidence: "필수 필드 또는 업무 분야의 출처 근거가 부족합니다.",
   missing_fields: "공개 필수 업체 정보가 부족합니다.",
   missing_primary_source: "확인된 대표 출처가 없습니다.",
   office_not_found: "연결된 업체를 찾을 수 없습니다.",
+  region_not_leaf: "소재 지역은 선택 가능한 최하위 행정구역이어야 합니다.",
+  restricted_office_status:
+    "중지·폐업 의심 업체는 일반 후보 승인으로 다시 공개할 수 없습니다.",
   review_item_not_found: "검수 항목을 찾을 수 없습니다.",
+  slug_conflict: "이미 사용 중인 slug입니다.",
+  source_already_assigned: "이 출처는 이미 다른 운영 업체에 연결되어 있습니다.",
+  source_mismatch: "수집 출처가 연결된 운영 업체의 출처와 일치하지 않습니다.",
+  unsupported_review_type: "이 후보 유형은 아직 승인 처리할 수 없습니다.",
 };
 const riskBadgeClasses: Record<string, string> = {
   high: "bg-rose-100 text-rose-900",
@@ -56,6 +72,26 @@ const riskBadgeClasses: Record<string, string> = {
 function readSingle(value: string | string[] | undefined) {
   return typeof value === "string" ? value : undefined;
 }
+
+function reviewValueRecord(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {} as Record<string, unknown>;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function textValue(value: unknown, fallback: string | null | undefined) {
+  return typeof value === "string" ? value : (fallback ?? "");
+}
+
+const sourceTypeLabels: Record<string, string> = {
+  official_website: "공식 웹사이트",
+  public_data: "공공 데이터",
+  official_social: "공식 소셜 채널",
+  manual_submission: "수동 제출",
+  other_public_source: "기타 공개 출처",
+};
 
 function ValuesPanel({
   title,
@@ -95,7 +131,11 @@ export default async function ReviewDetailPage({
 }: ReviewDetailPageProps) {
   const { id } = await params;
   await requireReviewer(`/admin/reviews/${id}`);
-  const [item, query] = await Promise.all([getReviewItem(id), searchParams]);
+  const [item, query, formOptions] = await Promise.all([
+    getReviewItem(id),
+    searchParams,
+    listReviewFormOptions(),
+  ]);
 
   if (!item) {
     notFound();
@@ -107,6 +147,33 @@ export default async function ReviewDetailPage({
   const normalizedValues = presentReviewValues(item.collection?.normalizedValues);
   const error = readSingle(query.error);
   const canDecide = item.status === "pending" || item.status === "on_hold";
+  const canApprove =
+    canDecide &&
+    item.collection !== null &&
+    (item.type === "new_office" || item.type === "field_change");
+  const proposedRecord = reviewValueRecord(item.proposedValues);
+  const candidateValues = {
+    name: textValue(proposedRecord.name, item.office?.name),
+    summary: textValue(proposedRecord.summary, item.office?.summary),
+    phoneDisplay: textValue(
+      proposedRecord.phoneDisplay,
+      item.office?.phoneDisplay,
+    ),
+    addressText: textValue(
+      proposedRecord.addressText,
+      item.office?.addressText,
+    ),
+  };
+  const isNewCandidate = item.office === null && item.type === "new_office";
+  const editableFields = {
+    name: isNewCandidate || "name" in proposedRecord,
+    summary: isNewCandidate || "summary" in proposedRecord,
+    phone:
+      isNewCandidate ||
+      "phoneDisplay" in proposedRecord ||
+      "phoneNormalized" in proposedRecord,
+    address: isNewCandidate || "addressText" in proposedRecord,
+  };
 
   return (
     <main className="flex-1">
@@ -275,17 +342,143 @@ export default async function ReviewDetailPage({
               결정 사유는 감사 이력에 남습니다. 출처와 현재값을 확인한 뒤
               처리하세요.
             </p>
-            <div className="mt-6 grid gap-4 lg:grid-cols-3">
-              {item.office && (
-                <form action={publishReviewAction} className="rounded-xl bg-white p-5 text-slate-950">
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">
+              {canApprove && item.collection && (
+                <form
+                  action={approveReviewAction}
+                  className="rounded-xl bg-white p-5 text-slate-950 lg:col-span-2"
+                >
                   <input type="hidden" name="reviewItemId" value={item.id} />
-                  <input type="hidden" name="officeId" value={item.office.id} />
                   <input
                     type="hidden"
-                    name="expectedOfficeUpdatedAt"
-                    value={item.office.updatedAt.toISOString()}
+                    name="expectedReviewUpdatedAt"
+                    value={item.updatedAt.toISOString()}
                   />
-                  <label className="grid gap-2 text-sm font-bold">
+                  {item.office && (
+                    <input
+                      type="hidden"
+                      name="expectedOfficeUpdatedAt"
+                      value={item.office.updatedAt.toISOString()}
+                    />
+                  )}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="grid gap-2 text-sm font-bold">
+                      업체명
+                      <input
+                        name="name"
+                        required
+                        maxLength={200}
+                        defaultValue={candidateValues.name}
+                        readOnly={!editableFields.name}
+                        className="rounded-lg border border-slate-300 p-3 font-normal outline-none read-only:bg-slate-100 focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                      />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold">
+                      대표 전화번호
+                      <input
+                        name="phoneDisplay"
+                        required
+                        maxLength={50}
+                        defaultValue={candidateValues.phoneDisplay}
+                        readOnly={!editableFields.phone}
+                        className="rounded-lg border border-slate-300 p-3 font-normal outline-none read-only:bg-slate-100 focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                      />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold md:col-span-2">
+                      주소
+                      <input
+                        name="addressText"
+                        required
+                        maxLength={500}
+                        defaultValue={candidateValues.addressText}
+                        readOnly={!editableFields.address}
+                        className="rounded-lg border border-slate-300 p-3 font-normal outline-none read-only:bg-slate-100 focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                      />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold md:col-span-2">
+                      소개
+                      <textarea
+                        name="summary"
+                        maxLength={2000}
+                        rows={4}
+                        defaultValue={candidateValues.summary}
+                        readOnly={!editableFields.summary}
+                        className="rounded-lg border border-slate-300 p-3 font-normal outline-none read-only:bg-slate-100 focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                      />
+                    </label>
+                  </div>
+                  {isNewCandidate && (
+                    <fieldset className="mt-6 grid gap-4 border-t border-slate-200 pt-6 md:grid-cols-2">
+                      <legend className="px-2 text-sm font-bold">
+                        신규 운영 업체 설정
+                      </legend>
+                      <label className="grid gap-2 text-sm font-bold">
+                        공개 URL slug
+                        <input
+                          name="slug"
+                          required
+                          minLength={3}
+                          maxLength={80}
+                          pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                          placeholder="sample-office"
+                          className="rounded-lg border border-slate-300 p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm font-bold">
+                        소재 지역
+                        <select
+                          name="regionSlug"
+                          required
+                          defaultValue=""
+                          className="rounded-lg border border-slate-300 bg-white p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                        >
+                          <option value="" disabled>
+                            최하위 행정구역 선택
+                          </option>
+                          {formOptions.regions.map((region) => (
+                            <option key={region.slug} value={region.slug}>
+                              {region.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="grid gap-2 text-sm font-bold">
+                        대표 출처 유형
+                        <select
+                          name="sourceType"
+                          defaultValue="official_website"
+                          className="rounded-lg border border-slate-300 bg-white p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                        >
+                          {approvalSourceTypes.map((sourceType) => (
+                            <option key={sourceType} value={sourceType}>
+                              {sourceTypeLabels[sourceType]}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <fieldset className="rounded-lg border border-slate-300 p-4">
+                        <legend className="px-2 text-sm font-bold">
+                          업무 분야
+                        </legend>
+                        <div className="grid gap-3">
+                          {formOptions.categories.map((category) => (
+                            <label
+                              key={category.slug}
+                              className="flex items-center gap-3 text-sm font-normal"
+                            >
+                              <input
+                                type="checkbox"
+                                name="serviceCategorySlugs"
+                                value={category.slug}
+                              />
+                              {category.name}
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    </fieldset>
+                  )}
+                  <label className="mt-6 grid gap-2 text-sm font-bold">
                     승인 사유
                     <textarea
                       name="reason"
@@ -296,12 +489,28 @@ export default async function ReviewDetailPage({
                       className="rounded-lg border border-slate-300 p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                     />
                   </label>
-                  <button
-                    type="submit"
-                    className="mt-4 w-full rounded-lg bg-emerald-700 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-800"
-                  >
-                    승인 후 공개
-                  </button>
+                  <p className="mt-4 text-xs leading-5 text-slate-600">
+                    그대로 승인은 DB의 제안값을 사용합니다. 수정 후 승인은 위에서
+                    허용된 필드의 입력값과 편집 스냅샷을 감사 이력에 저장합니다.
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <button
+                      type="submit"
+                      name="decision"
+                      value="approved"
+                      className="rounded-lg bg-emerald-700 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-800"
+                    >
+                      제안값 그대로 승인·공개
+                    </button>
+                    <button
+                      type="submit"
+                      name="decision"
+                      value="approved_with_edits"
+                      className="rounded-lg bg-sky-700 px-4 py-3 text-sm font-bold text-white hover:bg-sky-800"
+                    >
+                      수정 후 승인·공개
+                    </button>
+                  </div>
                 </form>
               )}
               {item.status === "pending" && (
@@ -357,10 +566,11 @@ export default async function ReviewDetailPage({
                 </button>
               </form>
             </div>
-            {!item.office && (
+            {!canApprove && (
               <p className="mt-4 text-xs leading-5 text-amber-200">
-                연결된 운영 업체가 없어 공개 승인은 아직 실행할 수 없습니다.
-                신규 후보를 운영 업체로 만드는 단계가 먼저 필요합니다.
+                지원되는 신규·필드 변경 후보와 수집 레코드가 모두 있어야 승인할
+                수 있습니다. 그 외 후보는 보류 또는 반려 후 별도 절차로
+                처리하세요.
               </p>
             )}
           </section>
@@ -383,6 +593,21 @@ export default async function ReviewDetailPage({
                   <p className="mt-2 text-xs text-slate-500">
                     {action.actorId} · {dateFormatter.format(action.createdAt)}
                   </p>
+                  {presentReviewValues(action.editedValues).length > 0 && (
+                    <dl className="mt-3 grid gap-2 rounded-lg bg-slate-50 p-3 text-xs">
+                      {presentReviewValues(action.editedValues).map((value) => (
+                        <div
+                          key={value.field}
+                          className="grid gap-1 sm:grid-cols-[8rem_1fr]"
+                        >
+                          <dt className="font-semibold text-slate-500">
+                            {value.label}
+                          </dt>
+                          <dd className="text-slate-800">{value.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
                 </li>
               ))}
             </ol>

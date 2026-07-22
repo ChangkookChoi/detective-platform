@@ -1,5 +1,6 @@
 const fieldLabels: Record<string, string> = {
   name: "업체명",
+  slug: "공개 URL slug",
   summary: "소개",
   phone: "전화번호",
   phoneDisplay: "표시 전화번호",
@@ -16,6 +17,8 @@ const fieldLabels: Record<string, string> = {
   service_categories: "업무 분야",
   serviceCategorySlugs: "업무 분야",
   service_category_slugs: "업무 분야",
+  sourceType: "출처 유형",
+  source_type: "출처 유형",
   status: "공개 상태",
 };
 

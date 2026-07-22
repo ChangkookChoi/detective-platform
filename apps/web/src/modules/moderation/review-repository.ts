@@ -6,6 +6,7 @@ import {
   officeServiceCategories,
   officeSources,
   offices,
+  regions,
   reviewActions,
   reviewItems,
   serviceCategories,
@@ -99,6 +100,57 @@ export async function listReviewQueue(status = "pending") {
           : null,
     }),
   );
+}
+
+export async function listReviewFormOptions() {
+  const db = getDatabase();
+  const [regionRows, categoryRows] = await Promise.all([
+    db
+      .select({
+        id: regions.id,
+        parentId: regions.parentId,
+        slug: regions.slug,
+        name: regions.name,
+        displayOrder: regions.displayOrder,
+      })
+      .from(regions)
+      .where(eq(regions.isActive, true))
+      .orderBy(asc(regions.displayOrder), asc(regions.name)),
+    db
+      .select({ slug: serviceCategories.slug, name: serviceCategories.name })
+      .from(serviceCategories)
+      .where(eq(serviceCategories.isActive, true))
+      .orderBy(
+        asc(serviceCategories.displayOrder),
+        asc(serviceCategories.name),
+      ),
+  ]);
+  const childrenByParent = new Map<string | null, typeof regionRows>();
+
+  for (const region of regionRows) {
+    const children = childrenByParent.get(region.parentId) ?? [];
+    children.push(region);
+    childrenByParent.set(region.parentId, children);
+  }
+
+  const leafRegions: Array<{ slug: string; label: string }> = [];
+
+  function appendLeafRegions(parentId: string | null, ancestors: string[]) {
+    for (const region of childrenByParent.get(parentId) ?? []) {
+      const path = [...ancestors, region.name];
+      const children = childrenByParent.get(region.id) ?? [];
+
+      if (children.length === 0) {
+        leafRegions.push({ slug: region.slug, label: path.join(" / ") });
+      } else {
+        appendLeafRegions(region.id, path);
+      }
+    }
+  }
+
+  appendLeafRegions(null, []);
+
+  return { regions: leafRegions, categories: categoryRows };
 }
 
 export async function getReviewItem(reviewItemId: string) {

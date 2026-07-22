@@ -4,8 +4,9 @@ import { config } from "dotenv";
 import { eq, inArray } from "drizzle-orm";
 
 import { closeDatabase, getDatabase } from "../src/db";
-import { resolveStaffRole } from "../src/modules/auth/admin-roles";
 import {
+  collectedRecords,
+  collectionRuns,
   officeServiceCategories,
   officeSourceEvidence,
   officeSources,
@@ -15,6 +16,11 @@ import {
   reviewItems,
   serviceCategories,
 } from "../src/db/schema";
+import { resolveStaffRole } from "../src/modules/auth/admin-roles";
+import {
+  approveReview,
+  ReviewApprovalError,
+} from "../src/modules/moderation/approve-review";
 import {
   getPublicOfficeBySlug,
   listPublicDirectoryFilterOptions,
@@ -22,12 +28,9 @@ import {
   PublicDirectoryFilterError,
 } from "../src/modules/directory/public-office-repository";
 import {
-  OfficePublicationError,
-  publishOffice,
-} from "../src/modules/moderation/publish-office";
-import {
   getReviewItem,
   listReviewQueue,
+  listReviewFormOptions,
   ReviewQueueFilterError,
 } from "../src/modules/moderation/review-repository";
 import {
@@ -42,21 +45,45 @@ const validOfficeId = "20000000-0000-4000-8000-000000000001";
 const invalidOfficeId = "20000000-0000-4000-8000-000000000002";
 const validReviewId = "30000000-0000-4000-8000-000000000001";
 const invalidReviewId = "30000000-0000-4000-8000-000000000002";
+const newReviewId = "30000000-0000-4000-8000-000000000003";
+const rollbackReviewId = "30000000-0000-4000-8000-000000000004";
 const validSourceId = "40000000-0000-4000-8000-000000000001";
 const invalidSourceId = "40000000-0000-4000-8000-000000000002";
-const officeIds = [validOfficeId, invalidOfficeId];
-const reviewIds = [validReviewId, invalidReviewId];
+const collectionRunId = "50000000-0000-4000-8000-000000000001";
+const validRecordId = "60000000-0000-4000-8000-000000000001";
+const invalidRecordId = "60000000-0000-4000-8000-000000000002";
+const newRecordId = "60000000-0000-4000-8000-000000000003";
+const rollbackRecordId = "60000000-0000-4000-8000-000000000004";
+const reviewIds = [
+  validReviewId,
+  invalidReviewId,
+  newReviewId,
+  rollbackReviewId,
+];
+const fixedOfficeIds = [validOfficeId, invalidOfficeId];
+const syntheticSlugs = [
+  "sample-publication-office",
+  "sample-invalid-publication-office",
+  "sample-collected-office",
+  "sample-rollback-office",
+];
 
-function isPublicationError(error: unknown, reason: string) {
-  return error instanceof OfficePublicationError && error.reason === reason;
+function isApprovalError(error: unknown, reason: string) {
+  return error instanceof ReviewApprovalError && error.reason === reason;
 }
 
 async function cleanup() {
   const db = getDatabase();
 
-  await db.delete(reviewActions).where(inArray(reviewActions.reviewItemId, reviewIds));
+  await db
+    .delete(reviewActions)
+    .where(inArray(reviewActions.reviewItemId, reviewIds));
   await db.delete(reviewItems).where(inArray(reviewItems.id, reviewIds));
-  await db.delete(offices).where(inArray(offices.id, officeIds));
+  await db.delete(offices).where(inArray(offices.id, fixedOfficeIds));
+  await db.delete(offices).where(inArray(offices.slug, syntheticSlugs));
+  await db
+    .delete(collectionRuns)
+    .where(eq(collectionRuns.id, collectionRunId));
 }
 
 async function main() {
@@ -101,6 +128,15 @@ async function main() {
     assert(region, "Paldal region seed is required");
     assert(category, "Family category seed is required");
 
+    const formOptions = await listReviewFormOptions();
+    assert(
+      formOptions.regions.some(
+        (option) => option.slug === "gyeonggi-suwon-paldal",
+      ),
+    );
+    assert(!formOptions.regions.some((option) => option.slug === "gyeonggi"));
+    assert(formOptions.categories.some((option) => option.slug === "family"));
+
     const now = new Date();
     const [validOffice] = await db
       .insert(offices)
@@ -108,7 +144,7 @@ async function main() {
         id: validOfficeId,
         slug: "sample-publication-office",
         name: "가상 검증 사무소",
-        summary: "통합 검증을 위한 공개되지 않는 합성 데이터",
+        summary: "기존 합성 소개",
         phoneNormalized: "0310000000",
         phoneDisplay: "031-000-0000",
         addressText: "경기도 수원시 팔달구 가상로 1",
@@ -118,15 +154,13 @@ async function main() {
         updatedAt: now,
       })
       .returning({ updatedAt: offices.updatedAt });
-
-    assert(validOffice);
-
     const [invalidOffice] = await db
       .insert(offices)
       .values({
         id: invalidOfficeId,
         slug: "sample-invalid-publication-office",
         name: "가상 근거 누락 사무소",
+        summary: "기존 합성 소개",
         phoneNormalized: "0310000001",
         phoneDisplay: "031-000-0001",
         addressText: "경기도 수원시 팔달구 가상로 2",
@@ -137,13 +171,13 @@ async function main() {
       })
       .returning({ updatedAt: offices.updatedAt });
 
+    assert(validOffice);
     assert(invalidOffice);
 
     await db.insert(officeServiceCategories).values([
       { officeId: validOfficeId, serviceCategoryId: category.id },
       { officeId: invalidOfficeId, serviceCategoryId: category.id },
     ]);
-
     await db.insert(officeSources).values([
       {
         id: validSourceId,
@@ -163,21 +197,9 @@ async function main() {
       },
     ]);
     await db.insert(officeSourceEvidence).values([
-      {
-        officeSourceId: validSourceId,
-        fieldName: "name",
-        verifiedAt: now,
-      },
-      {
-        officeSourceId: validSourceId,
-        fieldName: "phone",
-        verifiedAt: now,
-      },
-      {
-        officeSourceId: validSourceId,
-        fieldName: "address",
-        verifiedAt: now,
-      },
+      { officeSourceId: validSourceId, fieldName: "name", verifiedAt: now },
+      { officeSourceId: validSourceId, fieldName: "phone", verifiedAt: now },
+      { officeSourceId: validSourceId, fieldName: "address", verifiedAt: now },
       {
         officeSourceId: validSourceId,
         fieldName: "service_category",
@@ -185,98 +207,321 @@ async function main() {
         verifiedAt: now,
       },
     ]);
-    await db.insert(reviewItems).values([
+
+    await db.insert(collectionRuns).values({
+      id: collectionRunId,
+      sourceName: "synthetic-publication-source",
+      adapterName: "jsonld_local_business",
+      extractorVersion: "integration-v1",
+      status: "succeeded",
+      finishedAt: now,
+      discoveredCount: 4,
+      collectedCount: 4,
+    });
+    await db.insert(collectedRecords).values([
       {
-        id: validReviewId,
-        officeId: validOfficeId,
-        type: "new_office",
-        risk: "high",
-        proposedValues: { status: "published" },
-        cause: "synthetic_integration_verification",
+        id: validRecordId,
+        collectionRunId,
+        sourceUrl: "https://example.invalid/valid-office",
+        sourceRecordKey: "valid-office",
+        extractedValues: { description: "수집 제안 소개" },
+        normalizedValues: {
+          name: "가상 검증 사무소",
+          phoneNormalized: "0310000000",
+          phoneDisplay: "031-000-0000",
+          addressText: "경기도 수원시 팔달구 가상로 1",
+          summary: "수집 제안 소개",
+        },
+        contentHash: "valid-record-hash",
       },
       {
-        id: invalidReviewId,
-        officeId: invalidOfficeId,
-        type: "new_office",
-        risk: "high",
-        proposedValues: { status: "published" },
-        cause: "synthetic_integration_verification",
+        id: invalidRecordId,
+        collectionRunId,
+        sourceUrl: "https://example.invalid/invalid-office",
+        sourceRecordKey: "invalid-office",
+        extractedValues: { description: "근거 누락 제안" },
+        normalizedValues: {
+          name: "가상 근거 누락 사무소",
+          phoneNormalized: "0310000001",
+          phoneDisplay: "031-000-0001",
+          addressText: "경기도 수원시 팔달구 가상로 2",
+          summary: "근거 누락 제안",
+        },
+        contentHash: "invalid-record-hash",
+      },
+      {
+        id: newRecordId,
+        collectionRunId,
+        sourceUrl: "https://example.invalid/new-office",
+        sourceRecordKey: "new-office",
+        extractedValues: {
+          name: "신규 수집 사무소",
+          telephone: "031-111-2222",
+          address: "경기도 수원시 팔달구 신규로 3",
+        },
+        normalizedValues: {
+          name: "신규 수집 사무소",
+          phoneNormalized: "0311112222",
+          phoneDisplay: "031-111-2222",
+          addressText: "경기도 수원시 팔달구 신규로 3",
+          summary: "신규 수집 소개",
+        },
+        contentHash: "new-record-hash",
+      },
+      {
+        id: rollbackRecordId,
+        collectionRunId,
+        sourceUrl: "https://example.invalid/rollback-office",
+        sourceRecordKey: "rollback-office",
+        extractedValues: { name: "롤백 검증 사무소" },
+        normalizedValues: {
+          name: "롤백 검증 사무소",
+          phoneNormalized: "0313334444",
+          phoneDisplay: "031-333-4444",
+          addressText: "경기도 수원시 팔달구 롤백로 4",
+        },
+        contentHash: "rollback-record-hash",
       },
     ]);
-
-    assert.equal(
-      await getPublicOfficeBySlug("sample-publication-office"),
-      null,
-      "Draft office must not be public",
+    const createdReviews = await db
+      .insert(reviewItems)
+      .values([
+        {
+          id: validReviewId,
+          officeId: validOfficeId,
+          collectedRecordId: validRecordId,
+          type: "field_change",
+          risk: "medium",
+          previousValues: { summary: "기존 합성 소개" },
+          proposedValues: { summary: "수집 제안 소개" },
+          cause: "synthetic_field_change",
+        },
+        {
+          id: invalidReviewId,
+          officeId: invalidOfficeId,
+          collectedRecordId: invalidRecordId,
+          type: "field_change",
+          risk: "medium",
+          previousValues: { summary: "기존 합성 소개" },
+          proposedValues: { summary: "근거 누락 제안" },
+          cause: "synthetic_missing_evidence",
+        },
+        {
+          id: newReviewId,
+          collectedRecordId: newRecordId,
+          type: "new_office",
+          risk: "high",
+          proposedValues: {
+            name: "신규 수집 사무소",
+            phoneNormalized: "0311112222",
+            phoneDisplay: "031-111-2222",
+            addressText: "경기도 수원시 팔달구 신규로 3",
+            summary: "신규 수집 소개",
+          },
+          cause: "synthetic_new_office",
+        },
+        {
+          id: rollbackReviewId,
+          collectedRecordId: rollbackRecordId,
+          type: "new_office",
+          risk: "high",
+          proposedValues: {
+            name: "롤백 검증 사무소",
+            phoneNormalized: "0313334444",
+            phoneDisplay: "031-333-4444",
+            addressText: "경기도 수원시 팔달구 롤백로 4",
+          },
+          cause: "synthetic_rollback",
+        },
+      ])
+      .returning({ id: reviewItems.id, updatedAt: reviewItems.updatedAt });
+    const reviewUpdatedAt = new Map(
+      createdReviews.map((review) => [review.id, review.updatedAt]),
     );
 
+    assert.equal(await getPublicOfficeBySlug("sample-publication-office"), null);
+
+    await db
+      .update(officeSources)
+      .set({ url: "javascript:alert(1)" })
+      .where(eq(officeSources.id, invalidSourceId));
+    await db
+      .update(collectedRecords)
+      .set({ sourceUrl: "javascript:alert(1)" })
+      .where(eq(collectedRecords.id, invalidRecordId));
     await assert.rejects(
-      db
-        .update(officeSources)
-        .set({ url: "javascript:alert(1)" })
-        .where(eq(officeSources.id, invalidSourceId))
-        .then(() =>
-          publishOffice({
-            officeId: invalidOfficeId,
-            reviewItemId: invalidReviewId,
-            actorId: "synthetic-reviewer",
-            reason: "출처 URL 검증",
-            expectedUpdatedAt: invalidOffice.updatedAt,
-          }),
-        ),
-      (error: unknown) => isPublicationError(error, "invalid_source_url"),
+      approveReview({
+        reviewItemId: invalidReviewId,
+        actorId: "synthetic-reviewer",
+        reason: "출처 URL 검증 사유",
+        decision: "approved",
+        expectedReviewUpdatedAt: reviewUpdatedAt.get(invalidReviewId)!,
+        expectedOfficeUpdatedAt: invalidOffice.updatedAt,
+      }),
+      (error: unknown) => isApprovalError(error, "invalid_source_url"),
     );
     await db
       .update(officeSources)
       .set({ url: "https://example.invalid/invalid-office" })
       .where(eq(officeSources.id, invalidSourceId));
+    await db
+      .update(collectedRecords)
+      .set({ sourceUrl: "https://example.invalid/invalid-office" })
+      .where(eq(collectedRecords.id, invalidRecordId));
 
     await assert.rejects(
-      publishOffice({
-        officeId: invalidOfficeId,
+      approveReview({
         reviewItemId: invalidReviewId,
         actorId: "synthetic-reviewer",
-        reason: "근거 누락 검증",
-        expectedUpdatedAt: invalidOffice.updatedAt,
+        reason: "필수 업무 분야 근거 누락 검증",
+        decision: "approved",
+        expectedReviewUpdatedAt: reviewUpdatedAt.get(invalidReviewId)!,
+        expectedOfficeUpdatedAt: invalidOffice.updatedAt,
       }),
-      (error: unknown) => isPublicationError(error, "missing_evidence"),
+      (error: unknown) => isApprovalError(error, "missing_evidence"),
     );
+    const invalidAfterFailure = await getReviewItem(invalidReviewId);
+    assert(invalidAfterFailure);
+    assert.equal(invalidAfterFailure.status, "pending");
+    assert.equal(invalidAfterFailure.office?.summary, "기존 합성 소개");
+    assert.equal(invalidAfterFailure.actions.length, 0);
+
+    await db
+      .update(offices)
+      .set({ status: "suspended" })
+      .where(eq(offices.id, invalidOfficeId));
+    await assert.rejects(
+      approveReview({
+        reviewItemId: invalidReviewId,
+        actorId: "synthetic-reviewer",
+        reason: "중지 업체의 일반 승인 공개 차단",
+        decision: "approved",
+        expectedReviewUpdatedAt: reviewUpdatedAt.get(invalidReviewId)!,
+        expectedOfficeUpdatedAt: invalidOffice.updatedAt,
+      }),
+      (error: unknown) => isApprovalError(error, "restricted_office_status"),
+    );
+    await db
+      .update(offices)
+      .set({ status: "draft" })
+      .where(eq(offices.id, invalidOfficeId));
 
     await assert.rejects(
-      publishOffice({
-        officeId: validOfficeId,
+      approveReview({
         reviewItemId: validReviewId,
         actorId: "synthetic-reviewer",
         reason: "짧음",
-        expectedUpdatedAt: validOffice.updatedAt,
+        decision: "approved",
+        expectedReviewUpdatedAt: reviewUpdatedAt.get(validReviewId)!,
+        expectedOfficeUpdatedAt: validOffice.updatedAt,
       }),
-      (error: unknown) => isPublicationError(error, "invalid_review_item"),
+      (error: unknown) => isApprovalError(error, "invalid_review_item"),
     );
 
-    const published = await publishOffice({
-      officeId: validOfficeId,
+    const editedApproval = await approveReview({
       reviewItemId: validReviewId,
       actorId: " synthetic-reviewer ",
-      reason: "  합성 데이터 공개 전환 검증  ",
-      expectedUpdatedAt: validOffice.updatedAt,
+      reason: "  수집 소개를 출처 문맥에 맞게 수정 후 승인  ",
+      decision: "approved_with_edits",
+      expectedReviewUpdatedAt: reviewUpdatedAt.get(validReviewId)!,
+      expectedOfficeUpdatedAt: validOffice.updatedAt,
+      editedValues: {
+        name: "변경해도 적용되지 않는 업체명",
+        summary: "검수자가 다듬은 공개 소개",
+        phoneDisplay: "000-0000-0000",
+        addressText: "변경해도 적용되지 않는 주소",
+      },
     });
-    assert.equal(published.status, "published");
-    const [approvalAction] = await db
-      .select({ actorId: reviewActions.actorId, reason: reviewActions.reason })
-      .from(reviewActions)
-      .where(eq(reviewActions.reviewItemId, validReviewId))
-      .limit(1);
-    assert.deepEqual(approvalAction, {
-      actorId: "synthetic-reviewer",
-      reason: "합성 데이터 공개 전환 검증",
+    assert.equal(editedApproval.status, "published");
+    assert.equal(editedApproval.decision, "approved_with_edits");
+
+    const editedDetail = await getReviewItem(validReviewId);
+    assert(editedDetail);
+    assert.equal(editedDetail.status, "approved_with_edits");
+    assert.equal(editedDetail.office?.name, "가상 검증 사무소");
+    assert.equal(editedDetail.office?.summary, "검수자가 다듬은 공개 소개");
+    assert.equal(editedDetail.office?.phoneDisplay, "031-000-0000");
+    assert.equal(editedDetail.actions[0]?.decision, "approved_with_edits");
+    assert.deepEqual(editedDetail.actions[0]?.editedValues, {
+      name: "가상 검증 사무소",
+      summary: "검수자가 다듬은 공개 소개",
+      phoneNormalized: "0310000000",
+      phoneDisplay: "031-000-0000",
+      addressText: "경기도 수원시 팔달구 가상로 1",
     });
 
-    const list = await listPublicOffices({
+    const newApproval = await approveReview({
+      reviewItemId: newReviewId,
+      actorId: "synthetic-reviewer",
+      reason: "신규 수집 후보의 출처와 운영 필드 확인",
+      decision: "approved",
+      expectedReviewUpdatedAt: reviewUpdatedAt.get(newReviewId)!,
+      editedValues: {
+        name: "승인에서는 무시되는 수정명",
+        summary: "승인에서는 무시되는 소개",
+        phoneDisplay: "031-999-9999",
+        addressText: "승인에서는 무시되는 주소",
+      },
+      newOffice: {
+        slug: "sample-collected-office",
+        regionSlug: "gyeonggi-suwon-paldal",
+        serviceCategorySlugs: ["family", "family"],
+        sourceType: "official_website",
+      },
+    });
+    assert.equal(newApproval.status, "published");
+    const newDetail = await getReviewItem(newReviewId);
+    assert(newDetail);
+    assert.equal(newDetail.status, "approved");
+    assert.equal(newDetail.office?.id, newApproval.id);
+    assert.equal(newDetail.office?.name, "신규 수집 사무소");
+    assert.equal(newDetail.actions[0]?.editedValues, null);
+    assert.deepEqual(
+      newDetail.office?.categories.map((item) => item.slug),
+      ["family"],
+    );
+    assert.equal(newDetail.office?.sources[0]?.verifiedAt instanceof Date, true);
+
+    await assert.rejects(
+      approveReview({
+        reviewItemId: rollbackReviewId,
+        actorId: "synthetic-reviewer",
+        reason: "실패 시 전체 트랜잭션 롤백 검증",
+        decision: "approved",
+        expectedReviewUpdatedAt: reviewUpdatedAt.get(rollbackReviewId)!,
+        newOffice: {
+          slug: "sample-rollback-office",
+          regionSlug: "gyeonggi-suwon-paldal",
+          serviceCategorySlugs: ["not-an-active-category"],
+          sourceType: "official_website",
+        },
+      }),
+      (error: unknown) => isApprovalError(error, "inactive_category"),
+    );
+    assert.equal(await getPublicOfficeBySlug("sample-rollback-office"), null);
+    const rollbackReview = await getReviewItem(rollbackReviewId);
+    assert(rollbackReview);
+    assert.equal(rollbackReview.status, "pending");
+    assert.equal(rollbackReview.office, null);
+    assert.equal(rollbackReview.actions.length, 0);
+
+    const publishedList = await listPublicOffices({
       region: "gyeonggi",
       category: "family",
     });
-    assert.deepEqual(list.map((office) => office.id), [validOfficeId]);
-    assert.equal((await listPublicOffices({ region: "seoul" })).length, 0);
+    assert.deepEqual(
+      new Set(publishedList.map((office) => office.slug)),
+      new Set(["sample-publication-office", "sample-collected-office"]),
+    );
+    const editedPublic = await getPublicOfficeBySlug(
+      "sample-publication-office",
+    );
+    assert(editedPublic);
+    assert.equal(editedPublic.summary, "검수자가 다듬은 공개 소개");
+    const newPublic = await getPublicOfficeBySlug("sample-collected-office");
+    assert(newPublic);
+    assert.equal(newPublic.name, "신규 수집 사무소");
+    assert.equal(newPublic.sources.length, 1);
 
     const filterOptions = await listPublicDirectoryFilterOptions();
     assert.equal(
@@ -286,39 +531,28 @@ async function main() {
       "경기도 / 수원시 / 팔달구",
     );
     assert(filterOptions.categories.some((option) => option.slug === "family"));
-
-    const detail = await getPublicOfficeBySlug("sample-publication-office");
-    assert(detail);
-    assert.equal(detail.phoneDisplay, "031-000-0000");
-    assert.deepEqual(detail.categories.map((item) => item.slug), ["family"]);
-    assert.equal(detail.sources.length, 1);
-
     await assert.rejects(
       listPublicOffices({ region: "unsupported-region" }),
       (error: unknown) =>
         error instanceof PublicDirectoryFilterError && error.field === "region",
     );
     await assert.rejects(
-      publishOffice({
-        officeId: validOfficeId,
+      approveReview({
         reviewItemId: validReviewId,
         actorId: "synthetic-reviewer",
-        reason: "동시성 검증",
-        expectedUpdatedAt: validOffice.updatedAt,
+        reason: "동시성 검증을 위한 재승인 시도",
+        decision: "approved",
+        expectedReviewUpdatedAt: reviewUpdatedAt.get(validReviewId)!,
+        expectedOfficeUpdatedAt: validOffice.updatedAt,
       }),
-      (error: unknown) => isPublicationError(error, "concurrent_change"),
+      (error: unknown) => isApprovalError(error, "concurrent_change"),
     );
 
     const pendingQueue = await listReviewQueue("pending");
     assert.deepEqual(
       pendingQueue.map((item) => item.id),
-      [invalidReviewId],
+      [rollbackReviewId, invalidReviewId],
     );
-    const pendingReview = await getReviewItem(invalidReviewId);
-    assert(pendingReview);
-    assert.equal(pendingReview.office?.id, invalidOfficeId);
-    assert.equal(pendingReview.actions.length, 0);
-
     await assert.rejects(
       listReviewQueue("unsupported"),
       (error: unknown) =>
@@ -330,26 +564,21 @@ async function main() {
       decision: "on_hold",
       actorId: "synthetic-reviewer",
       reason: "출처 근거 보강이 필요합니다.",
-      expectedUpdatedAt: pendingReview.updatedAt,
+      expectedUpdatedAt: invalidAfterFailure.updatedAt,
     });
     assert.equal(heldReview.status, "on_hold");
     assert.equal(heldReview.resolvedAt, null);
-    assert.deepEqual(
-      (await listReviewQueue("on_hold")).map((item) => item.id),
-      [invalidReviewId],
-    );
-
     await assert.rejects(
-      publishOffice({
-        officeId: invalidOfficeId,
+      approveReview({
         reviewItemId: invalidReviewId,
         actorId: "synthetic-reviewer",
-        reason: "보류 항목 재검토 검증",
-        expectedUpdatedAt: invalidOffice.updatedAt,
+        reason: "보류 항목의 근거 누락 재확인",
+        decision: "approved",
+        expectedReviewUpdatedAt: heldReview.updatedAt,
+        expectedOfficeUpdatedAt: invalidOffice.updatedAt,
       }),
-      (error: unknown) => isPublicationError(error, "missing_evidence"),
+      (error: unknown) => isApprovalError(error, "missing_evidence"),
     );
-
     const rejectedReview = await resolveReview({
       reviewItemId: invalidReviewId,
       decision: "rejected",

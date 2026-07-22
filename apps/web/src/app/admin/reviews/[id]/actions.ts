@@ -5,9 +5,11 @@ import { redirect } from "next/navigation";
 
 import { requireReviewer } from "@/modules/auth/admin-authorization";
 import {
-  OfficePublicationError,
-  publishOffice,
-} from "@/modules/moderation/publish-office";
+  approveReview,
+  approvalDecisions,
+  ReviewApprovalError,
+  type ApprovalDecision,
+} from "@/modules/moderation/approve-review";
 import {
   resolveReview,
   ReviewResolutionError,
@@ -57,32 +59,98 @@ function readTimestamp(formData: FormData, field: string) {
   return value;
 }
 
+function readOptionalTimestamp(formData: FormData, field: string) {
+  const value = formData.get(field);
+
+  if (value === null || value === "") {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    throw new Error(`Invalid review action field: ${field}`);
+  }
+
+  const timestamp = new Date(value);
+
+  if (Number.isNaN(timestamp.getTime())) {
+    throw new Error(`Invalid review action field: ${field}`);
+  }
+
+  return timestamp;
+}
+
+function readDecision(formData: FormData): ApprovalDecision {
+  const decision = readString(formData, "decision");
+
+  if (!approvalDecisions.includes(decision as ApprovalDecision)) {
+    throw new Error("Invalid review approval decision.");
+  }
+
+  return decision as ApprovalDecision;
+}
+
+function readCategorySlugs(formData: FormData) {
+  const values = formData.getAll("serviceCategorySlugs");
+
+  if (
+    values.length > 10 ||
+    values.some((value) => typeof value !== "string")
+  ) {
+    throw new Error("Invalid review action field: serviceCategorySlugs");
+  }
+
+  return values.map((value) => String(value).trim()).filter(Boolean);
+}
+
 function reviewUrl(reviewItemId: string, key: "error" | "result", value: string) {
   const query = new URLSearchParams({ [key]: value });
   return `/admin/reviews/${reviewItemId}?${query}`;
 }
 
-export async function publishReviewAction(formData: FormData) {
+export async function approveReviewAction(formData: FormData) {
   const principal = await requireReviewer("/admin/reviews");
   const reviewItemId = readUuid(formData, "reviewItemId");
-  const officeId = readUuid(formData, "officeId");
   const reason = readReason(formData);
-  const expectedOfficeUpdatedAt = readTimestamp(
+  const decision = readDecision(formData);
+  const expectedReviewUpdatedAt = readTimestamp(
+    formData,
+    "expectedReviewUpdatedAt",
+  );
+  const expectedOfficeUpdatedAt = readOptionalTimestamp(
     formData,
     "expectedOfficeUpdatedAt",
   );
+  const newOfficeSlug = formData.get("slug");
   let failure: string | null = null;
+  let publishedSlug: string | null = null;
 
   try {
-    await publishOffice({
-      officeId,
+    const result = await approveReview({
       reviewItemId,
       actorId: principal.actorId,
       reason,
-      expectedUpdatedAt: expectedOfficeUpdatedAt,
+      decision,
+      expectedReviewUpdatedAt,
+      expectedOfficeUpdatedAt,
+      editedValues: {
+        name: readString(formData, "name"),
+        summary: readString(formData, "summary"),
+        phoneDisplay: readString(formData, "phoneDisplay"),
+        addressText: readString(formData, "addressText"),
+      },
+      newOffice:
+        typeof newOfficeSlug === "string"
+          ? {
+              slug: newOfficeSlug,
+              regionSlug: readString(formData, "regionSlug"),
+              serviceCategorySlugs: readCategorySlugs(formData),
+              sourceType: readString(formData, "sourceType"),
+            }
+          : undefined,
     });
+    publishedSlug = result.slug;
   } catch (error) {
-    if (error instanceof OfficePublicationError) {
+    if (error instanceof ReviewApprovalError) {
       failure = error.reason;
     } else {
       throw error;
@@ -96,7 +164,10 @@ export async function publishReviewAction(formData: FormData) {
   revalidatePath("/admin/reviews");
   revalidatePath(`/admin/reviews/${reviewItemId}`);
   revalidatePath("/offices");
-  redirect("/admin/reviews?result=approved");
+  if (publishedSlug) {
+    revalidatePath(`/offices/${publishedSlug}`);
+  }
+  redirect(`/admin/reviews?status=${decision}&result=${decision}`);
 }
 
 async function resolveReviewAction(
