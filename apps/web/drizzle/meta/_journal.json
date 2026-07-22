@@ -15,6 +15,13 @@
       "when": 1784701823030,
       "tag": "0001_breezy_purifiers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784706274784,
+      "tag": "0002_bitter_darkhawk",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import {
   type AnyPgColumn,
   boolean,
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -368,9 +369,36 @@ export const analyticsEvents = pgTable(
       table.type,
       table.occurredAt,
     ),
+    index("analytics_events_occurred_at_idx").on(table.occurredAt),
     uniqueIndex("analytics_events_deduplication_uidx")
       .on(table.deduplicationKey)
       .where(sql`${table.deduplicationKey} IS NOT NULL`),
+  ],
+);
+
+export const officeDailyMetrics = pgTable(
+  "office_daily_metrics",
+  {
+    officeId: uuid("office_id")
+      .notNull()
+      .references(() => offices.id, { onDelete: "restrict" }),
+    metricDate: date("metric_date", { mode: "string" }).notNull(),
+    detailViewCount: integer("detail_view_count").default(0).notNull(),
+    phoneClickCount: integer("phone_click_count").default(0).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.officeId, table.metricDate] }),
+    index("office_daily_metrics_date_office_idx").on(
+      table.metricDate,
+      table.officeId,
+    ),
+    check(
+      "office_daily_metrics_nonnegative_check",
+      sql`${table.detailViewCount} >= 0 AND ${table.phoneClickCount} >= 0`,
+    ),
   ],
 );
 

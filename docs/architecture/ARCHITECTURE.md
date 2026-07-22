@@ -58,9 +58,12 @@ Route Handler와 Server Action은 인증, 입력 검증, 유스케이스 호출,
 - `src/modules/moderation/review-repository.ts`: 검수 대기열·상세와 출처·감사 이력 조회
 - `src/modules/moderation/resolve-review.ts`: 보류·반려 결정과 감사 이력 트랜잭션
 - `src/modules/auth`: Clerk 사용자 ID의 서버 역할 판정과 리소스별 권한 검사
+- `src/modules/analytics/record-public-event.ts`: 공개 업체 확인, 중복·속도 제한과 일별 집계 트랜잭션
+- `src/modules/analytics/office-engagement.tsx`: 상세 표시와 전화 클릭을 기록하는 작은 Client Component
 - `src/app/offices/page.tsx`: 공개 업체 목록, 사무소 소재 지역·업무 분야 필터
 - `src/app/offices/[slug]/page.tsx`: 공개 업체 상세, 전화 연결과 검증 출처 표시
 - `src/app/admin/reviews`: 인증된 검수자의 대기열·비교·결정 화면과 Server Action
+- `src/app/api/analytics/events/route.ts`: 같은 출처의 최소 이벤트만 받는 공개 POST 경계
 
 ## 5. 렌더링과 클라이언트 경계
 

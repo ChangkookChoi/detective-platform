@@ -15,6 +15,7 @@ const requiredTables = [
   "office_service_categories",
   "office_source_evidence",
   "office_sources",
+  "office_daily_metrics",
   "offices",
   "placements",
   "regions",
@@ -25,6 +26,7 @@ const requiredTables = [
 
 const requiredChecks = [
   "office_source_evidence_category_check",
+  "office_daily_metrics_nonnegative_check",
   "offices_published_fields_check",
   "placements_valid_window_check",
   "regions_not_self_parent_check",

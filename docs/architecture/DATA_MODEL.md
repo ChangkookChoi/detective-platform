@@ -150,9 +150,9 @@
 
 검수 이력이다. 검수 항목, 처리자, 결정, 수정값, 사유, 처리 시각을 저장한다. 승인 이력은 일반 애플리케이션 기능으로 덮어쓰지 않는다.
 
-### `analytics_events` 또는 일별 집계
+### `analytics_events`와 `office_daily_metrics`
 
-`office_detail_view`, `phone_click`, `ad_impression`, `ad_click` 등 허용된 이벤트만 저장한다. 업체, 이벤트 종류, 발생 시각, 요청 중복 방지용 단기 식별자 등 최소 필드로 구성한다. 전화번호, URL 쿼리의 민감 정보, 원시 IP를 장기 보존하지 않는다. 트래픽 규모가 작으면 원시 이벤트 대신 일별 집계를 우선한다.
+`analytics_events`는 `office_detail_view`, `phone_click`의 중복·속도 제한에 필요한 업체, 이벤트 종류, 발생 시각과 해시 중복 키만 48시간 보관한다. `office_daily_metrics`는 업체, 한국 날짜, 상세 조회 수와 전화 클릭 수만 영속 저장한다. 세션 UUID 원문, 전화번호, URL 쿼리, IP, User-Agent, Referrer와 통화 결과는 두 테이블 모두 저장하지 않는다. 구체적인 집계 단위와 제한은 [ADR-0006](../decisions/ADR-0006-privacy-minimal-analytics.md)을 따른다.
 
 ### `placements`
 

@@ -2,7 +2,7 @@
 
 탐정사무소 정보 플랫폼의 공개 웹, 관리자 화면, 초기 API를 제공하는 Next.js App Router 애플리케이션입니다.
 
-현재는 공개 홈, 업체 목록·상세와 지역/업무 분야 필터, PostgreSQL 데이터 계층, Clerk 관리자 인증 경계와 검수 대기열·승인·보류·반려 흐름이 구현된 상태입니다. 운영 Clerk 키와 관리자 계정, 클릭 집계와 지속형 데이터베이스 연결은 아직 준비되지 않았습니다. 프로젝트 전체 진행 상황은 [`../../docs/STATUS.md`](../../docs/STATUS.md)를 기준으로 확인합니다.
+현재는 공개 홈, 업체 목록·상세와 지역/업무 분야 필터, PostgreSQL 데이터 계층, Clerk 관리자 인증 경계, 검수 흐름과 상세 조회·전화 클릭의 개인정보 최소화 일별 집계가 구현된 상태입니다. 운영 Clerk 키와 관리자 계정, 지속형 데이터베이스 연결은 아직 준비되지 않았습니다. 프로젝트 전체 진행 상황은 [`../../docs/STATUS.md`](../../docs/STATUS.md)를 기준으로 확인합니다.
 
 ## 개발 환경
 
@@ -39,6 +39,8 @@ npm run db:validate-seed
 [`./.env.example`](.env.example)을 참고해 로컬 `.env.local`에 `DATABASE_URL`을 설정합니다. 실제 자격 증명은 Git에 커밋하지 않습니다.
 
 관리자 기능에는 같은 파일의 Clerk 키와 역할별 사용자 ID allowlist도 필요합니다. 실제 값을 설정하기 전에 [`../../docs/operations/ADMIN_AUTH.md`](../../docs/operations/ADMIN_AUTH.md)의 역할과 운영 절차를 확인합니다.
+
+공개 분석 이벤트에는 추가 환경변수가 필요하지 않습니다. 탭 세션 UUID는 서버에서 해시하고 단기 중복 방지 행과 일별 합계만 저장합니다. 이벤트 의미와 보존 기준은 [`../../docs/operations/ANALYTICS.md`](../../docs/operations/ANALYTICS.md)를 따릅니다.
 
 ```bash
 npm run db:migrate

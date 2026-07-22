@@ -3,6 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 
+import {
+  OfficeDetailViewTracker,
+  TrackedPhoneLink,
+} from "@/modules/analytics/office-engagement";
 import { getPublicOfficeBySlug } from "@/modules/directory/public-office-repository";
 
 const getOffice = cache(getPublicOfficeBySlug);
@@ -52,6 +56,7 @@ export default async function OfficeDetailPage({
 
   return (
     <main className="flex-1">
+      <OfficeDetailViewTracker officeId={office.id} />
       <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-12">
         <nav aria-label="현재 위치" className="text-sm text-slate-500">
           <ol className="flex flex-wrap items-center gap-2">
@@ -97,12 +102,13 @@ export default async function OfficeDetailPage({
             </p>
           )}
           <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-7">
-            <a
+            <TrackedPhoneLink
+              officeId={office.id}
               href={`tel:${office.phoneNormalized}`}
               className="inline-flex min-h-12 items-center justify-center rounded-full bg-slate-950 px-6 py-3 text-base font-bold text-white hover:bg-sky-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-950"
             >
               무료 전화 연결 · {office.phoneDisplay}
-            </a>
+            </TrackedPhoneLink>
             <p className="text-xs leading-5 text-slate-500">
               플랫폼 연결 수수료 없음 · 통신사 요금은 발생할 수 있음
             </p>

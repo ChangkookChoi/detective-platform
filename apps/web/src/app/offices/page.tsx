@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { TrackedPhoneLink } from "@/modules/analytics/office-engagement";
 import {
   listPublicDirectoryFilterOptions,
   listPublicOffices,
@@ -200,12 +201,13 @@ export default async function OfficesPage({ searchParams }: OfficesPageProps) {
                       >
                         상세 정보
                       </Link>
-                      <a
+                      <TrackedPhoneLink
+                        officeId={office.id}
                         href={`tel:${office.phoneNormalized}`}
                         className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-300 px-5 py-2.5 text-sm font-bold text-slate-800 hover:border-slate-950"
                       >
                         {office.phoneDisplay}
-                      </a>
+                      </TrackedPhoneLink>
                     </div>
                   </article>
                 </li>
