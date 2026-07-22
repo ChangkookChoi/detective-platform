@@ -16,6 +16,7 @@ import {
   regions,
   serviceCategories,
 } from "@/db/schema";
+import { isPublicHttpUrl } from "@/modules/shared/public-url";
 
 export class PublicDirectoryFilterError extends Error {
   constructor(public readonly field: "category" | "limit" | "offset" | "region") {
@@ -29,6 +30,7 @@ export type PublicOfficeListItem = {
   slug: string;
   name: string;
   summary: string | null;
+  phoneNormalized: string;
   phoneDisplay: string;
   addressText: string;
   lastVerifiedAt: Date;
@@ -36,6 +38,19 @@ export type PublicOfficeListItem = {
     slug: string;
     name: string;
   };
+  categories: Array<{
+    slug: string;
+    name: string;
+  }>;
+};
+
+export type PublicDirectoryFilterOptions = {
+  regions: Array<{
+    slug: string;
+    name: string;
+    label: string;
+    depth: number;
+  }>;
   categories: Array<{
     slug: string;
     name: string;
@@ -166,6 +181,60 @@ async function loadCategories(officeIds: string[]) {
   return byOffice;
 }
 
+export async function listPublicDirectoryFilterOptions(): Promise<PublicDirectoryFilterOptions> {
+  const db = getDatabase();
+  const [regionRows, categoryRows] = await Promise.all([
+    db
+      .select({
+        id: regions.id,
+        parentId: regions.parentId,
+        slug: regions.slug,
+        name: regions.name,
+        displayOrder: regions.displayOrder,
+      })
+      .from(regions)
+      .where(eq(regions.isActive, true))
+      .orderBy(asc(regions.displayOrder), asc(regions.name)),
+    db
+      .select({ slug: serviceCategories.slug, name: serviceCategories.name })
+      .from(serviceCategories)
+      .where(eq(serviceCategories.isActive, true))
+      .orderBy(
+        asc(serviceCategories.displayOrder),
+        asc(serviceCategories.name),
+      ),
+  ]);
+  const childrenByParent = new Map<string | null, typeof regionRows>();
+
+  for (const region of regionRows) {
+    const siblings = childrenByParent.get(region.parentId) ?? [];
+    siblings.push(region);
+    childrenByParent.set(region.parentId, siblings);
+  }
+
+  const filterRegions: PublicDirectoryFilterOptions["regions"] = [];
+
+  function appendRegions(parentId: string | null, ancestors: string[]) {
+    for (const region of childrenByParent.get(parentId) ?? []) {
+      const path = [...ancestors, region.name];
+      filterRegions.push({
+        slug: region.slug,
+        name: region.name,
+        label: path.join(" / "),
+        depth: ancestors.length,
+      });
+      appendRegions(region.id, path);
+    }
+  }
+
+  appendRegions(null, []);
+
+  return {
+    regions: filterRegions,
+    categories: categoryRows,
+  };
+}
+
 export async function listPublicOffices(filters: PublicOfficeFilters = {}) {
   const limit = filters.limit ?? 20;
   const offset = filters.offset ?? 0;
@@ -203,6 +272,7 @@ export async function listPublicOffices(filters: PublicOfficeFilters = {}) {
       slug: offices.slug,
       name: offices.name,
       summary: offices.summary,
+      phoneNormalized: offices.phoneNormalized,
       phoneDisplay: offices.phoneDisplay,
       addressText: offices.addressText,
       lastVerifiedAt: offices.lastVerifiedAt,
@@ -223,6 +293,11 @@ export async function listPublicOffices(filters: PublicOfficeFilters = {}) {
       slug: row.slug,
       name: row.name,
       summary: row.summary,
+      phoneNormalized: requirePublishedValue(
+        row.phoneNormalized,
+        "phoneNormalized",
+        row.id,
+      ),
       phoneDisplay: requirePublishedValue(row.phoneDisplay, "phoneDisplay", row.id),
       addressText: requirePublishedValue(row.addressText, "addressText", row.id),
       lastVerifiedAt: requirePublishedValue(
@@ -246,6 +321,7 @@ export async function getPublicOfficeBySlug(
       slug: offices.slug,
       name: offices.name,
       summary: offices.summary,
+      phoneNormalized: offices.phoneNormalized,
       phoneDisplay: offices.phoneDisplay,
       addressText: offices.addressText,
       lastVerifiedAt: offices.lastVerifiedAt,
@@ -286,6 +362,11 @@ export async function getPublicOfficeBySlug(
     slug: row.slug,
     name: row.name,
     summary: row.summary,
+    phoneNormalized: requirePublishedValue(
+      row.phoneNormalized,
+      "phoneNormalized",
+      row.id,
+    ),
     phoneDisplay: requirePublishedValue(row.phoneDisplay, "phoneDisplay", row.id),
     addressText: requirePublishedValue(row.addressText, "addressText", row.id),
     lastVerifiedAt: requirePublishedValue(
@@ -295,13 +376,15 @@ export async function getPublicOfficeBySlug(
     ),
     region: { slug: row.regionSlug, name: row.regionName },
     categories: categories.get(row.id) ?? [],
-    sources: sources.map((source) => ({
-      ...source,
-      verifiedAt: requirePublishedValue(
-        source.verifiedAt,
-        "source.verifiedAt",
-        row.id,
-      ),
-    })),
+    sources: sources
+      .filter((source) => isPublicHttpUrl(source.url))
+      .map((source) => ({
+        ...source,
+        verifiedAt: requirePublishedValue(
+          source.verifiedAt,
+          "source.verifiedAt",
+          row.id,
+        ),
+      })),
   };
 }

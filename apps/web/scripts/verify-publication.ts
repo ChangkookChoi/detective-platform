@@ -16,6 +16,7 @@ import {
 } from "../src/db/schema";
 import {
   getPublicOfficeBySlug,
+  listPublicDirectoryFilterOptions,
   listPublicOffices,
   PublicDirectoryFilterError,
 } from "../src/modules/directory/public-office-repository";
@@ -178,6 +179,27 @@ async function main() {
     );
 
     await assert.rejects(
+      db
+        .update(officeSources)
+        .set({ url: "javascript:alert(1)" })
+        .where(eq(officeSources.id, invalidSourceId))
+        .then(() =>
+          publishOffice({
+            officeId: invalidOfficeId,
+            reviewItemId: invalidReviewId,
+            actorId: "synthetic-reviewer",
+            reason: "출처 URL 검증",
+            expectedUpdatedAt: invalidOffice.updatedAt,
+          }),
+        ),
+      (error: unknown) => isPublicationError(error, "invalid_source_url"),
+    );
+    await db
+      .update(officeSources)
+      .set({ url: "https://example.invalid/invalid-office" })
+      .where(eq(officeSources.id, invalidSourceId));
+
+    await assert.rejects(
       publishOffice({
         officeId: invalidOfficeId,
         reviewItemId: invalidReviewId,
@@ -203,6 +225,15 @@ async function main() {
     });
     assert.deepEqual(list.map((office) => office.id), [validOfficeId]);
     assert.equal((await listPublicOffices({ region: "seoul" })).length, 0);
+
+    const filterOptions = await listPublicDirectoryFilterOptions();
+    assert.equal(
+      filterOptions.regions.find(
+        (option) => option.slug === "gyeonggi-suwon-paldal",
+      )?.label,
+      "경기도 / 수원시 / 팔달구",
+    );
+    assert(filterOptions.categories.some((option) => option.slug === "family"));
 
     const detail = await getPublicOfficeBySlug("sample-publication-office");
     assert(detail);

@@ -11,12 +11,14 @@ import {
   reviewItems,
   serviceCategories,
 } from "@/db/schema";
+import { isPublicHttpUrl } from "@/modules/shared/public-url";
 
 export type PublicationFailure =
   | "archived_office"
   | "concurrent_change"
   | "inactive_category"
   | "inactive_region"
+  | "invalid_source_url"
   | "invalid_review_item"
   | "missing_category"
   | "missing_evidence"
@@ -144,7 +146,7 @@ export async function publishOffice(input: PublishOfficeInput) {
     }
 
     const [primarySource] = await tx
-      .select({ id: officeSources.id })
+      .select({ id: officeSources.id, url: officeSources.url })
       .from(officeSources)
       .where(
         and(
@@ -160,8 +162,12 @@ export async function publishOffice(input: PublishOfficeInput) {
       throw new OfficePublicationError("missing_primary_source");
     }
 
+    if (!isPublicHttpUrl(primarySource.url)) {
+      throw new OfficePublicationError("invalid_source_url");
+    }
+
     const sourceRows = await tx
-      .select({ id: officeSources.id })
+      .select({ id: officeSources.id, url: officeSources.url })
       .from(officeSources)
       .where(
         and(
@@ -170,7 +176,9 @@ export async function publishOffice(input: PublishOfficeInput) {
           sql`${officeSources.verifiedAt} is not null`,
         ),
       );
-    const sourceIds = sourceRows.map((source) => source.id);
+    const sourceIds = sourceRows
+      .filter((source) => isPublicHttpUrl(source.url))
+      .map((source) => source.id);
     const evidenceRows = await tx
       .select({
         fieldName: officeSourceEvidence.fieldName,

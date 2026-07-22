@@ -55,6 +55,8 @@ Route Handler와 Server Action은 인증, 입력 검증, 유스케이스 호출,
 
 - `src/modules/directory/public-office-repository.ts`: 공개 상태 목록·상세와 지역/업무 분야 필터
 - `src/modules/moderation/publish-office.ts`: 공개 전 조건 확인, 검수 이력과 상태 변경 트랜잭션
+- `src/app/offices/page.tsx`: 공개 업체 목록, 사무소 소재 지역·업무 분야 필터
+- `src/app/offices/[slug]/page.tsx`: 공개 업체 상세, 전화 연결과 검증 출처 표시
 
 ## 5. 렌더링과 클라이언트 경계
 
