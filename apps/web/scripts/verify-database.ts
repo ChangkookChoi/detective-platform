@@ -25,6 +25,7 @@ const requiredTables = [
 
 const requiredChecks = [
   "office_source_evidence_category_check",
+  "offices_published_fields_check",
   "placements_valid_window_check",
   "regions_not_self_parent_check",
 ] as const;
@@ -72,7 +73,10 @@ async function main() {
     const migrationResult = await pool.query<{ count: string }>(
       "select count(*)::text as count from drizzle.__drizzle_migrations",
     );
-    assert.equal(migrationResult.rows[0]?.count, "1", "Expected one migration");
+    assert(
+      Number(migrationResult.rows[0]?.count) >= 1,
+      "Expected applied migration history",
+    );
 
     const regionResult = await pool.query<{
       id: string;

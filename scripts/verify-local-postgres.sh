@@ -86,5 +86,6 @@ npm --prefix "$WEB_DIR" run db:migrate
 npm --prefix "$WEB_DIR" run db:seed
 npm --prefix "$WEB_DIR" run db:seed
 npm --prefix "$WEB_DIR" run db:verify
+npm --prefix "$WEB_DIR" run db:verify-publication
 
 echo "Local PostgreSQL integration verification completed."

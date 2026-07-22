@@ -12,7 +12,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "db:validate-seed": "tsx scripts/validate-seed.ts",
-    "db:verify": "tsx scripts/verify-database.ts"
+    "db:verify": "tsx scripts/verify-database.ts",
+    "db:verify-publication": "tsx scripts/verify-publication.ts"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

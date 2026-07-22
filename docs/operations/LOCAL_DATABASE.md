@@ -35,7 +35,8 @@ brew install postgresql@17
 3. Git에 기록된 migration 적용
 4. seed를 연속 두 번 실행하여 멱등성 확인
 5. 테이블, migration 이력, seed, check constraint와 전화번호 index 검증
-6. 임시 서버 중지 및 데이터 삭제
+6. 합성 업체로 공개 거부·승인·감사 이력·공개 조회와 필터 검증
+7. 임시 서버 중지 및 데이터 삭제
 
 기본 포트 `55432`가 사용 중이면 다른 포트를 지정할 수 있다.
 

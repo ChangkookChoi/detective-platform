@@ -178,6 +178,10 @@ export const offices = pgTable(
     index("offices_public_region_idx").on(table.status, table.regionId),
     index("offices_phone_normalized_idx").on(table.phoneNormalized),
     index("offices_last_verified_at_idx").on(table.lastVerifiedAt),
+    check(
+      "offices_published_fields_check",
+      sql`${table.status} <> 'published' OR (${table.phoneNormalized} IS NOT NULL AND length(trim(${table.phoneNormalized})) > 0 AND ${table.phoneDisplay} IS NOT NULL AND length(trim(${table.phoneDisplay})) > 0 AND ${table.addressText} IS NOT NULL AND length(trim(${table.addressText})) > 0 AND ${table.publishedAt} IS NOT NULL AND ${table.lastVerifiedAt} IS NOT NULL)`,
+    ),
   ],
 );
 

@@ -51,6 +51,11 @@ Python collector (services/collector)
 
 Route Handler와 Server Action은 인증, 입력 검증, 유스케이스 호출, 응답 변환만 담당한다. 도메인 규칙은 UI나 라우트 파일에 묻지 않는다.
 
+초기 구현 위치:
+
+- `src/modules/directory/public-office-repository.ts`: 공개 상태 목록·상세와 지역/업무 분야 필터
+- `src/modules/moderation/publish-office.ts`: 공개 전 조건 확인, 검수 이력과 상태 변경 트랜잭션
+
 ## 5. 렌더링과 클라이언트 경계
 
 - 공개 목록·상세의 핵심 정보는 React Server Component에서 렌더링한다.
