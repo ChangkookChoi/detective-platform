@@ -121,6 +121,7 @@ export async function approveReviewAction(formData: FormData) {
     "expectedOfficeUpdatedAt",
   );
   const newOfficeSlug = formData.get("slug");
+  const correctionSourceUrl = formData.get("correctionSourceUrl");
   let failure: string | null = null;
   let publishedSlug: string | null = null;
 
@@ -145,6 +146,13 @@ export async function approveReviewAction(formData: FormData) {
               regionSlug: readString(formData, "regionSlug"),
               serviceCategorySlugs: readCategorySlugs(formData),
               sourceType: readString(formData, "sourceType"),
+            }
+          : undefined,
+      correctionSource:
+        typeof correctionSourceUrl === "string"
+          ? {
+              url: correctionSourceUrl,
+              sourceType: readString(formData, "correctionSourceType"),
             }
           : undefined,
     });

@@ -144,11 +144,13 @@
 
 ### `review_items`
 
-신규 업체 또는 필드 변경 후보다. 대상 업체, 후보 유형, 이전값과 제안값, 위험도, 상태(`pending`, `approved`, `approved_with_edits`, `rejected`, `on_hold`), 생성 원인과 시각을 기록한다. 신규 후보는 승인 트랜잭션에서 생성된 운영 업체를 `office_id`로 연결한다. 값 스냅샷은 필요한 필드만 저장한다.
+신규 업체, 필드 변경 또는 공개 정정 요청 후보다. 대상 업체, 후보 유형, 이전값과 제안값, 위험도, 상태(`pending`, `approved`, `approved_with_edits`, `rejected`, `on_hold`), 생성 원인과 시각을 기록한다. 신규 후보는 승인 트랜잭션에서 생성된 운영 업체를 `office_id`로 연결한다. 값 스냅샷은 필요한 필드만 저장한다.
+
+`correction_request`는 공개 업체에만 연결한다. `proposed_values`에는 선택한 핵심 필드의 제안값과 `requestedField`, `requesterRole`, 선택적 `evidenceUrl`만 저장하며 요청자 연락처, 사건·상담 내용과 개인 정보는 저장하지 않는다. `requesterRole`은 권한 증명이 아니고 `evidenceUrl`도 검증된 출처가 아니다. 승인할 때 운영자가 별도로 확인한 URL을 `office_sources`에 기록하고 실제 변경 필드만 `office_source_evidence`에 연결한다.
 
 ### `review_actions`
 
-검수 이력이다. 검수 항목, 처리자, 결정, 수정값, 사유, 처리 시각을 저장한다. `approved_with_edits`는 승인에 실제 사용한 업체 필드 스냅샷을 `edited_values`에 남긴다. 승인 이력은 일반 애플리케이션 기능으로 덮어쓰지 않는다.
+검수 이력이다. 검수 항목, 처리자, 결정, 수정값, 사유, 처리 시각을 저장한다. `approved_with_edits`는 승인에 실제 사용한 업체 필드 스냅샷을 `edited_values`에 남긴다. 정정 승인은 결정 방식과 관계없이 운영자가 확인한 출처 URL과 유형도 감사 스냅샷에 남긴다. 승인 이력은 일반 애플리케이션 기능으로 덮어쓰지 않는다.
 
 ### `analytics_events`와 `office_daily_metrics`
 

@@ -71,6 +71,11 @@ export type NewOfficeMetadata = {
   sourceType: string;
 };
 
+export type CorrectionSourceMetadata = {
+  url: string;
+  sourceType: string;
+};
+
 type ApproveReviewInput = {
   reviewItemId: string;
   actorId: string;
@@ -80,6 +85,7 @@ type ApproveReviewInput = {
   expectedOfficeUpdatedAt?: Date;
   editedValues?: EditableOfficeValues;
   newOffice?: NewOfficeMetadata;
+  correctionSource?: CorrectionSourceMetadata;
 };
 
 type OfficeSnapshot = {
@@ -280,6 +286,29 @@ function validateNewOfficeMetadata(value: NewOfficeMetadata | undefined) {
   };
 }
 
+function validateCorrectionSource(
+  value: CorrectionSourceMetadata | undefined,
+) {
+  if (!value) {
+    throw new ReviewApprovalError("invalid_source_url");
+  }
+
+  const url = value.url.trim();
+
+  if (url.length > 2048 || !isPublicHttpUrl(url)) {
+    throw new ReviewApprovalError("invalid_source_url");
+  }
+
+  if (!approvalSourceTypes.includes(value.sourceType as ApprovalSourceType)) {
+    throw new ReviewApprovalError("invalid_source_type");
+  }
+
+  return {
+    url,
+    sourceType: value.sourceType as ApprovalSourceType,
+  };
+}
+
 export async function approveReview(input: ApproveReviewInput) {
   const actorId = input.actorId.trim();
   const reason = input.reason.trim();
@@ -328,36 +357,54 @@ export async function approveReview(input: ApproveReviewInput) {
       throw new ReviewApprovalError("invalid_review_item");
     }
 
-    if (review.type !== "new_office" && review.type !== "field_change") {
+    const isCorrection = review.type === "correction_request";
+
+    if (
+      review.type !== "new_office" &&
+      review.type !== "field_change" &&
+      !isCorrection
+    ) {
       throw new ReviewApprovalError("unsupported_review_type");
     }
 
-    if (!review.collected_record_id) {
-      throw new ReviewApprovalError("missing_collection");
-    }
+    let collection: {
+      sourceUrl: string;
+      collectedAt: Date;
+      normalizedValues: unknown;
+    } | null = null;
 
-    const [collection] = await tx
-      .select({
-        sourceUrl: collectedRecords.sourceUrl,
-        collectedAt: collectedRecords.collectedAt,
-        normalizedValues: collectedRecords.normalizedValues,
-      })
-      .from(collectedRecords)
-      .where(eq(collectedRecords.id, review.collected_record_id))
-      .limit(1);
+    if (!isCorrection) {
+      if (!review.collected_record_id) {
+        throw new ReviewApprovalError("missing_collection");
+      }
 
-    if (!collection) {
-      throw new ReviewApprovalError("missing_collection");
-    }
+      const [collected] = await tx
+        .select({
+          sourceUrl: collectedRecords.sourceUrl,
+          collectedAt: collectedRecords.collectedAt,
+          normalizedValues: collectedRecords.normalizedValues,
+        })
+        .from(collectedRecords)
+        .where(eq(collectedRecords.id, review.collected_record_id))
+        .limit(1);
 
-    if (!isPublicHttpUrl(collection.sourceUrl)) {
-      throw new ReviewApprovalError("invalid_source_url");
+      if (!collected) {
+        throw new ReviewApprovalError("missing_collection");
+      }
+
+      if (!isPublicHttpUrl(collected.sourceUrl)) {
+        throw new ReviewApprovalError("invalid_source_url");
+      }
+
+      collection = collected;
     }
 
     const proposed = asRecord(review.proposed_values);
-    const normalizedCollection = asRecord(collection.normalizedValues);
+    const normalizedCollection = collection
+      ? asRecord(collection.normalizedValues)
+      : null;
 
-    if (!proposed || !normalizedCollection) {
+    if (!proposed || (!isCorrection && !normalizedCollection)) {
       throw new ReviewApprovalError("invalid_proposed_values");
     }
 
@@ -395,6 +442,10 @@ export async function approveReview(input: ApproveReviewInput) {
       ) {
         throw new ReviewApprovalError("restricted_office_status");
       }
+
+      if (isCorrection && office.status !== "published") {
+        throw new ReviewApprovalError("restricted_office_status");
+      }
     } else if (review.type !== "new_office") {
       throw new ReviewApprovalError("office_not_found");
     }
@@ -409,8 +460,15 @@ export async function approveReview(input: ApproveReviewInput) {
     let officeId = office?.id;
     let sourceId: string;
     let metadata: ReturnType<typeof validateNewOfficeMetadata> | null = null;
+    const correctionSource = isCorrection
+      ? validateCorrectionSource(input.correctionSource)
+      : null;
 
     if (!officeId) {
+      if (!collection) {
+        throw new ReviewApprovalError("missing_collection");
+      }
+
       metadata = validateNewOfficeMetadata(input.newOffice);
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended(${collection.sourceUrl}, 0))`,
@@ -545,31 +603,89 @@ export async function approveReview(input: ApproveReviewInput) {
         })),
       ]);
     } else {
-      const [matchingSource] = await tx
-        .select({ id: officeSources.id })
-        .from(officeSources)
-        .where(
-          and(
-            eq(officeSources.officeId, officeId),
-            eq(officeSources.url, collection.sourceUrl),
-          ),
-        )
-        .limit(1);
+      if (correctionSource) {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${`${officeId}:${correctionSource.url}`}, 0))`,
+        );
+        const [matchingSource] = await tx
+          .select({ id: officeSources.id })
+          .from(officeSources)
+          .where(
+            and(
+              eq(officeSources.officeId, officeId),
+              eq(officeSources.url, correctionSource.url),
+            ),
+          )
+          .limit(1);
 
-      if (!matchingSource) {
-        throw new ReviewApprovalError("source_mismatch");
+        if (matchingSource) {
+          sourceId = matchingSource.id;
+          await tx
+            .update(officeSources)
+            .set({
+              sourceType: correctionSource.sourceType,
+              retrievedAt: now,
+              verifiedAt: now,
+              accessStatus: "available",
+              updatedAt: now,
+            })
+            .where(eq(officeSources.id, sourceId));
+        } else {
+          const [createdSource] = await tx
+            .insert(officeSources)
+            .values({
+              officeId,
+              sourceType: correctionSource.sourceType,
+              url: correctionSource.url,
+              retrievedAt: now,
+              verifiedAt: now,
+              isPrimary: false,
+              accessStatus: "available",
+              updatedAt: now,
+            })
+            .onConflictDoNothing({
+              target: [officeSources.officeId, officeSources.url],
+            })
+            .returning({ id: officeSources.id });
+
+          if (!createdSource) {
+            throw new ReviewApprovalError("concurrent_change");
+          }
+
+          sourceId = createdSource.id;
+        }
+      } else {
+        if (!collection) {
+          throw new ReviewApprovalError("missing_collection");
+        }
+
+        const [matchingSource] = await tx
+          .select({ id: officeSources.id })
+          .from(officeSources)
+          .where(
+            and(
+              eq(officeSources.officeId, officeId),
+              eq(officeSources.url, collection.sourceUrl),
+            ),
+          )
+          .limit(1);
+
+        if (!matchingSource) {
+          throw new ReviewApprovalError("source_mismatch");
+        }
+
+        sourceId = matchingSource.id;
+        await tx
+          .update(officeSources)
+          .set({
+            retrievedAt: collection.collectedAt,
+            verifiedAt: now,
+            accessStatus: "available",
+            updatedAt: now,
+          })
+          .where(eq(officeSources.id, sourceId));
       }
 
-      sourceId = matchingSource.id;
-      await tx
-        .update(officeSources)
-        .set({
-          retrievedAt: collection.collectedAt,
-          verifiedAt: now,
-          accessStatus: "available",
-          updatedAt: now,
-        })
-        .where(eq(officeSources.id, sourceId));
       await tx
         .update(offices)
         .set({
@@ -583,14 +699,20 @@ export async function approveReview(input: ApproveReviewInput) {
         })
         .where(eq(offices.id, officeId));
 
+      const evidenceSource = isCorrection ? proposed : normalizedCollection;
+
+      if (!evidenceSource) {
+        throw new ReviewApprovalError("invalid_proposed_values");
+      }
+
       const supportedEvidence = [
-        typeof normalizedCollection.name === "string" ? "name" : null,
-        typeof normalizedCollection.phoneDisplay === "string" ||
-        typeof normalizedCollection.phoneNormalized === "string"
+        typeof evidenceSource.name === "string" ? "name" : null,
+        typeof evidenceSource.phoneDisplay === "string" ||
+        typeof evidenceSource.phoneNormalized === "string"
           ? "phone"
           : null,
-        typeof normalizedCollection.addressText === "string" ? "address" : null,
-        typeof normalizedCollection.summary === "string" ? "summary" : null,
+        typeof evidenceSource.addressText === "string" ? "address" : null,
+        typeof evidenceSource.summary === "string" ? "summary" : null,
       ].filter(
         (field): field is "name" | "phone" | "address" | "summary" =>
           field !== null,
@@ -770,8 +892,19 @@ export async function approveReview(input: ApproveReviewInput) {
                   sourceType: metadata.sourceType,
                 }
               : {}),
+            ...(correctionSource
+              ? {
+                  correctionSourceUrl: correctionSource.url,
+                  correctionSourceType: correctionSource.sourceType,
+                }
+              : {}),
           }
-        : null;
+        : correctionSource
+          ? {
+              correctionSourceUrl: correctionSource.url,
+              correctionSourceType: correctionSource.sourceType,
+            }
+          : null;
 
     await tx.insert(reviewActions).values({
       reviewItemId: input.reviewItemId,

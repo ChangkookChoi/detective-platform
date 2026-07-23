@@ -19,6 +19,11 @@ const fieldLabels: Record<string, string> = {
   service_category_slugs: "업무 분야",
   sourceType: "출처 유형",
   source_type: "출처 유형",
+  requestedField: "정정 요청 항목",
+  requesterRole: "요청자 관계",
+  evidenceUrl: "제안 공개 근거 URL",
+  correctionSourceUrl: "운영자 확인 출처 URL",
+  correctionSourceType: "운영자 확인 출처 유형",
   status: "공개 상태",
 };
 
@@ -48,6 +53,21 @@ function presentValue(value: unknown) {
   return null;
 }
 
+const fieldValueLabels: Record<string, Record<string, string>> = {
+  requestedField: {
+    name: "업체명",
+    phone: "대표 전화번호",
+    address: "주소",
+    summary: "소개",
+  },
+  requesterRole: {
+    public_user: "일반 이용자",
+    office_representative: "업체 관계자",
+    source_operator: "공개 출처 운영자",
+    other: "기타",
+  },
+};
+
 export function presentReviewValues(value: unknown): PresentedReviewValue[] {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return [];
@@ -61,7 +81,11 @@ export function presentReviewValues(value: unknown): PresentedReviewValue[] {
       continue;
     }
 
-    const displayValue = presentValue(source[field]);
+    const rawValue = source[field];
+    const displayValue =
+      typeof rawValue === "string" && fieldValueLabels[field]?.[rawValue]
+        ? fieldValueLabels[field][rawValue]
+        : presentValue(rawValue);
 
     if (displayValue !== null) {
       presented.push({ field, label, value: displayValue });

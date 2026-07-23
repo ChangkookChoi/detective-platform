@@ -147,10 +147,13 @@ export default async function ReviewDetailPage({
   const normalizedValues = presentReviewValues(item.collection?.normalizedValues);
   const error = readSingle(query.error);
   const canDecide = item.status === "pending" || item.status === "on_hold";
+  const isCorrection =
+    item.type === "correction_request" && item.office !== null;
   const canApprove =
     canDecide &&
-    item.collection !== null &&
-    (item.type === "new_office" || item.type === "field_change");
+    ((item.collection !== null &&
+      (item.type === "new_office" || item.type === "field_change")) ||
+      isCorrection);
   const proposedRecord = reviewValueRecord(item.proposedValues);
   const candidateValues = {
     name: textValue(proposedRecord.name, item.office?.name),
@@ -165,6 +168,10 @@ export default async function ReviewDetailPage({
     ),
   };
   const isNewCandidate = item.office === null && item.type === "new_office";
+  const suggestedEvidenceUrl =
+    typeof proposedRecord.evidenceUrl === "string"
+      ? proposedRecord.evidenceUrl
+      : "";
   const editableFields = {
     name: isNewCandidate || "name" in proposedRecord,
     summary: isNewCandidate || "summary" in proposedRecord,
@@ -343,7 +350,7 @@ export default async function ReviewDetailPage({
               처리하세요.
             </p>
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
-              {canApprove && item.collection && (
+              {canApprove && (
                 <form
                   action={approveReviewAction}
                   className="rounded-xl bg-white p-5 text-slate-950 lg:col-span-2"
@@ -478,6 +485,43 @@ export default async function ReviewDetailPage({
                       </fieldset>
                     </fieldset>
                   )}
+                  {isCorrection && (
+                    <fieldset className="mt-6 grid gap-4 border-t border-slate-200 pt-6 md:grid-cols-2">
+                      <legend className="px-2 text-sm font-bold">
+                        운영자 확인 출처
+                      </legend>
+                      <label className="grid gap-2 text-sm font-bold md:col-span-2">
+                        직접 확인한 공개 출처 URL
+                        <input
+                          type="url"
+                          name="correctionSourceUrl"
+                          required
+                          maxLength={2048}
+                          defaultValue={suggestedEvidenceUrl}
+                          placeholder="https://"
+                          className="rounded-lg border border-slate-300 p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                        />
+                        <span className="text-xs font-normal leading-5 text-slate-500">
+                          요청자가 제안한 URL은 미검증 값입니다. 운영자가 실제로
+                          확인한 URL을 입력해야 필드 근거로 기록됩니다.
+                        </span>
+                      </label>
+                      <label className="grid gap-2 text-sm font-bold">
+                        확인 출처 유형
+                        <select
+                          name="correctionSourceType"
+                          defaultValue="official_website"
+                          className="rounded-lg border border-slate-300 bg-white p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                        >
+                          {approvalSourceTypes.map((sourceType) => (
+                            <option key={sourceType} value={sourceType}>
+                              {sourceTypeLabels[sourceType]}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </fieldset>
+                  )}
                   <label className="mt-6 grid gap-2 text-sm font-bold">
                     승인 사유
                     <textarea
@@ -568,9 +612,9 @@ export default async function ReviewDetailPage({
             </div>
             {!canApprove && (
               <p className="mt-4 text-xs leading-5 text-amber-200">
-                지원되는 신규·필드 변경 후보와 수집 레코드가 모두 있어야 승인할
-                수 있습니다. 그 외 후보는 보류 또는 반려 후 별도 절차로
-                처리하세요.
+                신규·필드 변경 후보는 수집 레코드가 필요하고, 정정 요청은 공개
+                업체 연결이 필요합니다. 그 외 후보는 보류 또는 반려 후 별도
+                절차로 처리하세요.
               </p>
             )}
           </section>

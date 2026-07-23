@@ -186,6 +186,15 @@ export default async function OfficeDetailPage({
             성과를 보증하지 않습니다. 상담 시에도 사건 내용이나 조사 대상자
             개인정보를 온라인에 남기지 마세요.
           </p>
+          <p className="mt-3">
+            업체명, 전화번호, 주소 또는 소개가 실제 공개 정보와 다른가요?{" "}
+            <Link
+              href={`/offices/${office.slug}/correction`}
+              className="font-bold underline decoration-amber-400 underline-offset-4 hover:text-sky-900"
+            >
+              정보 수정 요청
+            </Link>
+          </p>
         </section>
       </div>
     </main>
