@@ -134,12 +134,15 @@ async function main() {
     await assert.rejects(
       createManualOfficeCandidate({
         actorId: "user_second_verifier",
-        sourceUrl,
+        sourceUrl: `${sourceUrl}#contact`,
         name: "중복 후보",
         phoneDisplay: "031-123-4567",
         addressText: "경기도 수원시 가상로 1",
       }),
-      (error: unknown) => isCandidateError(error, "duplicate"),
+      (error: unknown) =>
+        isCandidateError(error, "duplicate") &&
+        error instanceof ManualOfficeCandidateError &&
+        error.existingReviewItemId === created.reviewItemId,
     );
 
     console.log("Manual office candidate verification completed.");

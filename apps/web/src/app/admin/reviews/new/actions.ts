@@ -23,6 +23,7 @@ export async function createManualOfficeCandidateAction(formData: FormData) {
   const principal = await requireReviewer("/admin/reviews/new");
   let reviewItemId: string | null = null;
   let failure: string | null = null;
+  let existingReviewItemId: string | null = null;
 
   try {
     const created = await createManualOfficeCandidate({
@@ -36,9 +37,14 @@ export async function createManualOfficeCandidateAction(formData: FormData) {
   } catch (error) {
     if (error instanceof ManualOfficeCandidateError) {
       failure = error.reason;
+      existingReviewItemId = error.existingReviewItemId ?? null;
     } else {
       throw error;
     }
+  }
+
+  if (failure === "duplicate" && existingReviewItemId) {
+    redirect(`/admin/reviews/${existingReviewItemId}?result=duplicate`);
   }
 
   if (failure) {

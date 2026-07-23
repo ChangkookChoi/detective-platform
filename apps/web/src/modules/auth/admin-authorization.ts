@@ -9,12 +9,14 @@ import {
 } from "@/modules/auth/admin-roles";
 
 export async function requireReviewer(
-  returnBackUrl = "/admin/reviews",
+  returnBackUrl?: string,
 ): Promise<StaffPrincipal> {
   const authentication = await auth();
 
   if (!authentication.userId) {
-    return authentication.redirectToSignIn({ returnBackUrl });
+    return authentication.redirectToSignIn(
+      returnBackUrl ? { returnBackUrl } : undefined,
+    );
   }
 
   const role = resolveStaffRole(authentication.userId);

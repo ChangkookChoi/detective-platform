@@ -238,6 +238,16 @@ export default async function ReviewDetailPage({
           </div>
         )}
 
+        {result === "duplicate" && (
+          <div
+            role="status"
+            className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-950"
+          >
+            같은 공식 출처 URL의 미처리 후보가 이미 있어 이 항목으로
+            이동했습니다. 새 후보를 만들지 않았습니다.
+          </div>
+        )}
+
         {item.submittedByActorId && (
           <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
             <h2 className="text-lg font-bold">수동 제출 감사 정보</h2>

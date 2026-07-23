@@ -19,7 +19,10 @@ export type ManualOfficeCandidateFailure =
   | "invalid_source_url";
 
 export class ManualOfficeCandidateError extends Error {
-  constructor(public readonly reason: ManualOfficeCandidateFailure) {
+  constructor(
+    public readonly reason: ManualOfficeCandidateFailure,
+    public readonly existingReviewItemId?: string,
+  ) {
     super(`Manual office candidate creation failed: ${reason}`);
     this.name = "ManualOfficeCandidateError";
   }
@@ -145,7 +148,7 @@ export async function createManualOfficeCandidate(
       .limit(1);
 
     if (duplicate) {
-      throw new ManualOfficeCandidateError("duplicate");
+      throw new ManualOfficeCandidateError("duplicate", duplicate.id);
     }
 
     const [run] = await tx

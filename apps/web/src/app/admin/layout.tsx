@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default async function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const principal = await requireReviewer("/admin/reviews");
+  const principal = await requireReviewer();
 
   return (
     <ClerkProvider>
