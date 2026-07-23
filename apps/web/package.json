@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "auth:validate-config": "tsx scripts/validate-admin-auth-config.ts",
+    "auth:validate-config:self-test": "tsx scripts/validate-admin-auth-config.ts --self-test",
     "db:check": "drizzle-kit check",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

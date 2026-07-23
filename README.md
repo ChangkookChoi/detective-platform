@@ -62,8 +62,16 @@ npm run dev
 
 ```bash
 cd apps/web
+npm run auth:validate-config:self-test
 npm run lint
 npm run build
+```
+
+실제 Clerk 키와 관리자 사용자 ID를 로컬 비밀에 설정한 뒤에는 환경 조합을 값 노출 없이 확인합니다.
+
+```bash
+cd apps/web
+npm run auth:validate-config -- --environment=development
 ```
 
 PostgreSQL 17 이상이 설치된 환경에서는 저장소 루트에서 임시 DB 통합 검증을 실행할 수 있습니다.
