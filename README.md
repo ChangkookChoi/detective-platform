@@ -6,7 +6,7 @@
 
 ## 현재 단계
 
-현재 저장소는 **핵심 MVP 기능 구현 단계**입니다. PostgreSQL 초기 스키마·migration·seed, 공개 업체 검색·상세·정정 요청, 신규·변경·정정 후보의 관리자 승인, 개인정보 최소화 일별 분석 집계와 정책 기반 Python 수집기를 구현했습니다. 공식 홈페이지 한 곳의 단일 페이지·사실 필드 파일럿 정책을 등록했지만 실제 업체 데이터 수집, 지속형 개발·운영 DB와 운영 배포는 아직 준비 전입니다. 최신 진행 상황은 [docs/STATUS.md](docs/STATUS.md)를 기준으로 확인합니다.
+현재 저장소는 **핵심 MVP 기능 구현 단계**입니다. PostgreSQL 초기 스키마·migration·seed, 공개 업체 검색·상세·정정 요청, 신규·변경·정정 후보의 관리자 승인, 개인정보 최소화 일별 분석 집계와 정책 기반 Python 수집기를 구현했습니다. 지속형 로컬 개발 DB와 수집기 최소 권한 역할을 준비하고 공식 홈페이지 파일럿 한 건을 비공개 검수 후보로 적재했지만, 관리자 실제 인증·승인, 운영 DB와 배포는 아직 준비 전입니다. 최신 진행 상황은 [docs/STATUS.md](docs/STATUS.md)를 기준으로 확인합니다.
 
 ## MVP
 
@@ -71,6 +71,16 @@ PostgreSQL 17 이상이 설치된 환경에서는 저장소 루트에서 임시 
 ```bash
 ./scripts/verify-local-postgres.sh
 ```
+
+실행 사이에 데이터를 유지하는 로컬 개발 DB는 별도 스크립트로 준비하고 제어합니다.
+
+```bash
+./scripts/local-postgres.sh setup
+./scripts/local-postgres.sh status
+./scripts/local-postgres.sh stop
+```
+
+연결 역할과 재시작 절차는 [로컬 PostgreSQL 운영 문서](docs/operations/LOCAL_DATABASE.md)를 따릅니다.
 
 ### 수집기
 

@@ -81,6 +81,7 @@ trap cleanup EXIT INT TERM
   detective_platform_test
 
 export DATABASE_URL="postgresql://$(id -un)@127.0.0.1:$PG_TEST_PORT/detective_platform_test"
+export COLLECTOR_DATABASE_URL="postgresql://detective_platform_collector@127.0.0.1:$PG_TEST_PORT/detective_platform_test"
 
 npm --prefix "$WEB_DIR" run db:migrate
 npm --prefix "$WEB_DIR" run db:seed
@@ -89,6 +90,12 @@ npm --prefix "$WEB_DIR" run db:verify
 npm --prefix "$WEB_DIR" run db:verify-publication
 npm --prefix "$WEB_DIR" run db:verify-analytics
 npm --prefix "$WEB_DIR" run db:verify-corrections
+"$PG_BIN/psql" \
+  -h 127.0.0.1 \
+  -p "$PG_TEST_PORT" \
+  -d detective_platform_test \
+  -f "$ROOT_DIR/infra/postgres/local-collector-role.sql" >/dev/null
+uv --directory "$ROOT_DIR/services/collector" run python -m unittest tests.integration_collector_permissions
 uv --directory "$ROOT_DIR/services/collector" run python -m unittest tests.integration_collector
 
 echo "Local PostgreSQL integration verification completed."

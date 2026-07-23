@@ -42,15 +42,22 @@ uv run python main.py validate-config --config sources.toml
 
 1. 정책·robots 확인이 여전히 유효하고 출처가 차단을 요청하지 않았는지 확인한다.
 2. 최신 migration이 적용된 개발 DB에서 먼저 실행한다.
-3. `DATABASE_URL`은 환경변수로만 주입하고 출력하거나 설정 파일에 넣지 않는다.
-4. 첫 실행은 URL 수를 작게 제한하고 관리자 검수 대기열을 확인한다.
+3. [`LOCAL_DATABASE.md`](LOCAL_DATABASE.md)의 수집기 전용 최소 권한 역할을 사용한다.
+4. `DATABASE_URL`은 환경변수로만 주입하고 출력하거나 설정 파일에 넣지 않는다.
+5. 첫 실행은 URL 수를 작게 제한하고 관리자 검수 대기열을 확인한다.
 
 ```bash
 cd services/collector
-DATABASE_URL='postgresql://...' \
+DATABASE_URL="$COLLECTOR_DATABASE_URL" \
   uv run python main.py run \
     --config sources.toml \
     --source mugunghwa-detective-official-pilot
+```
+
+로컬 전용 역할과 DB를 처음 준비할 때는 저장소 루트에서 다음을 실행한다.
+
+```bash
+./scripts/local-postgres.sh setup
 ```
 
 ## 5. 결과 판정
@@ -63,6 +70,8 @@ DATABASE_URL='postgresql://...' \
 - `reviewCount`: 새로 생성한 `pending` 검수 항목 수다.
 
 검수 항목은 상호·전화·주소 변경과 신규 업체를 `high`, 설명 변경을 `medium` 위험도로 만든다. 누락 필드는 운영값 삭제 제안으로 변환하지 않으며 동일 해시를 다시 수집해도 중복 검수 항목을 만들지 않는다.
+
+2026-07-23 등록 파일럿 최초 개발 실행은 최소 권한 역할로 `succeeded`, 발견 1건, 수집 1건, 실패 0건, `pending/new_office/high` 검수 1건을 기록했다. 운영 업체 행은 생성하지 않았으며 인증된 관리자 검수와 공개 승인은 수행하지 않았다. 실행별 상세 사실은 [SOURCE_REGISTRY.md](SOURCE_REGISTRY.md)에 기록한다.
 
 ## 6. 중단과 장애 대응
 
@@ -79,7 +88,7 @@ DATABASE_URL='postgresql://...' \
 ## 7. 배포 전 남은 결정
 
 - 등록 출처 외 후보의 이용 조건·robots 검토와 정책 파일
-- 수집기 전용 최소 권한 DB 역할과 네트워크 경계
+- 운영 DB의 수집기 최소 권한 자격 증명과 네트워크 경계
 - 예약 실행 방식, 알림 기준과 재검증 주기
 - 수집 레코드·검수 이력 보존 기간
 - 운영 Psycopg의 binary 또는 시스템 `libpq` 배포 방식

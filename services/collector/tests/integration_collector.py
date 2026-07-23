@@ -49,6 +49,10 @@ class CollectorIntegrationTest(unittest.TestCase):
         if not database_url:
             raise unittest.SkipTest("DATABASE_URL is required")
         cls.database_url = database_url
+        cls.collector_database_url = os.environ.get(
+            "COLLECTOR_DATABASE_URL",
+            database_url,
+        )
         cls.connection = psycopg.connect(database_url, autocommit=True)
         cls._cleanup()
         cls.connection.execute(
@@ -127,7 +131,7 @@ class CollectorIntegrationTest(unittest.TestCase):
                 sleep=lambda _: None,
             )
 
-        with CollectorRepository(self.database_url) as repository:
+        with CollectorRepository(self.collector_database_url) as repository:
             summary = CollectorPipeline(
                 policy,
                 repository,
