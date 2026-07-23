@@ -61,10 +61,38 @@ async function main() {
     await assert.rejects(
       createManualOfficeCandidate({
         actorId,
+        sourceUrl,
+        name: "가상 수동 후보",
+        phoneDisplay: "031-123-4567",
+        addressText: "경기도 수원시 가상로 1",
+        officialSourceConfirmed: false,
+        sensitiveContentConfirmed: true,
+      }),
+      (error: unknown) =>
+        isCandidateError(error, "official_source_confirmation_required"),
+    );
+    await assert.rejects(
+      createManualOfficeCandidate({
+        actorId,
+        sourceUrl,
+        name: "가상 수동 후보",
+        phoneDisplay: "031-123-4567",
+        addressText: "경기도 수원시 가상로 1",
+        officialSourceConfirmed: true,
+        sensitiveContentConfirmed: false,
+      }),
+      (error: unknown) =>
+        isCandidateError(error, "sensitive_content_confirmation_required"),
+    );
+    await assert.rejects(
+      createManualOfficeCandidate({
+        actorId,
         sourceUrl: "javascript:alert(1)",
         name: "가상 수동 후보",
         phoneDisplay: "031-123-4567",
         addressText: "경기도 수원시 가상로 1",
+        officialSourceConfirmed: true,
+        sensitiveContentConfirmed: true,
       }),
       (error: unknown) => isCandidateError(error, "invalid_source_url"),
     );
@@ -75,6 +103,8 @@ async function main() {
         name: "가상 수동 후보",
         phoneDisplay: "1234",
         addressText: "경기도 수원시 가상로 1",
+        officialSourceConfirmed: true,
+        sensitiveContentConfirmed: true,
       }),
       (error: unknown) => isCandidateError(error, "invalid_phone"),
     );
@@ -88,6 +118,8 @@ async function main() {
       name: "  가상   수동 후보  ",
       phoneDisplay: "+82 31-123-4567",
       addressText: "  경기도 수원시   가상로 1  ",
+      officialSourceConfirmed: true,
+      sensitiveContentConfirmed: true,
     });
     const [review] = await db
       .select({
@@ -138,6 +170,8 @@ async function main() {
         name: "중복 후보",
         phoneDisplay: "031-123-4567",
         addressText: "경기도 수원시 가상로 1",
+        officialSourceConfirmed: true,
+        sensitiveContentConfirmed: true,
       }),
       (error: unknown) =>
         isCandidateError(error, "duplicate") &&

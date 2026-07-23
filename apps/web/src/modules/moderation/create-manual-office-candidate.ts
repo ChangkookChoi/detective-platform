@@ -16,7 +16,9 @@ export type ManualOfficeCandidateFailure =
   | "invalid_address"
   | "invalid_name"
   | "invalid_phone"
-  | "invalid_source_url";
+  | "invalid_source_url"
+  | "official_source_confirmation_required"
+  | "sensitive_content_confirmation_required";
 
 export class ManualOfficeCandidateError extends Error {
   constructor(
@@ -34,6 +36,8 @@ type CreateManualOfficeCandidateInput = {
   name: string;
   phoneDisplay: string;
   addressText: string;
+  officialSourceConfirmed: boolean;
+  sensitiveContentConfirmed: boolean;
   createdAt?: Date;
 };
 
@@ -91,6 +95,18 @@ function normalizePhone(value: string) {
 export async function createManualOfficeCandidate(
   input: CreateManualOfficeCandidateInput,
 ) {
+  if (input.officialSourceConfirmed !== true) {
+    throw new ManualOfficeCandidateError(
+      "official_source_confirmation_required",
+    );
+  }
+
+  if (input.sensitiveContentConfirmed !== true) {
+    throw new ManualOfficeCandidateError(
+      "sensitive_content_confirmation_required",
+    );
+  }
+
   const actorId = normalizeRequiredText(
     input.actorId,
     1,

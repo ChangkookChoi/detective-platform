@@ -32,6 +32,10 @@ export async function createManualOfficeCandidateAction(formData: FormData) {
       name: readString(formData, "name"),
       phoneDisplay: readString(formData, "phoneDisplay"),
       addressText: readString(formData, "addressText"),
+      officialSourceConfirmed:
+        formData.get("officialSourceConfirmed") === "on",
+      sensitiveContentConfirmed:
+        formData.get("sensitiveContentConfirmed") === "on",
     });
     reviewItemId = created.reviewItemId;
   } catch (error) {

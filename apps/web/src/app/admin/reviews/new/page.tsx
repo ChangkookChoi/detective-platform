@@ -20,6 +20,10 @@ const errorMessages: Record<string, string> = {
   invalid_name: "업체명은 공백을 제외하고 2~200자로 입력하세요.",
   invalid_phone: "국내 대표 전화번호 형식을 확인하세요.",
   invalid_source_url: "공식 출처는 안전한 HTTP(S) URL이어야 합니다.",
+  official_source_confirmation_required:
+    "공식 운영 주체와 정확한 한 개 사무소의 공개 정보를 확인하세요.",
+  sensitive_content_confirmation_required:
+    "사건·상담·개인 연락처 등 민감정보가 없음을 확인하세요.",
 };
 
 function readSingle(value: string | string[] | undefined) {
@@ -121,6 +125,34 @@ export default async function NewReviewPage({
               className="resize-y rounded-lg border border-slate-300 p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
             />
           </label>
+
+          <fieldset className="grid gap-4 rounded-xl border border-slate-200 p-4">
+            <legend className="px-1 text-sm font-bold">등록 전 필수 확인</legend>
+            <label className="flex items-start gap-3 text-sm leading-6 text-slate-700">
+              <input
+                name="officialSourceConfirmed"
+                type="checkbox"
+                required
+                className="mt-1 size-4 shrink-0 accent-sky-800"
+              />
+              <span>
+                사업자 또는 지점 운영 주체가 직접 관리하는 출처이며, 정확한 한
+                개 사무소의 업체명·대표 전화·주소임을 원문에서 확인했습니다.
+              </span>
+            </label>
+            <label className="flex items-start gap-3 text-sm leading-6 text-slate-700">
+              <input
+                name="sensitiveContentConfirmed"
+                type="checkbox"
+                required
+                className="mt-1 size-4 shrink-0 accent-sky-800"
+              />
+              <span>
+                사건·상담 내용, 조사 대상자 정보, 개인 연락처와 소개
+                문구·이미지를 입력하지 않았습니다.
+              </span>
+            </label>
+          </fieldset>
 
           <aside className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
             소개 문구, 이미지, 상담 내용, 개인 연락처는 입력하지 않습니다.
