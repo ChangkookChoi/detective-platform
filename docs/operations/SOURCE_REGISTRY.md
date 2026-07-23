@@ -9,6 +9,7 @@
 | 상태 | 의미 |
 | --- | --- |
 | `pilot_approved` | 제한된 상세 URL과 사실 필드만 저빈도로 시험 수집 가능 |
+| `manual_candidate` | 공식 출처와 최소 사실 필드는 확인했지만 자동 수집 구조·제한이 맞지 않아 관리자 수동 등록 전 재확인 |
 | `deferred` | 구조 또는 허용 근거가 부족해 자동 수집하지 않음 |
 | `blocked` | 약관·robots·접근 통제 또는 품질 문제로 자동 수집 금지 |
 
@@ -83,27 +84,37 @@
 관리자가 결함 사유로 반려하기 전까지 보존한다. 두 후보 중 어느 것도 자동
 승인하거나 공개하지 않는다.
 
-## 4. 보류한 후보
+## 4. 자동 수집 제외·수동 후보
 
 | 후보 | 확인 결과 | 결정 |
 | --- | --- | --- |
-| `www.genie-world.co.kr` | robots 전체 허용과 `index, follow` 표시는 확인했으나 지원 가능한 사업체 JSON-LD가 없음 | `deferred` — JavaScript 번들 전용 어댑터를 만들지 않음 |
-| `daok.kr` | robots 전체 허용은 확인했으나 지원 가능한 JSON-LD가 없음 | `deferred` — 사이트별 DOM 파서를 만들지 않음 |
+| `www.genie-world.co.kr` | robots 전체 허용과 공식 사업자·서울 금천 소재 표시는 확인했으나 지원 가능한 사업체 JSON-LD가 없음 | `manual_candidate` — JavaScript 번들 전용 어댑터를 만들지 않고 수동 재확인 |
+| `daok.kr` | robots 전체 허용과 공식 사업자·서울 송파 소재 표시는 확인했으나 지원 가능한 JSON-LD가 없음 | `manual_candidate` — 사이트별 DOM 파서를 만들지 않고 수동 재확인 |
 | `www.apmtwo.com` | robots는 공개 경로를 허용하지만 `OnlineStore` JSON-LD 주소가 `-`로 제공되어 운영 정보 후보로 부적합 | `deferred` — 화면 본문을 별도 파싱하지 않음 |
 | `xn--jk1bs41btlgz1e.com` | `robots.txt`가 404이고 지원 가능한 JSON-LD가 없음 | `deferred` — 허용과 구조가 모두 불명확 |
 | `sonamoo.or.kr` | 공식 사업자 표기와 경기 화성 소재지는 확인했으나 정책 실행 환경에서 DNS 재확인이 불가능함 | `deferred` — 자동 등록하지 않고 수동 후보 검토 |
-| `tamjung.mgdetective.co.kr` | 공개 경로의 robots 허용은 확인했으나 지원 가능한 사업체 JSON-LD가 없음 | `deferred` — 공식 원문을 수동 후보로 검토 |
+| `tamjung.mgdetective.co.kr` | 공개 경로의 robots 허용과 공식 사업자·경기 부천 소재 표시는 확인했으나 지원 가능한 사업체 JSON-LD가 없음 | `manual_candidate` — 공식 원문을 수동 재확인 |
 | `htamjung.com` | 공식 사업자 표기와 경기 안산 소재지는 확인했으나 정책 실행 환경에서 DNS 재확인이 불가능함 | `deferred` — 자동 등록하지 않고 수동 후보 검토 |
 | `jeongtam.com` | 공식 사업자 표기와 경기 화성 소재지는 확인했으나 유효한 robots 정책과 지원 JSON-LD가 없음 | `deferred` — 공식 원문을 수동 후보로 검토 |
-| `xn--m01bq5ku5ay6xjtk.com` | 공개 경로의 robots 허용은 확인했으나 JSON-LD 유형이 현재 지원 범위 밖임 | `deferred` — 공식 원문을 수동 후보로 검토 |
+| `xn--m01bq5ku5ay6xjtk.com` | 공개 경로의 robots 허용과 공식 사업자·경기 시흥 소재 표시는 확인했으나 JSON-LD 유형이 현재 지원 범위 밖임 | `manual_candidate` — 공식 원문을 수동 재확인 |
+| `leeandjang.net` | 공식 사업자·서울 종로 소재와 대표 전화는 확인했으며 robots는 전체 허용이지만 정책 실행 환경의 본문 요청이 실패하고 지원 JSON-LD가 없음 | `manual_candidate` — 브라우저 원문을 수동 재확인 |
+| `hositamtam.kr` | 공식 사업자·경기 의정부 본사와 대표 전화, 공개 경로 robots 허용을 확인했으나 응답이 약 793KB이고 `OnlineStore` JSON-LD만 제공 | `manual_candidate` — 대용량 Imweb 본문을 자동 수집하지 않고 수동 재확인 |
+| `xn--z52bt3m.com` | 공식 사업자·경기 고양 소재와 대표 전화는 확인했으나 응답이 약 1.2MB로 현재 한도를 넘고 접근 환경별 403 및 `Organization` 중심 JSON-LD가 확인됨 | `manual_candidate` — 접근 상태와 원문을 브라우저에서 다시 확인 |
+| `tracker.imweb.me` | 공식 사업자·서울 강남 소재와 대표 전화, 공개 경로 robots 허용을 확인했으나 응답이 약 764KB이고 `OnlineStore` JSON-LD만 제공 | `manual_candidate` — 대용량 Imweb 본문을 자동 수집하지 않고 수동 재확인 |
+| `xn--2z1b33o18ft2cdrq3lc.com` | 공식 법인·서울 서초 소재와 대표 전화, robots 전체 허용을 확인했으나 지원 가능한 JSON-LD가 없음 | `manual_candidate` — 사이트별 DOM 파서를 만들지 않고 수동 재확인 |
 
-보류 출처는 `sources.toml`에 넣지 않으며 자동으로 요청하지 않는다.
+위 후보는 모두 `sources.toml`에 넣지 않으며 자동으로 요청하지 않는다.
+2026-07-24 추가 묶음은 공개 홈페이지를 한 번씩 확인하고 상담 폼, 사례
+본문과 이미지를 수집 대상에서 제외했다. `manual_candidate`도 등록 승인이
+아니며 실제 입력 직전에 공식성, 대표번호, 한 개의 정확한 사무소 주소와
+이용 조건을 다시 확인한다.
 
-공식 운영 주체와 최소 사실 필드를 사람이 확인할 수 있는 보류 후보는
+공식 운영 주체와 최소 사실 필드를 사람이 재확인한 `manual_candidate`는
 인증된 관리자 화면 `/admin/reviews/new`에서 고위험 신규 검수 후보로 등록할
-수 있다. 이 경로도 업체를 자동 생성·공개하지 않으며 제출자 ID와 출처 URL을
-감사 정보로 남긴다. 이용 조건·공식성·필수 필드를 확인하지 못한 후보는 수동
-등록도 하지 않는다.
+수 있다. 등록자는 정확한 한 개 사무소임과 사건·상담·개인 연락처 등
+민감정보가 없음을 필수 확인한다. 이 경로도 업체를 자동 생성·공개하지 않으며
+제출자 ID와 출처 URL을 감사 정보로 남긴다. 이용 조건·공식성·필수 필드를
+확인하지 못한 후보는 수동 등록도 하지 않는다.
 
 ## 5. 재검토
 
