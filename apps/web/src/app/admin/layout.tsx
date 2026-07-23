@@ -26,12 +26,18 @@ export default async function AdminLayout({
               <Link href="/admin/reviews" className="font-bold tracking-[-0.02em]">
                 운영 관리자
               </Link>
-              <nav aria-label="관리자 메뉴">
+              <nav aria-label="관리자 메뉴" className="flex items-center gap-4">
                 <Link
                   href="/admin/reviews"
                   className="text-sm font-semibold text-slate-300 hover:text-white"
                 >
                   검수 대기열
+                </Link>
+                <Link
+                  href="/admin/reviews/new"
+                  className="text-sm font-semibold text-slate-300 hover:text-white"
+                >
+                  후보 등록
                 </Link>
               </nav>
             </div>

@@ -1,0 +1,1 @@
+ALTER TABLE "review_items" ADD COLUMN "submitted_by_actor_id" text;

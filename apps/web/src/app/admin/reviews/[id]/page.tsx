@@ -146,6 +146,7 @@ export default async function ReviewDetailPage({
   const extractedValues = presentReviewValues(item.collection?.extractedValues);
   const normalizedValues = presentReviewValues(item.collection?.normalizedValues);
   const error = readSingle(query.error);
+  const result = readSingle(query.result);
   const canDecide = item.status === "pending" || item.status === "on_hold";
   const isCorrection =
     item.type === "correction_request" && item.office !== null;
@@ -225,6 +226,28 @@ export default async function ReviewDetailPage({
           >
             {errorMessages[error] ?? "검수 결정을 저장하지 못했습니다."}
           </div>
+        )}
+
+        {result === "created" && (
+          <div
+            role="status"
+            className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-900"
+          >
+            신규 업체 후보를 등록했습니다. 원문과 제안값을 대조한 뒤 검수
+            결정을 저장하세요.
+          </div>
+        )}
+
+        {item.submittedByActorId && (
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
+            <h2 className="text-lg font-bold">수동 제출 감사 정보</h2>
+            <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-[9rem_1fr]">
+              <dt className="font-semibold text-slate-500">제출자 ID</dt>
+              <dd className="break-all font-mono text-slate-900">
+                {item.submittedByActorId}
+              </dd>
+            </dl>
+          </section>
         )}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">

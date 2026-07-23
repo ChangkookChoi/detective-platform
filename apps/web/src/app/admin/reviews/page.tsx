@@ -84,9 +84,17 @@ export default async function ReviewQueuePage({
               표시합니다.
             </p>
           </div>
-          <p className="rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm">
-            {items.length}건
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm">
+              {items.length}건
+            </p>
+            <Link
+              href="/admin/reviews/new"
+              className="rounded-full bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-sky-900"
+            >
+              신규 후보 등록
+            </Link>
+          </div>
         </div>
 
         {result && (

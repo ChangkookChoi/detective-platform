@@ -326,6 +326,7 @@ export const reviewItems = pgTable(
     previousValues: jsonb("previous_values"),
     proposedValues: jsonb("proposed_values").notNull(),
     cause: text("cause").notNull(),
+    submittedByActorId: text("submitted_by_actor_id"),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     ...timestamps,
   },

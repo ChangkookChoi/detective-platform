@@ -6,7 +6,8 @@ Clerk로 관리자 신원과 세션을 확인하고, 서버 전용 allowlist로 
 
 ## 2. 역할
 
-- `reviewer`: 검수 대기열 조회, 공개 승인, 보류와 반려
+- `reviewer`: 검수 대기열 조회, 공식 출처 수동 후보 등록, 공개 승인,
+  보류와 반려
 - `admin`: `reviewer` 권한 포함. 향후 정책 예외, 광고와 대량 작업 권한을 추가할 수 있음
 
 역할은 Clerk 사용자 ID로 판정한다. 이메일과 표시 이름은 역할 판정이나 감사 식별자로 사용하지 않는다.
@@ -36,7 +37,11 @@ Clerk로 관리자 신원과 세션을 확인하고, 서버 전용 allowlist로 
 8. `http://localhost:3000/sign-in` 로그인과 `/admin/reviews` 접근을 확인한다. Clerk Development에서는 `127.0.0.1` 대신 `localhost`를 사용한다.
 9. 허용되지 않은 로그인 계정이 관리자 데이터에 접근하지 못하는지 확인한다.
 10. 승인 전 파일럿 검수 상세에서 원문 URL·수집값·제안값을 비교한다.
-11. 보류 또는 반려 같은 비공개 결정을 먼저 시험하고 `review_actions.actor_id`에 Clerk 사용자 ID가 기록되는지 확인한다. 공개 승인은 별도 사람 검증 후 수행한다.
+11. 보류 또는 반려 같은 비공개 결정을 먼저 시험하고
+    `review_actions.actor_id`에 Clerk 사용자 ID가 기록되는지 확인한다.
+12. `/admin/reviews/new`에서 공식 출처 수동 후보를 등록할 때
+    `review_items.submitted_by_actor_id`에 같은 사용자 ID가 기록되고 운영
+    업체가 생성되지 않는지 확인한다. 공개 승인은 별도 사람 검증 후 수행한다.
 
 Restricted 설정과 Hobby 기능 범위는 [Clerk Restrictions 공식 문서](https://clerk.com/docs/guides/secure/restricting-access), [로그인 방식 공식 문서](https://clerk.com/docs/guides/configure/auth-strategies/sign-up-sign-in-options)와 [Clerk 요금표](https://clerk.com/pricing)를 기준으로 한다.
 
@@ -92,5 +97,9 @@ UI 메뉴 숨김이나 Layout 검사만으로 Server Action을 보호하지 않�
 - 서버 전용 역할 판정, 관리자 Page·Server Action 중복 권한 검사와 감사 처리자 저장은 합성 ID로 검증했다.
 - 환경 사전검증과 `.clerk` 비밀 제외 규칙을 준비했다.
 - Clerk Hobby Development의 실제 `test` 키 조합과 관리자 한 명의 역할 설정은 사전검증을 통과했다.
-- 공개 홈·로그인과 로그아웃 관리자 리디렉션은 확인했으며 실제 Google 로그인 세션과 관리자 대기열 접근은 사용자 브라우저 확인 전이다.
-- 실제 인증 전까지 파일럿 검수 후보는 `pending`·비공개로 유지한다.
+- 실제 Google 로그인으로 관리자 대기열·상세에 접근하고 파일럿 후보를
+  `on_hold`로 처리했다. 감사 이력의 처리자 ID가 로그인한 allowlist 관리자
+  ID와 일치하고 운영 업체 0건을 유지함을 DB에서 확인했다.
+- 수동 후보 등록은 서버 재인증, 제출자 ID 저장, URL·필드 검증, 미처리
+  중복 차단과 운영 업체 불변을 PostgreSQL 통합 검증으로 확인했다. 실제
+  브라우저 폼 제출의 시각·상호작용 확인은 남아 있다.

@@ -88,6 +88,7 @@ npm --prefix "$WEB_DIR" run db:seed
 npm --prefix "$WEB_DIR" run db:seed
 npm --prefix "$WEB_DIR" run db:verify
 npm --prefix "$WEB_DIR" run db:verify-publication
+npm --prefix "$WEB_DIR" run db:verify-manual-candidates
 npm --prefix "$WEB_DIR" run db:verify-analytics
 npm --prefix "$WEB_DIR" run db:verify-corrections
 "$PG_BIN/psql" \

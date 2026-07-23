@@ -71,8 +71,19 @@
 | `daok.kr` | robots 전체 허용은 확인했으나 지원 가능한 JSON-LD가 없음 | `deferred` — 사이트별 DOM 파서를 만들지 않음 |
 | `www.apmtwo.com` | robots는 공개 경로를 허용하지만 `OnlineStore` JSON-LD 주소가 `-`로 제공되어 운영 정보 후보로 부적합 | `deferred` — 화면 본문을 별도 파싱하지 않음 |
 | `xn--jk1bs41btlgz1e.com` | `robots.txt`가 404이고 지원 가능한 JSON-LD가 없음 | `deferred` — 허용과 구조가 모두 불명확 |
+| `sonamoo.or.kr` | 공식 사업자 표기와 경기 화성 소재지는 확인했으나 정책 실행 환경에서 DNS 재확인이 불가능함 | `deferred` — 자동 등록하지 않고 수동 후보 검토 |
+| `tamjung.mgdetective.co.kr` | 공개 경로의 robots 허용은 확인했으나 지원 가능한 사업체 JSON-LD가 없음 | `deferred` — 공식 원문을 수동 후보로 검토 |
+| `htamjung.com` | 공식 사업자 표기와 경기 안산 소재지는 확인했으나 정책 실행 환경에서 DNS 재확인이 불가능함 | `deferred` — 자동 등록하지 않고 수동 후보 검토 |
+| `jeongtam.com` | 공식 사업자 표기와 경기 화성 소재지는 확인했으나 유효한 robots 정책과 지원 JSON-LD가 없음 | `deferred` — 공식 원문을 수동 후보로 검토 |
+| `xn--m01bq5ku5ay6xjtk.com` | 공개 경로의 robots 허용은 확인했으나 JSON-LD 유형이 현재 지원 범위 밖임 | `deferred` — 공식 원문을 수동 후보로 검토 |
 
 보류 출처는 `sources.toml`에 넣지 않으며 자동으로 요청하지 않는다.
+
+공식 운영 주체와 최소 사실 필드를 사람이 확인할 수 있는 보류 후보는
+인증된 관리자 화면 `/admin/reviews/new`에서 고위험 신규 검수 후보로 등록할
+수 있다. 이 경로도 업체를 자동 생성·공개하지 않으며 제출자 ID와 출처 URL을
+감사 정보로 남긴다. 이용 조건·공식성·필수 필드를 확인하지 못한 후보는 수동
+등록도 하지 않는다.
 
 ## 5. 재검토
 
