@@ -19,7 +19,7 @@
 
 ## 3. 설정
 
-[`../../services/collector/sources.example.toml`](../../services/collector/sources.example.toml)을 참고해 실제 정책 파일을 만든다. 정책 파일은 공개 접근 규칙이므로 커밋할 수 있지만 DB URL, 토큰이나 세션 값은 넣지 않는다.
+[`../../services/collector/sources.example.toml`](../../services/collector/sources.example.toml)을 참고해 실제 정책 파일을 만들고 판단 근거를 [SOURCE_REGISTRY.md](SOURCE_REGISTRY.md)에 남긴다. 승인된 파일럿 정책은 [`../../services/collector/sources.toml`](../../services/collector/sources.toml)에 등록한다. 정책 파일은 공개 접근 규칙이므로 커밋할 수 있지만 DB URL, 토큰이나 세션 값은 넣지 않는다.
 
 필수 제한:
 
@@ -48,7 +48,9 @@ uv run python main.py validate-config --config sources.toml
 ```bash
 cd services/collector
 DATABASE_URL='postgresql://...' \
-  uv run python main.py run --config sources.toml --source approved-source-name
+  uv run python main.py run \
+    --config sources.toml \
+    --source mugunghwa-detective-official-pilot
 ```
 
 ## 5. 결과 판정
@@ -76,7 +78,7 @@ DATABASE_URL='postgresql://...' \
 
 ## 7. 배포 전 남은 결정
 
-- 실제 출처별 이용 조건·robots 검토와 정책 파일
+- 등록 출처 외 후보의 이용 조건·robots 검토와 정책 파일
 - 수집기 전용 최소 권한 DB 역할과 네트워크 경계
 - 예약 실행 방식, 알림 기준과 재검증 주기
 - 수집 레코드·검수 이력 보존 기간

@@ -19,6 +19,27 @@ class SourceConfigTest(unittest.TestCase):
         policies = load_source_policies(path)
         self.assertEqual(list(policies), ["replace-with-approved-source"])
 
+    def test_registered_pilot_source_is_minimal_and_valid(self) -> None:
+        path = Path(__file__).parents[1] / "sources.toml"
+        policies = load_source_policies(path)
+        policy = policies["mugunghwa-detective-official-pilot"]
+
+        self.assertEqual(len(policy.start_urls), 1)
+        self.assertEqual(
+            policy.allowed_hosts, ("xn--mugunghwa-jd13bo06c.com",)
+        )
+        self.assertEqual(policy.allowed_path_prefixes, ("/",))
+        self.assertEqual(
+            policy.allowed_fields,
+            frozenset({"name", "telephone", "address"}),
+        )
+        self.assertEqual(
+            policy.allowed_schema_types, frozenset({"ProfessionalService"})
+        )
+        self.assertEqual(policy.request_interval_seconds, 10.0)
+        self.assertEqual(policy.retry.max_attempts, 2)
+        self.assertEqual(policy.max_response_bytes, 100_000)
+
     def test_rejects_source_without_robots_approval(self) -> None:
         document = (Path(__file__).parents[1] / "sources.example.toml").read_text(
             encoding="utf-8"

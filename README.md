@@ -6,7 +6,7 @@
 
 ## 현재 단계
 
-현재 저장소는 **핵심 MVP 기능 구현 단계**입니다. PostgreSQL 초기 스키마·migration·seed, 공개 업체 검색·상세·정정 요청, 신규·변경·정정 후보의 관리자 승인, 개인정보 최소화 일별 분석 집계와 정책 기반 Python 수집기를 구현했습니다. 실제 출처·업체 데이터, 지속형 개발·운영 DB와 운영 배포는 아직 준비 전입니다. 최신 진행 상황은 [docs/STATUS.md](docs/STATUS.md)를 기준으로 확인합니다.
+현재 저장소는 **핵심 MVP 기능 구현 단계**입니다. PostgreSQL 초기 스키마·migration·seed, 공개 업체 검색·상세·정정 요청, 신규·변경·정정 후보의 관리자 승인, 개인정보 최소화 일별 분석 집계와 정책 기반 Python 수집기를 구현했습니다. 공식 홈페이지 한 곳의 단일 페이지·사실 필드 파일럿 정책을 등록했지만 실제 업체 데이터 수집, 지속형 개발·운영 DB와 운영 배포는 아직 준비 전입니다. 최신 진행 상황은 [docs/STATUS.md](docs/STATUS.md)를 기준으로 확인합니다.
 
 ## MVP
 
@@ -78,6 +78,7 @@ PostgreSQL 17 이상이 설치된 환경에서는 저장소 루트에서 임시 
 cd services/collector
 uv sync
 uv run python main.py validate-config --config sources.example.toml
+uv run python main.py validate-config --config sources.toml
 ```
 
 실제 출처 등록과 실행은 [수집기 운영 절차](docs/operations/COLLECTOR_RUNBOOK.md)를 따릅니다. 비밀값은 커밋하지 않고 필요한 키는 `.env.example`에 이름과 설명만 추가합니다.
@@ -86,7 +87,7 @@ uv run python main.py validate-config --config sources.example.toml
 
 - 제품: [PRD](docs/product/PRD.md), [MVP 범위](docs/product/MVP_SCOPE.md), [사용자 흐름](docs/product/USER_FLOWS.md)
 - 설계: [아키텍처](docs/architecture/ARCHITECTURE.md), [데이터 모델](docs/architecture/DATA_MODEL.md), [API 규칙](docs/architecture/API_CONVENTIONS.md)
-- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [수집기 절차](docs/operations/COLLECTOR_RUNBOOK.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [관리자 인증](docs/operations/ADMIN_AUTH.md), [최소 분석](docs/operations/ANALYTICS.md), [지역 seed](docs/operations/REGION_SEED.md), [로컬 PostgreSQL](docs/operations/LOCAL_DATABASE.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
+- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [출처 등록부](docs/operations/SOURCE_REGISTRY.md), [수집기 절차](docs/operations/COLLECTOR_RUNBOOK.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [관리자 인증](docs/operations/ADMIN_AUTH.md), [최소 분석](docs/operations/ANALYTICS.md), [지역 seed](docs/operations/REGION_SEED.md), [로컬 PostgreSQL](docs/operations/LOCAL_DATABASE.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
 - 결정: [ADR-0001](docs/decisions/ADR-0001-monorepo.md), [ADR-0002](docs/decisions/ADR-0002-nextjs-monolith.md), [ADR-0003](docs/decisions/ADR-0003-postgresql.md), [ADR-0004](docs/decisions/ADR-0004-drizzle-orm.md), [ADR-0005](docs/decisions/ADR-0005-clerk-admin-auth.md), [ADR-0006](docs/decisions/ADR-0006-privacy-minimal-analytics.md), [ADR-0007](docs/decisions/ADR-0007-python-collector-foundation.md)
 
 ## 작업 원칙

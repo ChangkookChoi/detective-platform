@@ -1,0 +1,32 @@
+# 공개 사실 필드만 수집하는 1개 상세 페이지 파일럿 정책입니다.
+# 근거와 제외 후보는 docs/operations/SOURCE_REGISTRY.md를 확인합니다.
+
+[[sources]]
+name = "mugunghwa-detective-official-pilot"
+adapter = "jsonld_local_business"
+extractor_version = "jsonld-v1"
+start_urls = ["https://xn--mugunghwa-jd13bo06c.com/"]
+allowed_hosts = ["xn--mugunghwa-jd13bo06c.com"]
+allowed_path_prefixes = ["/"]
+allowed_fields = ["name", "telephone", "address"]
+allowed_schema_types = ["ProfessionalService"]
+policy_checked_by = "codex-assisted-review"
+policy_checked_at = 2026-07-23
+robots_checked_by = "codex-assisted-review"
+robots_checked_at = 2026-07-23
+robots_allowed = true
+user_agent = "DetectivePlatformCollector/0.1 (+https://github.com/ChangkookChoi/detective-platform/issues)"
+request_interval_seconds = 10.0
+max_response_bytes = 100000
+max_redirects = 1
+
+[sources.timeout]
+connect_seconds = 5.0
+read_seconds = 10.0
+write_seconds = 5.0
+pool_seconds = 5.0
+
+[sources.retry]
+max_attempts = 2
+initial_backoff_seconds = 2.0
+max_backoff_seconds = 8.0

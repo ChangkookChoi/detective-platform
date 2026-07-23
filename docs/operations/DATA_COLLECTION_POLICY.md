@@ -27,6 +27,7 @@
 정책이 바뀌거나 차단 신호가 나타나면 해당 어댑터를 중지하고 재검토한다.
 
 구현상 출처 등록 형식과 실행·중단 절차는 [COLLECTOR_RUNBOOK.md](COLLECTOR_RUNBOOK.md)를 따른다. 설정 파일 검증 통과는 이용약관·robots·법적 허용 검토를 대신하지 않는다.
+실제 후보의 확인 근거, 허용·보류 상태와 재검토 기한은 [SOURCE_REGISTRY.md](SOURCE_REGISTRY.md)에 기록한다.
 
 ## 4. 실행 규칙
 
