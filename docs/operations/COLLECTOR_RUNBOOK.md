@@ -71,7 +71,14 @@ DATABASE_URL="$COLLECTOR_DATABASE_URL" \
 
 검수 항목은 상호·전화·주소 변경과 신규 업체를 `high`, 설명 변경을 `medium` 위험도로 만든다. 누락 필드는 운영값 삭제 제안으로 변환하지 않으며 동일 해시를 다시 수집해도 중복 검수 항목을 만들지 않는다.
 
-2026-07-23 등록 파일럿 최초 개발 실행은 최소 권한 역할로 `succeeded`, 발견 1건, 수집 1건, 실패 0건, `pending/new_office/high` 검수 1건을 기록했다. 운영 업체 행은 생성하지 않았으며 인증된 관리자 검수와 공개 승인은 수행하지 않았다. 실행별 상세 사실은 [SOURCE_REGISTRY.md](SOURCE_REGISTRY.md)에 기록한다.
+2026-07-23 등록 파일럿 최초 개발 실행은 최소 권한 역할로 `succeeded`,
+발견 1건, 수집 1건, 실패 0건, `pending/new_office/high` 검수 1건을
+기록했다. 이 후보는 실제 관리자 검수에서 주소 지역명 중복 결함으로
+`on_hold` 처리했다. 주소 정규화를 수정한 `jsonld-v2` 첫 실행은 이전
+버전의 조건부 요청 메타데이터를 재사용하지 않고 원문을 다시 수집해 교정된
+`pending/new_office/high` 후보 1건을 만들었다. 두 실행 모두 운영 업체
+행은 생성하지 않았다. 실행별 상세 사실은
+[SOURCE_REGISTRY.md](SOURCE_REGISTRY.md)에 기록한다.
 
 ## 6. 중단과 장애 대응
 
