@@ -110,7 +110,14 @@ class CollectorIntegrationTest(unittest.TestCase):
         cls.connection.execute("DELETE FROM offices WHERE id = %s", (OFFICE_ID,))
         cls.connection.execute("DELETE FROM regions WHERE id = %s", (REGION_ID,))
 
-    def _run(self, url: str, html: bytes, etag: str) -> tuple[object, list[str | None]]:
+    def _run(
+        self,
+        url: str,
+        html: bytes,
+        etag: str,
+        *,
+        extractor_version: str | None = None,
+    ) -> tuple[object, list[str | None]]:
         conditional_headers: list[str | None] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -121,6 +128,8 @@ class CollectorIntegrationTest(unittest.TestCase):
             source_policy(),
             name=SOURCE_NAME,
             start_urls=(url,),
+            extractor_version=extractor_version
+            or source_policy().extractor_version,
         )
 
         def client_factory(item):
@@ -151,6 +160,17 @@ class CollectorIntegrationTest(unittest.TestCase):
         self.assertEqual(first.status, "succeeded")
         self.assertEqual(first.review_count, 0)
         self.assertEqual(first_headers, [None])
+
+        version_changed, version_changed_headers = self._run(
+            MATCHED_URL,
+            initial,
+            '"v1-jsonld-v2"',
+            extractor_version="jsonld-v2",
+        )
+        self.assertEqual(version_changed.status, "succeeded")
+        self.assertEqual(version_changed.review_count, 0)
+        self.assertEqual(version_changed.unchanged_count, 0)
+        self.assertEqual(version_changed_headers, [None])
 
         changed = _html(
             "existing-office",

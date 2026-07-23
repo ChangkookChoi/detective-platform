@@ -4,7 +4,7 @@
 [[sources]]
 name = "mugunghwa-detective-official-pilot"
 adapter = "jsonld_local_business"
-extractor_version = "jsonld-v1"
+extractor_version = "jsonld-v2"
 start_urls = ["https://xn--mugunghwa-jd13bo06c.com/"]
 allowed_hosts = ["xn--mugunghwa-jd13bo06c.com"]
 allowed_path_prefixes = ["/"]

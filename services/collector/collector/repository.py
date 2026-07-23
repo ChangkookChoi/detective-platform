@@ -86,11 +86,17 @@ class CollectorRepository:
                 ON run.id = record.collection_run_id
             WHERE run.source_name = %s
               AND run.adapter_name = %s
+              AND run.extractor_version = %s
               AND record.source_record_key = %s
             ORDER BY record.collected_at DESC, record.id DESC
             LIMIT 1
             """,
-            (policy.name, policy.adapter, source_record_key),
+            (
+                policy.name,
+                policy.adapter,
+                policy.extractor_version,
+                source_record_key,
+            ),
         ).fetchone()
         if row is None:
             return None
@@ -111,11 +117,17 @@ class CollectorRepository:
                 ON run.id = record.collection_run_id
             WHERE run.source_name = %s
               AND run.adapter_name = %s
+              AND run.extractor_version = %s
               AND record.source_url = %s
             ORDER BY record.collected_at DESC, record.id DESC
             LIMIT 1
             """,
-            (policy.name, policy.adapter, source_url),
+            (
+                policy.name,
+                policy.adapter,
+                policy.extractor_version,
+                source_url,
+            ),
         ).fetchone()
         if row is None:
             return None

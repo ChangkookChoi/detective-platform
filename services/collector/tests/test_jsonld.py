@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from collector.adapters import JsonLdLocalBusinessAdapter
-from collector.normalize import normalize_record
+from collector.normalize import normalize_address, normalize_record
 from tests.helpers import source_policy
 
 
@@ -29,6 +29,18 @@ class JsonLdAdapterTest(unittest.TestCase):
             "01234 서울특별시 강남구 테헤란로 1",
         )
         self.assertEqual(len(normalized.content_hash), 64)
+
+    def test_address_normalization_avoids_repeating_full_street_address(self) -> None:
+        self.assertEqual(
+            normalize_address(
+                {
+                    "postalCode": "01000",
+                    "addressLocality": "서울",
+                    "streetAddress": "서울특별시 강북구 도봉로 191",
+                }
+            ),
+            "01000 서울특별시 강북구 도봉로 191",
+        )
 
     def test_ignores_malformed_jsonld_and_unapproved_types(self) -> None:
         html = b"""

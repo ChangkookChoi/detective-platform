@@ -1,7 +1,7 @@
 [[sources]]
 name = "replace-with-approved-source"
 adapter = "jsonld_local_business"
-extractor_version = "jsonld-v1"
+extractor_version = "jsonld-v2"
 start_urls = ["https://example.invalid/offices/sample"]
 allowed_hosts = ["example.invalid"]
 allowed_path_prefixes = ["/offices/"]

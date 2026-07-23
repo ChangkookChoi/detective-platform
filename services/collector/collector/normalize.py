@@ -36,10 +36,17 @@ def normalize_address(value: object) -> str | None:
     if not isinstance(value, dict):
         return None
 
-    parts: list[str] = []
-    for key in ("postalCode", "addressRegion", "addressLocality", "streetAddress"):
-        part = normalize_text(value.get(key))
-        if part and part not in parts:
+    postal_code = normalize_text(value.get("postalCode"))
+    address_parts = [
+        part
+        for key in ("addressRegion", "addressLocality", "streetAddress")
+        if (part := normalize_text(value.get(key)))
+    ]
+    parts = [postal_code] if postal_code else []
+    for index, part in enumerate(address_parts):
+        if any(part in later_part for later_part in address_parts[index + 1 :]):
+            continue
+        if part not in parts:
             parts.append(part)
     return " ".join(parts) or None
 
