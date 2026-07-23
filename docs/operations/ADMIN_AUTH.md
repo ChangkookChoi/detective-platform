@@ -28,16 +28,17 @@ Clerk로 관리자 신원과 세션을 확인하고, 서버 전용 allowlist로 
 
 1. 개발·미리보기·운영 환경을 구분해 Clerk 애플리케이션과 키를 준비한다. 개발·미리보기에는 `pk_test_`·`sk_test_`, 운영에는 `pk_live_`·`sk_live_` 키를 같은 인스턴스에서 발급한다.
 2. Clerk Dashboard의 Restrictions에서 sign-up mode를 `Restricted`로 설정한다. 공개 셀프 가입은 허용하지 않고 운영자가 초대하거나 직접 만든 계정만 사용한다.
-3. Multi-factor에서 TOTP 등 사용할 방식을 활성화하고 `Require multi-factor authentication`을 켠다.
-4. 관리자 계정을 초대하거나 직접 만들고 MFA 등록을 완료한다.
-5. Clerk 사용자 ID를 역할별 allowlist에 추가한다. 같은 ID가 두 목록에 있으면 `admin`을 우선하지만 불필요한 중복 등록은 피한다.
-6. 아래 사전검증을 통과한 뒤 개발 서버를 다시 시작한다.
-7. `/sign-in` 로그인과 `/admin/reviews` 접근을 확인한다.
-8. 허용되지 않은 로그인 계정이 관리자 데이터에 접근하지 못하는지 확인한다.
-9. 승인 전 파일럿 검수 상세에서 원문 URL·수집값·제안값을 비교한다.
-10. 보류 또는 반려 같은 비공개 결정을 먼저 시험하고 `review_actions.actor_id`에 Clerk 사용자 ID가 기록되는지 확인한다. 공개 승인은 별도 사람 검증 후 수행한다.
+3. Hobby 범위의 Google 소셜 로그인만 사용하고 Password, 이메일 코드·링크, Phone/SMS, Passkey와 Clerk MFA는 활성화하지 않는다.
+4. 관리자 Google 계정에서 2단계 인증 또는 패스키를 활성화하고 복구 수단과 로그인 기기를 점검한다. 이 통제는 Google 계정 정책이며 Clerk나 애플리케이션이 수행 여부를 증명하지는 않는다.
+5. Restricted 상태에서 관리자 Google 계정을 초대하고 로그인한다.
+6. Clerk 사용자 ID를 역할별 allowlist에 추가한다. 같은 ID가 두 목록에 있으면 `admin`을 우선하지만 불필요한 중복 등록은 피한다.
+7. 아래 사전검증을 통과한 뒤 개발 서버를 다시 시작한다.
+8. `http://localhost:3000/sign-in` 로그인과 `/admin/reviews` 접근을 확인한다. Clerk Development에서는 `127.0.0.1` 대신 `localhost`를 사용한다.
+9. 허용되지 않은 로그인 계정이 관리자 데이터에 접근하지 못하는지 확인한다.
+10. 승인 전 파일럿 검수 상세에서 원문 URL·수집값·제안값을 비교한다.
+11. 보류 또는 반려 같은 비공개 결정을 먼저 시험하고 `review_actions.actor_id`에 Clerk 사용자 ID가 기록되는지 확인한다. 공개 승인은 별도 사람 검증 후 수행한다.
 
-Restrictions와 MFA 설정은 [Clerk Restrictions 공식 문서](https://clerk.com/docs/authentication/allowlist)와 [Clerk MFA 공식 문서](https://clerk.com/docs/guides/configure/auth-strategies/sign-up-sign-in-options)를 기준으로 한다.
+Restricted 설정과 Hobby 기능 범위는 [Clerk Restrictions 공식 문서](https://clerk.com/docs/guides/secure/restricting-access), [로그인 방식 공식 문서](https://clerk.com/docs/guides/configure/auth-strategies/sign-up-sign-in-options)와 [Clerk 요금표](https://clerk.com/pricing)를 기준으로 한다.
 
 ## 5. 환경 사전검증
 
@@ -66,7 +67,7 @@ npm run auth:validate-config -- --environment=development
 - 올바른 `user_` 형식과 중복 없는 역할 ID
 - 최소 한 명의 `admin`
 
-사전검증은 Clerk 네트워크에 접속하거나 키 활성 상태, Restricted mode, MFA 설정과 실제 사용자를 확인하지 않는다. 이 항목은 Dashboard 확인과 실제 로그인 시험으로 별도 검증한다.
+사전검증은 Clerk 네트워크에 접속하거나 키 활성 상태, Restricted mode, Google 로그인 설정·계정 2단계 인증과 실제 사용자를 확인하지 않는다. 이 항목은 Dashboard 확인과 실제 로그인 시험으로 별도 검증한다.
 
 ## 6. 권한 검사 위치
 
@@ -81,6 +82,8 @@ UI 메뉴 숨김이나 Layout 검사만으로 Server Action을 보호하지 않�
 
 - 퇴사·역할 변경 시 Clerk 세션을 해지하고 allowlist에서 즉시 제거한다.
 - 키 노출이 의심되면 환경별 키를 회전하고 관련 세션과 로그를 확인한다.
+- 관리자 Google 계정은 2단계 인증 또는 패스키와 개인별 계정을 사용하며 공유 계정을 금지한다.
+- 관리자 작업을 마친 공용·비신뢰 기기에서는 Clerk와 Google 세션을 로그아웃한다.
 - 로그인 실패, 권한 거부와 비정상적인 대량 결정은 민감값 없이 모니터링한다.
 - 역할 allowlist가 자주 바뀌거나 운영 인원이 늘면 Clerk 조직 역할 또는 애플리케이션 역할 테이블을 검토한다.
 
@@ -88,5 +91,6 @@ UI 메뉴 숨김이나 Layout 검사만으로 Server Action을 보호하지 않�
 
 - 서버 전용 역할 판정, 관리자 Page·Server Action 중복 권한 검사와 감사 처리자 저장은 합성 ID로 검증했다.
 - 환경 사전검증과 `.clerk` 비밀 제외 규칙을 준비했다.
-- 실제 Clerk 프로젝트·키, Restricted mode, MFA와 관리자 계정은 아직 준비되지 않았다.
+- Clerk Hobby Development의 실제 `test` 키 조합과 관리자 한 명의 역할 설정은 사전검증을 통과했다.
+- 공개 홈·로그인과 로그아웃 관리자 리디렉션은 확인했으며 실제 Google 로그인 세션과 관리자 대기열 접근은 사용자 브라우저 확인 전이다.
 - 실제 인증 전까지 파일럿 검수 후보는 `pending`·비공개로 유지한다.
