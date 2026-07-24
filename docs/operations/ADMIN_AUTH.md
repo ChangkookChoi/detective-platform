@@ -75,6 +75,19 @@ npm run auth:validate-config -- --environment=development
 
 사전검증은 Clerk 네트워크에 접속하거나 키 활성 상태, Restricted mode, Google 로그인 설정·계정 2단계 인증과 실제 사용자를 확인하지 않는다. 이 항목은 Dashboard 확인과 실제 로그인 시험으로 별도 검증한다.
 
+실제 개발 DB의 검수 결과를 확인할 때는 출처 이름을 명시한 읽기 전용 명령을
+사용한다.
+
+```bash
+cd apps/web
+npm run db:inspect-review-state -- \
+  --source=mugunghwa-detective-official-pilot
+```
+
+이 명령은 검수·수집 실행 ID, 추출기 버전, 상태, 감사 작업 수, 처리자가 현재
+역할 설정에 포함되는지와 상태별 업체 수만 출력한다. 수집값·제안값,
+전화·주소와 Clerk 사용자 ID는 출력하지 않으며 데이터를 변경하지 않는다.
+
 ## 6. 권한 검사 위치
 
 - `src/proxy.ts`: 요청에서 Clerk 인증 상태를 사용할 수 있게 한다. 단독 보안 경계로 사용하지 않는다.
@@ -105,3 +118,8 @@ UI 메뉴 숨김이나 Layout 검사만으로 Server Action을 보호하지 않�
   민감정보 미포함 필수 확인, URL·필드 검증, 미처리 중복 차단과 운영 업체
   불변을 PostgreSQL 통합 검증으로 확인했다. 실제 브라우저 폼 제출의
   시각·상호작용 확인은 남아 있다.
+- 출처별 실제 검수 상태와 감사 처리자 권한 여부를 민감한 업체값·사용자 ID
+  없이 재확인하는 읽기 전용 점검 명령을 준비했다.
+- 지속형 개발 DB를 현재 migration에 맞춘 뒤 파일럿 출처 점검에서 기존
+  `jsonld-v1` 보류 작업의 처리자 권한 유효, 교정 `jsonld-v2` 대기 유지와
+  운영 업체 0건을 확인했다.
