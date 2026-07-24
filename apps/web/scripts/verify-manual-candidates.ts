@@ -179,6 +179,40 @@ async function main() {
         error.existingReviewItemId === created.reviewItemId,
     );
 
+    const branch = await createManualOfficeCandidate({
+      actorId: "user_branch_verifier",
+      sourceUrl,
+      name: "가상 수동 후보 수원점",
+      phoneDisplay: "031-123-4567",
+      addressText: "경기도 수원시 다른로 2",
+      officialSourceConfirmed: true,
+      sensitiveContentConfirmed: true,
+    });
+    const [branchReview] = await db
+      .select({
+        status: reviewItems.status,
+        proposedValues: reviewItems.proposedValues,
+        submittedByActorId: reviewItems.submittedByActorId,
+      })
+      .from(reviewItems)
+      .where(eq(reviewItems.id, branch.reviewItemId))
+      .limit(1);
+    const officeCountAfterBranch = await db
+      .select({ count: offices.id })
+      .from(offices);
+
+    assert.notEqual(branch.reviewItemId, created.reviewItemId);
+    assert(branchReview);
+    assert.equal(branchReview.status, "pending");
+    assert.equal(branchReview.submittedByActorId, "user_branch_verifier");
+    assert.deepEqual(branchReview.proposedValues, {
+      name: "가상 수동 후보 수원점",
+      phoneDisplay: "031-123-4567",
+      phoneNormalized: "0311234567",
+      addressText: "경기도 수원시 다른로 2",
+    });
+    assert.equal(officeCountAfterBranch.length, officeCountBefore.length);
+
     console.log("Manual office candidate verification completed.");
   } finally {
     await cleanup();

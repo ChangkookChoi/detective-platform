@@ -14,7 +14,8 @@ type NewReviewPageProps = {
 };
 
 const errorMessages: Record<string, string> = {
-  duplicate: "같은 공식 출처 URL의 미처리 신규 후보가 이미 있습니다.",
+  duplicate:
+    "같은 공식 출처 URL과 소재지 주소의 미처리 신규 후보가 이미 있습니다.",
   invalid_actor: "로그인한 운영자 정보를 확인할 수 없습니다.",
   invalid_address: "주소는 공백을 제외하고 5~500자로 입력하세요.",
   invalid_name: "업체명은 공백을 제외하고 2~200자로 입력하세요.",

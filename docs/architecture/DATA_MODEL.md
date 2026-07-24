@@ -155,8 +155,9 @@
 정정 요청처럼 별도 제출자 신원이 없는 후보는 null이다. 수동 등록도
 `collection_runs`와 `collected_records`에 `manual_admin` 어댑터와
 `manual-v1` 버전, 공식 출처 URL과 최소 사실 필드를 기록하되 원문 전체는
-저장하지 않는다. 같은 URL의 `pending`·`on_hold` 신규 후보는 중복 생성하지
-않는다.
+저장하지 않는다. 같은 URL·주소의 `pending`·`on_hold` 신규 후보는 중복
+생성하지 않는다. 공식 페이지가 주소가 다른 복수 지점을 명확히 구분하면
+같은 URL을 출처로 공유하더라도 사무소별 검수 후보를 각각 저장할 수 있다.
 
 `correction_request`는 공개 업체에만 연결한다. `proposed_values`에는 선택한 핵심 필드의 제안값과 `requestedField`, `requesterRole`, 선택적 `evidenceUrl`만 저장하며 요청자 연락처, 사건·상담 내용과 개인 정보는 저장하지 않는다. `requesterRole`은 권한 증명이 아니고 `evidenceUrl`도 검증된 출처가 아니다. 승인할 때 운영자가 별도로 확인한 URL을 `office_sources`에 기록하고 실제 변경 필드만 `office_source_evidence`에 연결한다.
 

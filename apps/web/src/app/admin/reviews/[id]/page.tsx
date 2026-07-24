@@ -243,8 +243,8 @@ export default async function ReviewDetailPage({
             role="status"
             className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-950"
           >
-            같은 공식 출처 URL의 미처리 후보가 이미 있어 이 항목으로
-            이동했습니다. 새 후보를 만들지 않았습니다.
+            같은 공식 출처 URL과 소재지 주소의 미처리 후보가 이미 있어 이
+            항목으로 이동했습니다. 새 후보를 만들지 않았습니다.
           </div>
         )}
 

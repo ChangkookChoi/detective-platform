@@ -159,6 +159,7 @@ export async function createManualOfficeCandidate(
           eq(reviewItems.type, "new_office"),
           inArray(reviewItems.status, ["pending", "on_hold"]),
           eq(collectedRecords.sourceUrl, sourceUrl),
+          sql`${reviewItems.proposedValues}->>'addressText' = ${addressText}`,
         ),
       )
       .limit(1);
