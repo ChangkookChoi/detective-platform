@@ -48,6 +48,15 @@ brew install postgresql@17
 PG_TEST_PORT=55433 ./scripts/verify-local-postgres.sh
 ```
 
+논리 백업 생성부터 빈 DB 복원, 관계·제약 검증까지는 별도 리허설을 실행한다.
+
+```bash
+./scripts/verify-postgres-backup.sh
+```
+
+복구 목표, 보존·암호화와 운영 절차는
+[데이터베이스 백업·복구](DATABASE_BACKUP.md)를 따른다.
+
 ## 지속형 개발 DB
 
 목록·상세·검수 기능처럼 데이터가 실행 사이에 유지되어야 할 때 저장소 전용 로컬 클러스터를 사용한다.

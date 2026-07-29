@@ -86,6 +86,7 @@ PostgreSQL 17 이상이 설치된 환경에서는 저장소 루트에서 임시 
 
 ```bash
 ./scripts/verify-local-postgres.sh
+./scripts/verify-postgres-backup.sh
 ```
 
 실행 사이에 데이터를 유지하는 로컬 개발 DB는 별도 스크립트로 준비하고 제어합니다.
@@ -96,7 +97,7 @@ PostgreSQL 17 이상이 설치된 환경에서는 저장소 루트에서 임시 
 ./scripts/local-postgres.sh stop
 ```
 
-연결 역할과 재시작 절차는 [로컬 PostgreSQL 운영 문서](docs/operations/LOCAL_DATABASE.md)를 따릅니다.
+연결 역할과 재시작 절차는 [로컬 PostgreSQL 운영 문서](docs/operations/LOCAL_DATABASE.md)를 따릅니다. 백업·복구 목표와 리허설은 [데이터베이스 백업·복구 문서](docs/operations/DATABASE_BACKUP.md)를 따릅니다.
 
 ### 수집기
 
@@ -113,7 +114,7 @@ uv run python main.py validate-config --config sources.toml
 
 - 제품: [PRD](docs/product/PRD.md), [MVP 범위](docs/product/MVP_SCOPE.md), [사용자 흐름](docs/product/USER_FLOWS.md)
 - 설계: [아키텍처](docs/architecture/ARCHITECTURE.md), [데이터 모델](docs/architecture/DATA_MODEL.md), [API 규칙](docs/architecture/API_CONVENTIONS.md)
-- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [출처 등록부](docs/operations/SOURCE_REGISTRY.md), [수집기 절차](docs/operations/COLLECTOR_RUNBOOK.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [관리자 인증](docs/operations/ADMIN_AUTH.md), [최소 분석](docs/operations/ANALYTICS.md), [지역 seed](docs/operations/REGION_SEED.md), [로컬 PostgreSQL](docs/operations/LOCAL_DATABASE.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
+- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [출처 등록부](docs/operations/SOURCE_REGISTRY.md), [수집기 절차](docs/operations/COLLECTOR_RUNBOOK.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [관리자 인증](docs/operations/ADMIN_AUTH.md), [최소 분석](docs/operations/ANALYTICS.md), [지역 seed](docs/operations/REGION_SEED.md), [로컬 PostgreSQL](docs/operations/LOCAL_DATABASE.md), [데이터베이스 백업·복구](docs/operations/DATABASE_BACKUP.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
 - 결정: [ADR-0001](docs/decisions/ADR-0001-monorepo.md), [ADR-0002](docs/decisions/ADR-0002-nextjs-monolith.md), [ADR-0003](docs/decisions/ADR-0003-postgresql.md), [ADR-0004](docs/decisions/ADR-0004-drizzle-orm.md), [ADR-0005](docs/decisions/ADR-0005-clerk-admin-auth.md), [ADR-0006](docs/decisions/ADR-0006-privacy-minimal-analytics.md), [ADR-0007](docs/decisions/ADR-0007-python-collector-foundation.md)
 
 ## 작업 원칙
