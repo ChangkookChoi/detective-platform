@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 const steps = [
   ["01", "조건 선택", "사무소 소재 지역과 필요한 업무 분야를 선택합니다."],

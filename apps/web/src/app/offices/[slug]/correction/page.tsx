@@ -9,6 +9,7 @@ import { createCorrectionRequestAction } from "./actions";
 export const metadata: Metadata = {
   title: "업체 정보 수정 요청",
   description: "공개된 업체 정보의 오류를 운영자에게 알려 주세요.",
+  robots: { index: false, follow: false },
 };
 
 type CorrectionPageProps = {

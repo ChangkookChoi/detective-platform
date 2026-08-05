@@ -66,6 +66,11 @@ export type PublicOfficeDetail = PublicOfficeListItem & {
   }>;
 };
 
+export type PublicOfficeSitemapEntry = {
+  slug: string;
+  lastModified: Date;
+};
+
 type PublicOfficeFilters = {
   region?: string;
   category?: string;
@@ -309,6 +314,30 @@ export async function listPublicOffices(filters: PublicOfficeFilters = {}) {
       categories: categories.get(row.id) ?? [],
     }),
   );
+}
+
+export async function listPublicOfficeSitemapEntries(): Promise<
+  PublicOfficeSitemapEntry[]
+> {
+  const db = getDatabase();
+  const rows = await db
+    .select({
+      id: offices.id,
+      slug: offices.slug,
+      lastVerifiedAt: offices.lastVerifiedAt,
+    })
+    .from(offices)
+    .where(eq(offices.status, "published"))
+    .orderBy(asc(offices.slug));
+
+  return rows.map((row) => ({
+    slug: row.slug,
+    lastModified: requirePublishedValue(
+      row.lastVerifiedAt,
+      "lastVerifiedAt",
+      row.id,
+    ),
+  }));
 }
 
 export async function getPublicOfficeBySlug(

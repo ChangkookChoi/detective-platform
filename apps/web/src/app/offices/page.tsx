@@ -9,15 +9,24 @@ import {
   PublicDirectoryFilterError,
 } from "@/modules/directory/public-office-repository";
 
-export const metadata: Metadata = {
-  title: "업체 찾기",
-  description:
-    "서울·경기 지역과 업무 분야로 공개 승인된 탐정사무소 정보를 찾아보세요.",
-};
-
 type OfficesPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+export async function generateMetadata({
+  searchParams,
+}: OfficesPageProps): Promise<Metadata> {
+  const query = await searchParams;
+  const hasFilter = Boolean(query.region || query.category);
+
+  return {
+    title: "업체 찾기",
+    description:
+      "서울·경기 지역과 업무 분야로 공개 승인된 탐정사무소 정보를 찾아보세요.",
+    alternates: { canonical: "/offices" },
+    ...(hasFilter ? { robots: { index: false, follow: true } } : {}),
+  };
+}
 
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
   dateStyle: "medium",

@@ -8,6 +8,7 @@ import {
   TrackedPhoneLink,
 } from "@/modules/analytics/office-engagement";
 import { getPublicOfficeBySlug } from "@/modules/directory/public-office-repository";
+import { getAbsoluteUrl } from "@/modules/shared/site-url";
 
 const getOffice = cache(getPublicOfficeBySlug);
 const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
@@ -33,14 +34,28 @@ export async function generateMetadata({
   const office = await getOffice(slug);
 
   if (!office) {
-    return { title: "업체 정보를 찾을 수 없습니다" };
+    return {
+      title: "업체 정보를 찾을 수 없습니다",
+      robots: { index: false, follow: false },
+    };
   }
+
+  const description =
+    office.summary ??
+    `${office.region.name} ${office.name}의 주소, 전화번호, 업무 분야와 정보 출처를 확인하세요.`;
 
   return {
     title: office.name,
-    description:
-      office.summary ??
-      `${office.region.name} ${office.name}의 주소, 전화번호, 업무 분야와 정보 출처를 확인하세요.`,
+    description,
+    alternates: { canonical: `/offices/${office.slug}` },
+    openGraph: {
+      type: "website",
+      locale: "ko_KR",
+      siteName: "탐정사무소 정보 플랫폼",
+      title: office.name,
+      description,
+      url: `/offices/${office.slug}`,
+    },
   };
 }
 
@@ -54,8 +69,29 @@ export default async function OfficeDetailPage({
     notFound();
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": `${getAbsoluteUrl(`/offices/${office.slug}`)}#office`,
+    name: office.name,
+    url: getAbsoluteUrl(`/offices/${office.slug}`),
+    telephone: office.phoneDisplay,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: office.addressText,
+      addressCountry: "KR",
+    },
+    ...(office.summary ? { description: office.summary } : {}),
+  };
+
   return (
     <main className="flex-1">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
       <OfficeDetailViewTracker officeId={office.id} />
       <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-12">
         <nav aria-label="현재 위치" className="text-sm text-slate-500">

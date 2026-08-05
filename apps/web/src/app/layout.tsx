@@ -1,14 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+
+import { getSiteUrl } from "@/modules/shared/site-url";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: getSiteUrl(),
   title: {
     default: "탐정사무소 정보 플랫폼",
     template: "%s | 탐정사무소 정보 플랫폼",
   },
   description:
     "서울·경기 지역 탐정사무소의 검수된 정보와 출처를 확인하는 정보 플랫폼입니다.",
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    siteName: "탐정사무소 정보 플랫폼",
+    title: "탐정사무소 정보 플랫폼",
+    description:
+      "서울·경기 지역 탐정사무소의 검수된 정보와 출처를 확인하는 정보 플랫폼입니다.",
+  },
 };
 
 export default function RootLayout({
@@ -49,6 +61,23 @@ export default function RootLayout({
                 적법성·품질·성과를 보증하거나 추천하지 않습니다. 사건 내용과
                 조사 대상자 정보는 수집하지 않습니다.
               </p>
+              <nav
+                aria-label="서비스 안내"
+                className="mt-5 flex flex-wrap gap-x-5 gap-y-2"
+              >
+                <Link href="/guide" className="font-semibold hover:text-slate-950">
+                  이용 안내
+                </Link>
+                <Link href="/privacy" className="font-semibold hover:text-slate-950">
+                  개인정보 처리방침
+                </Link>
+                <Link
+                  href="/advertising"
+                  className="font-semibold hover:text-slate-950"
+                >
+                  광고 표시 정책
+                </Link>
+              </nav>
             </div>
           </footer>
         </div>

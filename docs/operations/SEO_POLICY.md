@@ -52,3 +52,20 @@
 - 오래된 확인일을 가진 유입 상위 페이지
 
 SEO 변경은 사람에게 유용한 정보와 데이터 검증 정책을 우선하며, 검색 노출을 위해 미검증 페이지를 공개하지 않는다.
+
+## 9. 현재 구현과 배포 확인
+
+- canonical, `robots.txt`와 `sitemap.xml`의 절대 URL 기준은
+  `NEXT_PUBLIC_SITE_URL`에 경로 없는 운영 HTTP(S) origin으로 설정한다. 로컬
+  기본값은 `http://localhost:3000`이며 운영 환경에서 그대로 사용하지 않는다.
+- 홈, 기본 업체 목록, 공개 업체 상세, 이용 안내, 개인정보 처리방침과 광고
+  표시 정책만 sitemap 대상으로 둔다. 업체 상세은 `published` 상태만 조회하며
+  최종 검증 시각을 `lastmod`로 사용한다.
+- 지역·업무 분야 필터가 적용된 목록은 기본 목록 URL을 canonical로 사용하고
+  `noindex, follow`로 둔다. 정정 폼은 `noindex, nofollow`로 둔다.
+- 관리자, 내부 API와 로그인 경로는 robots에서 제외하되 실제 보호는 인증과
+  권한 검사로 수행한다.
+- 업체 상세 JSON-LD는 화면에 표시되는 상호, 대표 전화, 주소와 선택적 소개만
+  `LocalBusiness`로 제공한다. 평점, 후기, 가격과 영업시간을 추정하지 않는다.
+- 배포 후 실제 운영 URL에서 canonical·robots·sitemap을 확인하고 Rich Results
+  Test 또는 Schema Markup Validator로 공개 업체 표본을 재검증한다.
