@@ -48,6 +48,31 @@ brew install postgresql@17
 PG_TEST_PORT=55433 ./scripts/verify-local-postgres.sh
 ```
 
+## 공개 웹 DB E2E
+
+공개 목록·상세·분석·정정 요청을 실제 브라우저와 PostgreSQL 경계까지 함께
+검증할 때 저장소 루트에서 별도 E2E를 실행한다.
+
+```bash
+./scripts/verify-web-e2e-postgres.sh
+```
+
+스크립트는 다음 작업을 수행한다.
+
+1. 기본 포트 `55435`에 격리된 임시 PostgreSQL 클러스터 생성
+2. migration과 지역·업무 분야 seed 적용
+3. 완전한 출처 근거를 가진 합성 공개 업체 준비
+4. production build와 단일 desktop Chrome 서버 실행
+5. 강남·가족 필터, 상세 표시와 출처, 조회·전화 클릭 API `204` 확인
+6. 일별 조회·전화 집계, 공개 정정 요청의 `pending` 검수 후보와 운영값 불변 확인
+7. 완료 또는 실패 시 임시 서버와 데이터 자동 삭제
+
+기본 포트가 사용 중이면 다른 포트를 지정한다.
+
+```bash
+PG_E2E_PORT=55436 ./scripts/verify-web-e2e-postgres.sh
+```
+
 논리 백업 생성부터 빈 DB 복원, 관계·제약 검증까지는 별도 리허설을 실행한다.
 
 ```bash
