@@ -73,6 +73,7 @@ cd apps/web
 npm run auth:validate-config:self-test
 npm run lint
 npm run build
+npm run test:e2e
 ```
 
 실제 Clerk 키와 관리자 사용자 ID를 로컬 비밀에 설정한 뒤에는 환경 조합을 값 노출 없이 확인합니다.

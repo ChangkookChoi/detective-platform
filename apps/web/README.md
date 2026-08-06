@@ -24,9 +24,30 @@ npm run dev
 ```bash
 npm run lint
 npm run build
+npm run test:e2e
 npm run db:check
 npm run db:validate-seed
 ```
+
+### 브라우저 E2E
+
+`npm run test:e2e`는 production build를 만든 뒤 `localhost:3100`에 Next.js
+서버를 시작하고, 설치된 Google Chrome으로 데스크톱과 모바일 에뮬레이션을
+각각 실행합니다. 현재 묶음은 DB를 변경하거나 요구하지 않으며 다음 경계를
+확인합니다.
+
+- 홈의 핵심 안내, 업체 찾기 진입점과 푸터 정책 링크
+- 이용 안내·개인정보 처리방침·광고 표시 정책의 고유 canonical과 핵심 내용
+- 데스크톱·모바일의 가로 넘침과 브라우저 console/page 오류
+- `robots.txt`의 공개 허용 및 관리자·API·로그인 경로 제외
+- 로그아웃 관리자 접근의 307 로그인 리디렉션과 원래 경로 보존
+
+다른 로컬 서버나 배포 환경을 검사할 때는 `PLAYWRIGHT_BASE_URL`에 대상
+origin을 지정하고 `npx playwright test`를 직접 실행합니다. 실패 화면, trace와
+HTML 보고서는 Git 제외된 `test-results`, `playwright-report`에 생성됩니다.
+
+업체 목록·상세·전화 클릭·정정 요청과 로그인한 관리자 쓰기는 PostgreSQL
+표본과 별도 인증 상태가 필요한 다음 E2E 단계입니다.
 
 실제 PostgreSQL migration·seed·제약 통합 검증은 저장소 루트에서 실행합니다.
 

@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:report": "playwright show-report",
     "auth:validate-config": "tsx scripts/validate-admin-auth-config.ts",
     "auth:validate-config:self-test": "tsx scripts/validate-admin-auth-config.ts --self-test",
     "db:check": "drizzle-kit check",
@@ -31,6 +33,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",

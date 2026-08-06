@@ -1,6 +1,6 @@
 # 프로젝트 상태
 
-- 기준일: 2026-08-05
+- 기준일: 2026-08-06
 - 단계: 핵심 MVP 기능 구현
 - 배포 상태: 미배포
 - 데이터 상태: 실제 파일럿 후보 `on_hold` 1건·교정 `pending` 1건,
@@ -21,8 +21,10 @@ Google 로그인으로 파일럿 후보의 대기열·상세를 확인하고 `on
 운영자가 공식 URL과 최소 사실 필드만 고위험 비공개 후보로 등록하는 수동
 유입 경로를 구현했습니다. 이용 안내·개인정보 처리방침 초안·광고 표시 정책과
 canonical·robots·공개 상태 기반 sitemap·업체 상세 구조화 데이터의 출시 전
-SEO 기반을 구현했습니다. PostgreSQL 합성 논리 백업·복구 리허설은
-자동화했지만 운영 DB 공급자와 실제 백업·배포는 아직 준비 전입니다.
+SEO 기반을 구현했습니다. production 서버의 데스크톱·모바일 Chrome에서 공개
+안내·canonical·robots와 로그아웃 관리자 리디렉션을 반복 검증하는 Playwright
+E2E 기반도 추가했습니다. PostgreSQL 합성 논리 백업·복구 리허설은 자동화했지만
+운영 DB 공급자와 실제 백업·배포는 아직 준비 전입니다.
 
 ## 완료
 
@@ -184,6 +186,15 @@ SEO 기반을 구현했습니다. PostgreSQL 합성 논리 백업·복구 리허
   페이지만 포함하는 동적 `sitemap.xml` 구현
 - 업체 상세에 화면에서 확인 가능한 상호·전화·주소·소개만 사용하는
   `LocalBusiness` JSON-LD를 추가하고 `<` 문자를 이스케이프해 삽입
+- Playwright Test와 설치된 Google Chrome 기반 데스크톱·모바일 프로젝트,
+  production build·서버 자동 실행, 실패 screenshot·trace 보존 설정 추가
+- 홈·안내 페이지 3종의 HTTP 200·핵심 내용·canonical·가로 넘침·browser 오류,
+  robots 공개/제외 규칙과 로그아웃 관리자 307·복귀 경로를 12개 E2E
+  시나리오로 구현
+- 모바일 production E2E 6건과 개발 서버에서 먼저 통과한 데스크톱 5건,
+  production으로 재확인한 데스크톱 홈 1건을 통과해 모든 시나리오의 성공
+  근거 확보. 초기 개발 서버 병렬 컴파일의 transient manifest 오류를 확인해
+  production build와 단일 worker를 기본 실행 경계로 고정
 
 ## 다음 작업 후보
 
@@ -200,7 +211,9 @@ SEO 기반을 구현했습니다. PostgreSQL 합성 논리 백업·복구 리허
    시점 복구와 RPO·RTO를 격리 복원으로 검증
 7. 접근성, SEO, 보안, 브라우저 시각·상호작용과 운영 체크리스트 기반 출시
    검증. 실제 운영 origin의 canonical·robots·sitemap과 구조화 데이터를 검색
-   도구로 재검증하고 개인정보 처리방침의 운영 주체·문의 채널·보유 기간 확정
+   도구로 재검증하고 개인정보 처리방침의 운영 주체·문의 채널·보유 기간 확정.
+   임시 PostgreSQL 표본으로 목록·상세·전화 클릭·정정 요청을 잇는 DB 기반
+   E2E와 실제 로그인 관리자 흐름 추가
 
 ## 확정된 초기 데이터 모델
 
@@ -258,7 +271,15 @@ SEO 기반을 구현했습니다. PostgreSQL 합성 논리 백업·복구 리허
   처리방침의 운영 주체·문의 채널·최종 보유 기간·위탁 및 국외 이전 여부는 운영
   인프라와 법무 검토 후 확정해야 한다. production canonical origin 설정과 실제
   배포 URL의 robots·sitemap·JSON-LD 검색 도구 검증도 남아 있다.
-- 2026-07-23 `npm audit` 기준 전체 의존성은 중간 5건·높음 2건, production 의존성만 보면 중간 1건·높음 2건이 보고됐다. 최신 안정판 Next.js 16.2.11의 간접 `sharp`·`postcss`와 Drizzle Kit 개발 의존성의 구형 `esbuild` 경로이며, 제안된 자동 수정은 Next.js 9.3.3·Drizzle Kit 0.18.1로의 호환되지 않는 하향이어서 적용하지 않았다.
+- Playwright E2E는 DB가 필요 없는 홈·공개 안내·robots와 로그아웃 인증 경계를
+  production 서버에서 검증한다. 공개 업체가 0건이고 지속형 로컬 PostgreSQL도
+  정지 상태이므로 목록·상세·분석 요청·정정 제출과 로그인한 관리자 폼·결정은
+  아직 자동 브라우저 검증 범위가 아니다.
+- 2026-08-06 `npm audit` 기준 전체 의존성은 중간 4건·높음 4건,
+  production 의존성은 높음 3건이다. production 경로는 Next.js 16.2.11의
+  간접 `postcss`·`sharp`이며 16.3.0 호환 업데이트가 제안됐다. 개발 경로의
+  Drizzle Kit 구형 `esbuild` 수정 제안은 0.18.1 하향이라 적용하지 않았고,
+  간접 `brace-expansion`과 함께 별도 의존성 업데이트 작업에서 회귀 검증한다.
 
 ## 상태 갱신 규칙
 
