@@ -23,8 +23,10 @@ Google 로그인으로 파일럿 후보의 대기열·상세를 확인하고 `on
 canonical·robots·공개 상태 기반 sitemap·업체 상세 구조화 데이터의 출시 전
 SEO 기반을 구현했습니다. production 서버의 데스크톱·모바일 Chrome에서 공개
 안내·canonical·robots와 로그아웃 관리자 리디렉션을 반복 검증하는 Playwright
-E2E 기반도 추가했습니다. PostgreSQL 합성 논리 백업·복구 리허설은 자동화했지만
-운영 DB 공급자와 실제 백업·배포는 아직 준비 전입니다.
+E2E 기반도 추가했습니다. Next.js와 ESLint 설정을 16.3.0으로 올리고 전체 회귀
+검증을 통과해 production 의존성 보안 감사도 0건으로 정리했습니다. PostgreSQL
+합성 논리 백업·복구 리허설은 자동화했지만 운영 DB 공급자와 실제 백업·배포는
+아직 준비 전입니다.
 
 ## 완료
 
@@ -195,6 +197,11 @@ E2E 기반도 추가했습니다. PostgreSQL 합성 논리 백업·복구 리허
   production으로 재확인한 데스크톱 홈 1건을 통과해 모든 시나리오의 성공
   근거 확보. 초기 개발 서버 병렬 컴파일의 transient manifest 오류를 확인해
   production build와 단일 worker를 기본 실행 경계로 고정
+- Next.js와 `eslint-config-next`를 16.2.11에서 16.3.0으로 업데이트하고 기존
+  `proxy.ts`·비동기 요청 API·ESLint CLI·Turbopack 설정이 호환됨을 확인해
+  별도 codemod 없이 lint·production build·E2E 12건을 재통과
+- Next.js 업데이트로 production 경로의 간접 `postcss`·`sharp` 취약점을 해소해
+  2026-08-06 `npm audit --omit=dev` 0건 확인
 
 ## 다음 작업 후보
 
@@ -275,11 +282,11 @@ E2E 기반도 추가했습니다. PostgreSQL 합성 논리 백업·복구 리허
   production 서버에서 검증한다. 공개 업체가 0건이고 지속형 로컬 PostgreSQL도
   정지 상태이므로 목록·상세·분석 요청·정정 제출과 로그인한 관리자 폼·결정은
   아직 자동 브라우저 검증 범위가 아니다.
-- 2026-08-06 `npm audit` 기준 전체 의존성은 중간 4건·높음 4건,
-  production 의존성은 높음 3건이다. production 경로는 Next.js 16.2.11의
-  간접 `postcss`·`sharp`이며 16.3.0 호환 업데이트가 제안됐다. 개발 경로의
-  Drizzle Kit 구형 `esbuild` 수정 제안은 0.18.1 하향이라 적용하지 않았고,
-  간접 `brace-expansion`과 함께 별도 의존성 업데이트 작업에서 회귀 검증한다.
+- 2026-08-06 Next.js 16.3.0 업데이트 후 `npm audit` 기준 production 의존성은
+  0건이다. 전체 의존성에는 개발 도구 경로만 중간 4건·높음 1건이 남는다.
+  Drizzle Kit의 구형 `esbuild` 경로 중간 4건은 수정 제안이 0.18.1 하향이라
+  적용하지 않았고, 간접 `brace-expansion` 높음 1건과 함께 호환 업데이트를
+  별도 검토한다.
 
 ## 상태 갱신 규칙
 
