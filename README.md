@@ -88,6 +88,7 @@ PostgreSQL 17 이상이 설치된 환경에서는 저장소 루트에서 임시 
 ```bash
 ./scripts/verify-local-postgres.sh
 ./scripts/verify-web-e2e-postgres.sh
+./scripts/verify-admin-e2e-postgres.sh
 ./scripts/verify-postgres-backup.sh
 ```
 

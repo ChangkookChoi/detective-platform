@@ -73,6 +73,39 @@ PG_TEST_PORT=55433 ./scripts/verify-local-postgres.sh
 PG_E2E_PORT=55436 ./scripts/verify-web-e2e-postgres.sh
 ```
 
+## 관리자 Clerk DB E2E
+
+실제 allowlist 관리자 세션, 관리자 Server Action과 PostgreSQL 감사 경계를
+함께 검증할 때 저장소 루트에서 별도 E2E를 실행한다. `.env.local`에는 Clerk
+Development 테스트 키와 관리자 사용자 ID가 준비되어 있어야 한다.
+
+```bash
+./scripts/verify-admin-e2e-postgres.sh
+```
+
+스크립트는 다음 작업을 수행한다.
+
+1. 기본 포트 `55436`에 격리된 임시 PostgreSQL 클러스터 생성
+2. Clerk 환경 사전검증, migration과 지역·업무 분야 seed 적용
+3. Clerk 공식 Playwright 테스트 토큰으로 allowlist 관리자의 일회성 세션 준비
+4. 공식 출처 수동 후보를 등록하고 `pending/new_office/high` 상태와 실제
+   관리자 제출자 ID 확인
+5. URL 해시 조각만 다른 재등록의 중복 차단과 기존 검수 항목 반환 확인
+6. 후보 반려 후 감사 처리자·사유 저장과 운영 업체 0건 유지 확인
+7. 로그아웃 후 보호된 관리자 경로의 로그인 리디렉션 확인
+8. 완료 또는 실패 시 임시 서버와 데이터 자동 삭제
+
+테스트에 필요한 관리자 이메일은 allowlist 사용자 ID로 Clerk Backend에서
+실행 중에만 조회하며 파일이나 로그에 저장하지 않는다. 테스트 토큰은 Clerk
+세션·쿠키와 애플리케이션 allowlist 경계를 검증하지만 Google 로그인 화면이나
+Google 계정의 2단계 인증 수행 자체를 대신 검증하지 않는다.
+
+기본 포트가 사용 중이면 다른 포트를 지정한다.
+
+```bash
+PG_ADMIN_E2E_PORT=55437 ./scripts/verify-admin-e2e-postgres.sh
+```
+
 논리 백업 생성부터 빈 DB 복원, 관계·제약 검증까지는 별도 리허설을 실행한다.
 
 ```bash

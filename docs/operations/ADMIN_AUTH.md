@@ -64,6 +64,20 @@ cd apps/web
 npm run auth:validate-config -- --environment=development
 ```
 
+실제 allowlist 관리자 세션과 임시 PostgreSQL을 사용하는 자동 E2E:
+
+```bash
+./scripts/verify-admin-e2e-postgres.sh
+```
+
+이 검증은 Clerk의 공식 Playwright 테스트 토큰과 로그인 helper로 일회성 관리자
+세션을 준비하고, 관리자 페이지·Server Action·역할 allowlist·감사 처리자 저장을
+브라우저부터 DB까지 확인한다. 관리자 이메일은 `CLERK_ADMIN_USER_IDS`의 사용자
+ID로 Clerk Backend에서 실행 중에만 조회하며 저장하거나 출력하지 않는다.
+[Clerk Playwright 테스트 개요](https://clerk.com/docs/guides/development/testing/playwright/overview)와
+[테스트 helper 문서](https://clerk.com/docs/guides/development/testing/playwright/test-helpers)를
+구현 기준으로 사용한다.
+
 미리보기와 운영은 각각 `preview`, `production`을 사용한다. 검사는 다음 계약을 값 출력 없이 확인한다.
 
 - PostgreSQL DB를 가리키는 `DATABASE_URL`
@@ -114,10 +128,10 @@ UI 메뉴 숨김이나 Layout 검사만으로 Server Action을 보호하지 않�
 - 실제 Google 로그인으로 관리자 대기열·상세에 접근하고 파일럿 후보를
   `on_hold`로 처리했다. 감사 이력의 처리자 ID가 로그인한 allowlist 관리자
   ID와 일치하고 운영 업체 0건을 유지함을 DB에서 확인했다.
-- 수동 후보 등록은 서버 재인증, 제출자 ID 저장, 공식성·단일 사무소와
-  민감정보 미포함 필수 확인, URL·필드 검증, 미처리 중복 차단과 운영 업체
-  불변을 PostgreSQL 통합 검증으로 확인했다. 실제 브라우저 폼 제출의
-  시각·상호작용 확인은 남아 있다.
+- 실제 allowlist 관리자 테스트 세션으로 수동 후보 등록, 제출자 ID 저장,
+  URL 해시 조각 중복 안내, 반려 감사 처리자·사유와 운영 업체 0건을
+  production 브라우저와 임시 PostgreSQL에서 확인했다. 테스트 토큰은 Google
+  로그인 화면과 관리자 Google 계정의 2단계 인증 수행 자체를 검증하지 않는다.
 - 출처별 실제 검수 상태와 감사 처리자 권한 여부를 민감한 업체값·사용자 ID
   없이 재확인하는 읽기 전용 점검 명령을 준비했다.
 - 지속형 개발 DB를 현재 migration에 맞춘 뒤 파일럿 출처 점검에서 기존

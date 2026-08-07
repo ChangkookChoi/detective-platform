@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "npm run build && playwright test",
+    "test:e2e:admin": "../../scripts/verify-admin-e2e-postgres.sh",
+    "test:e2e:admin:browser": "npm run build && playwright test --config=playwright.admin.config.ts",
     "test:e2e:db": "../../scripts/verify-web-e2e-postgres.sh",
     "test:e2e:db:browser": "npm run build && playwright test --config=playwright.db.config.ts",
     "test:e2e:report": "playwright show-report",
@@ -35,6 +37,8 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@clerk/backend": "3.16.0",
+    "@clerk/testing": "2.2.18",
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
