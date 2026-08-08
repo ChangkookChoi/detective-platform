@@ -139,3 +139,8 @@ UI 메뉴 숨김이나 Layout 검사만으로 Server Action을 보호하지 않�
   처리자 권한 유효를 확인했다. 이어 실제 로그인한 allowlist 관리자가 교정
   `jsonld-v2` 후보를 승인했으며, 승인 감사 처리자 권한 유효와 운영 업체
   `published` 1건을 확인했다.
+- Clerk 공식 testing token과 실제 관리자용 일회성 sign-in token으로
+  J&K·정의·원픽·엠디 본점·수원점 5건의 관리자 수동 등록을 실행했다. 모든
+  후보의 제출자 allowlist가 유효하고 Server Action 권한 검사, 비공개
+  `pending` 저장과 공개 업체 1건 유지가 확인됐다. 이 자동화는 Google 로그인
+  UI나 관리자 Google 계정의 2단계 인증 수행 자체를 증명하지 않는다.

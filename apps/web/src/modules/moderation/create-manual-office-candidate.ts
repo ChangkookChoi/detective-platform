@@ -81,11 +81,13 @@ function normalizePhone(value: string) {
     normalized = `0${normalized.slice(2)}`;
   }
 
-  if (
-    normalized.length < 9 ||
-    normalized.length > 11 ||
-    !normalized.startsWith("0")
-  ) {
+  const isStandardDomesticNumber =
+    normalized.startsWith("0") &&
+    normalized.length >= 9 &&
+    normalized.length <= 11;
+  const isNationalRepresentativeNumber = /^(15|16|18)\d{6}$/.test(normalized);
+
+  if (!isStandardDomesticNumber && !isNationalRepresentativeNumber) {
     throw new ManualOfficeCandidateError("invalid_phone");
   }
 

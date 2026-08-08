@@ -108,6 +108,28 @@ async function main() {
       }),
       (error: unknown) => isCandidateError(error, "invalid_phone"),
     );
+    const nationalRepresentativeCandidate = await createManualOfficeCandidate({
+      actorId,
+      sourceUrl: `${sourceUrl}/national-representative-number`,
+      name: "가상 전국 대표번호 후보",
+      phoneDisplay: "1800-6624",
+      addressText: "서울특별시 서초구 가상로 2",
+      officialSourceConfirmed: true,
+      sensitiveContentConfirmed: true,
+    });
+    const [nationalRepresentativeReview] = await db
+      .select({ proposedValues: reviewItems.proposedValues })
+      .from(reviewItems)
+      .where(eq(reviewItems.id, nationalRepresentativeCandidate.reviewItemId))
+      .limit(1);
+
+    assert(nationalRepresentativeReview);
+    assert.deepEqual(nationalRepresentativeReview.proposedValues, {
+      name: "가상 전국 대표번호 후보",
+      phoneDisplay: "1800-6624",
+      phoneNormalized: "18006624",
+      addressText: "서울특별시 서초구 가상로 2",
+    });
 
     const officeCountBefore = await db
       .select({ count: offices.id })
