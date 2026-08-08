@@ -74,10 +74,11 @@ DATABASE_URL="$COLLECTOR_DATABASE_URL" \
 2026-07-23 등록 파일럿 최초 개발 실행은 최소 권한 역할로 `succeeded`,
 발견 1건, 수집 1건, 실패 0건, `pending/new_office/high` 검수 1건을
 기록했다. 이 후보는 실제 관리자 검수에서 주소 지역명 중복 결함으로
-`on_hold` 처리했다. 주소 정규화를 수정한 `jsonld-v2` 첫 실행은 이전
+`on_hold` 처리한 뒤 2026-08-08 로그인한 allowlist 관리자가 결함 사유로
+`rejected` 처리했다. 주소 정규화를 수정한 `jsonld-v2` 첫 실행은 이전
 버전의 조건부 요청 메타데이터를 재사용하지 않고 원문을 다시 수집해 교정된
-`pending/new_office/high` 후보 1건을 만들었다. 두 실행 모두 운영 업체
-행은 생성하지 않았다. 실행별 상세 사실은
+`pending/new_office/high` 후보 1건을 만들었으며 아직 최종 검수 전이다.
+두 실행 모두 운영 업체 행은 생성하지 않았다. 실행별 상세 사실은
 [SOURCE_REGISTRY.md](SOURCE_REGISTRY.md)에 기록한다.
 
 ## 6. 중단과 장애 대응
