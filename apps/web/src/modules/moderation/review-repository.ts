@@ -133,9 +133,9 @@ export async function listReviewFormOptions() {
     childrenByParent.set(region.parentId, children);
   }
 
-  const leafRegions: Array<{ slug: string; label: string }> = [];
+  function collectLeafRegions(parentId: string, ancestors: string[]) {
+    const leafRegions: Array<{ slug: string; label: string }> = [];
 
-  function appendLeafRegions(parentId: string | null, ancestors: string[]) {
     for (const region of childrenByParent.get(parentId) ?? []) {
       const path = [...ancestors, region.name];
       const children = childrenByParent.get(region.id) ?? [];
@@ -143,14 +143,22 @@ export async function listReviewFormOptions() {
       if (children.length === 0) {
         leafRegions.push({ slug: region.slug, label: path.join(" / ") });
       } else {
-        appendLeafRegions(region.id, path);
+        leafRegions.push(...collectLeafRegions(region.id, path));
       }
     }
+
+    return leafRegions;
   }
 
-  appendLeafRegions(null, []);
+  const regionGroups = (childrenByParent.get(null) ?? [])
+    .map((region) => ({
+      slug: region.slug,
+      name: region.name,
+      regions: collectLeafRegions(region.id, []),
+    }))
+    .filter((group) => group.regions.length > 0);
 
-  return { regions: leafRegions, categories: categoryRows };
+  return { regionGroups, categories: categoryRows };
 }
 
 export async function getReviewItem(reviewItemId: string) {

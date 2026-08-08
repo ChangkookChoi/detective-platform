@@ -180,6 +180,30 @@ test("실제 Clerk 관리자가 수동 후보의 중복을 확인하고 반려�
     },
   });
 
+  const provinceSelect = page.getByRole("combobox", {
+    name: "시·도",
+    exact: true,
+  });
+  const regionSelect = page.getByRole("combobox", {
+    name: "시·군·구",
+    exact: true,
+  });
+  await expect(regionSelect).toBeDisabled();
+  await provinceSelect.selectOption("seoul");
+  await expect(regionSelect).toBeEnabled();
+  await expect(regionSelect.locator("option")).toHaveCount(26);
+  await regionSelect.selectOption("seoul-gangnam");
+  await expect(regionSelect).toHaveValue("seoul-gangnam");
+
+  const sourceTypeGroup = page.getByRole("group", {
+    name: "대표 출처 유형",
+  });
+  await expect(sourceTypeGroup).toBeVisible();
+  await expect(
+    sourceTypeGroup.getByRole("radio", { name: "공식 웹사이트" }),
+  ).toBeChecked();
+  await expect(sourceTypeGroup.getByRole("radio")).toHaveCount(5);
+
   const officeCountAfterCreation = await getDatabase().query<{ count: number }>(
     "select count(*)::integer as count from offices",
   );

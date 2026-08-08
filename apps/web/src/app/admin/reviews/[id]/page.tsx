@@ -21,6 +21,7 @@ import {
   holdReviewAction,
   rejectReviewAction,
 } from "./actions";
+import { RegionHierarchySelect } from "./region-hierarchy-select";
 
 export const metadata: Metadata = {
   title: "검수 상세",
@@ -464,39 +465,30 @@ export default async function ReviewDetailPage({
                           className="rounded-lg border border-slate-300 p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                         />
                       </label>
-                      <label className="grid gap-2 text-sm font-bold">
-                        소재 지역
-                        <select
-                          name="regionSlug"
-                          required
-                          defaultValue=""
-                          className="rounded-lg border border-slate-300 bg-white p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
-                        >
-                          <option value="" disabled>
-                            최하위 행정구역 선택
-                          </option>
-                          {formOptions.regions.map((region) => (
-                            <option key={region.slug} value={region.slug}>
-                              {region.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="grid gap-2 text-sm font-bold">
-                        대표 출처 유형
-                        <select
-                          name="sourceType"
-                          defaultValue="official_website"
-                          className="rounded-lg border border-slate-300 bg-white p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
-                        >
+                      <RegionHierarchySelect groups={formOptions.regionGroups} />
+                      <fieldset className="rounded-lg border border-slate-300 p-4 md:col-span-2">
+                        <legend className="px-2 text-sm font-bold">
+                          대표 출처 유형
+                        </legend>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                           {approvalSourceTypes.map((sourceType) => (
-                            <option key={sourceType} value={sourceType}>
+                            <label
+                              key={sourceType}
+                              className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm font-normal hover:border-sky-300 hover:bg-sky-50"
+                            >
+                              <input
+                                type="radio"
+                                name="sourceType"
+                                value={sourceType}
+                                defaultChecked={sourceType === "official_website"}
+                                required
+                              />
                               {sourceTypeLabels[sourceType]}
-                            </option>
+                            </label>
                           ))}
-                        </select>
-                      </label>
-                      <fieldset className="rounded-lg border border-slate-300 p-4">
+                        </div>
+                      </fieldset>
+                      <fieldset className="rounded-lg border border-slate-300 p-4 md:col-span-2">
                         <legend className="px-2 text-sm font-bold">
                           업무 분야
                         </legend>

@@ -129,12 +129,35 @@ async function main() {
     assert(category, "Family category seed is required");
 
     const formOptions = await listReviewFormOptions();
+    const gyeonggiGroup = formOptions.regionGroups.find(
+      (group) => group.slug === "gyeonggi",
+    );
+    const seoulGroup = formOptions.regionGroups.find(
+      (group) => group.slug === "seoul",
+    );
+    assert(gyeonggiGroup, "Gyeonggi region group is required");
+    assert(seoulGroup, "Seoul region group is required");
     assert(
-      formOptions.regions.some(
+      gyeonggiGroup.regions.some(
         (option) => option.slug === "gyeonggi-suwon-paldal",
       ),
     );
-    assert(!formOptions.regions.some((option) => option.slug === "gyeonggi"));
+    assert(
+      gyeonggiGroup.regions.some(
+        (option) =>
+          option.slug === "gyeonggi-suwon-paldal" &&
+          option.label === "수원시 / 팔달구",
+      ),
+    );
+    assert(
+      seoulGroup.regions.some(
+        (option) =>
+          option.slug === "seoul-gangbuk" && option.label === "강북구",
+      ),
+    );
+    assert(
+      !gyeonggiGroup.regions.some((option) => option.slug === "gyeonggi"),
+    );
     assert(formOptions.categories.some((option) => option.slug === "family"));
 
     const now = new Date();

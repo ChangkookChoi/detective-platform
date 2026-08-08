@@ -77,8 +77,11 @@ DATABASE_URL="$COLLECTOR_DATABASE_URL" \
 `on_hold` 처리한 뒤 2026-08-08 로그인한 allowlist 관리자가 결함 사유로
 `rejected` 처리했다. 주소 정규화를 수정한 `jsonld-v2` 첫 실행은 이전
 버전의 조건부 요청 메타데이터를 재사용하지 않고 원문을 다시 수집해 교정된
-`pending/new_office/high` 후보 1건을 만들었으며 아직 최종 검수 전이다.
-두 실행 모두 운영 업체 행은 생성하지 않았다. 실행별 상세 사실은
+`pending/new_office/high` 후보 1건을 만들었다. 2026-08-08 공식 원문과
+robots를 다시 확인한 뒤 로그인한 allowlist 관리자가 서울 강북구와 네 개
+업무 분야를 지정해 이 교정 후보를 승인했다. 승인 트랜잭션은 대표 출처와
+필드 근거 7건을 함께 만들고 운영 업체 1건을 `published`로 공개했다. 최초
+결함 후보는 운영 업체 행을 만들지 않았다. 실행별 상세 사실은
 [SOURCE_REGISTRY.md](SOURCE_REGISTRY.md)에 기록한다.
 
 ## 6. 중단과 장애 대응
