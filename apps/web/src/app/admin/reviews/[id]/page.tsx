@@ -60,7 +60,8 @@ const errorMessages: Record<string, string> = {
     "중지·폐업 의심 업체는 일반 후보 승인으로 다시 공개할 수 없습니다.",
   review_item_not_found: "검수 항목을 찾을 수 없습니다.",
   slug_conflict: "이미 사용 중인 slug입니다.",
-  source_already_assigned: "이 출처는 이미 다른 운영 업체에 연결되어 있습니다.",
+  source_already_assigned:
+    "같은 출처 URL과 주소의 운영 업체가 이미 등록되어 있습니다.",
   source_mismatch: "수집 출처가 연결된 운영 업체의 출처와 일치하지 않습니다.",
   unsupported_review_type: "이 후보 유형은 아직 승인 처리할 수 없습니다.",
 };

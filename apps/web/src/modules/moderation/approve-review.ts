@@ -12,6 +12,7 @@ import {
   reviewItems,
   serviceCategories,
 } from "@/db/schema";
+import { normalizeDomesticPhoneDigits } from "@/modules/shared/domestic-phone";
 import { isPublicHttpUrl } from "@/modules/shared/public-url";
 
 export const approvalDecisions = ["approved", "approved_with_edits"] as const;
@@ -164,17 +165,9 @@ function normalizePhone(
   failure: "invalid_edited_values" | "invalid_proposed_values",
 ) {
   const display = normalizeRequiredText(value, 50, failure);
-  let normalized = display.replace(/\D/g, "");
+  const normalized = normalizeDomesticPhoneDigits(display);
 
-  if (normalized.startsWith("82") && normalized.length >= 10) {
-    normalized = `0${normalized.slice(2)}`;
-  }
-
-  if (
-    normalized.length < 9 ||
-    normalized.length > 11 ||
-    !normalized.startsWith("0")
-  ) {
+  if (!normalized) {
     throw new ReviewApprovalError(failure);
   }
 
@@ -471,16 +464,22 @@ export async function approveReview(input: ApproveReviewInput) {
 
       metadata = validateNewOfficeMetadata(input.newOffice);
       await tx.execute(
-        sql`select pg_advisory_xact_lock(hashtextextended(${collection.sourceUrl}, 0))`,
+        sql`select pg_advisory_xact_lock(hashtextextended(${`${collection.sourceUrl}\n${accepted.addressText}`}, 0))`,
       );
 
-      const [sourceOwner] = await tx
+      const [sourceOwnerAtAddress] = await tx
         .select({ officeId: officeSources.officeId })
         .from(officeSources)
-        .where(eq(officeSources.url, collection.sourceUrl))
+        .innerJoin(offices, eq(offices.id, officeSources.officeId))
+        .where(
+          and(
+            eq(officeSources.url, collection.sourceUrl),
+            eq(offices.addressText, accepted.addressText),
+          ),
+        )
         .limit(1);
 
-      if (sourceOwner) {
+      if (sourceOwnerAtAddress) {
         throw new ReviewApprovalError("source_already_assigned");
       }
 

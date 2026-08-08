@@ -47,6 +47,7 @@ const validReviewId = "30000000-0000-4000-8000-000000000001";
 const invalidReviewId = "30000000-0000-4000-8000-000000000002";
 const newReviewId = "30000000-0000-4000-8000-000000000003";
 const rollbackReviewId = "30000000-0000-4000-8000-000000000004";
+const duplicateSourceReviewId = "30000000-0000-4000-8000-000000000005";
 const validSourceId = "40000000-0000-4000-8000-000000000001";
 const invalidSourceId = "40000000-0000-4000-8000-000000000002";
 const collectionRunId = "50000000-0000-4000-8000-000000000001";
@@ -54,11 +55,13 @@ const validRecordId = "60000000-0000-4000-8000-000000000001";
 const invalidRecordId = "60000000-0000-4000-8000-000000000002";
 const newRecordId = "60000000-0000-4000-8000-000000000003";
 const rollbackRecordId = "60000000-0000-4000-8000-000000000004";
+const duplicateSourceRecordId = "60000000-0000-4000-8000-000000000005";
 const reviewIds = [
   validReviewId,
   invalidReviewId,
   newReviewId,
   rollbackReviewId,
+  duplicateSourceReviewId,
 ];
 const fixedOfficeIds = [validOfficeId, invalidOfficeId];
 const syntheticSlugs = [
@@ -66,6 +69,7 @@ const syntheticSlugs = [
   "sample-invalid-publication-office",
   "sample-collected-office",
   "sample-rollback-office",
+  "sample-duplicate-source-office",
 ];
 
 function isApprovalError(error: unknown, reason: string) {
@@ -238,8 +242,8 @@ async function main() {
       extractorVersion: "integration-v1",
       status: "succeeded",
       finishedAt: now,
-      discoveredCount: 4,
-      collectedCount: 4,
+      discoveredCount: 5,
+      collectedCount: 5,
     });
     await db.insert(collectedRecords).values([
       {
@@ -279,13 +283,13 @@ async function main() {
         sourceRecordKey: "new-office",
         extractedValues: {
           name: "신규 수집 사무소",
-          telephone: "031-111-2222",
+          telephone: "1800-6624",
           address: "경기도 수원시 팔달구 신규로 3",
         },
         normalizedValues: {
           name: "신규 수집 사무소",
-          phoneNormalized: "0311112222",
-          phoneDisplay: "031-111-2222",
+          phoneNormalized: "18006624",
+          phoneDisplay: "1800-6624",
           addressText: "경기도 수원시 팔달구 신규로 3",
           summary: "신규 수집 소개",
         },
@@ -294,7 +298,7 @@ async function main() {
       {
         id: rollbackRecordId,
         collectionRunId,
-        sourceUrl: "https://example.invalid/rollback-office",
+        sourceUrl: "https://example.invalid/new-office",
         sourceRecordKey: "rollback-office",
         extractedValues: { name: "롤백 검증 사무소" },
         normalizedValues: {
@@ -304,6 +308,20 @@ async function main() {
           addressText: "경기도 수원시 팔달구 롤백로 4",
         },
         contentHash: "rollback-record-hash",
+      },
+      {
+        id: duplicateSourceRecordId,
+        collectionRunId,
+        sourceUrl: "https://example.invalid/new-office",
+        sourceRecordKey: "duplicate-source-office",
+        extractedValues: { name: "중복 출처·주소 검증 사무소" },
+        normalizedValues: {
+          name: "중복 출처·주소 검증 사무소",
+          phoneNormalized: "0315556666",
+          phoneDisplay: "031-555-6666",
+          addressText: "경기도 수원시 팔달구 신규로 3",
+        },
+        contentHash: "duplicate-source-record-hash",
       },
     ]);
     const createdReviews = await db
@@ -336,8 +354,8 @@ async function main() {
           risk: "high",
           proposedValues: {
             name: "신규 수집 사무소",
-            phoneNormalized: "0311112222",
-            phoneDisplay: "031-111-2222",
+            phoneNormalized: "18006624",
+            phoneDisplay: "1800-6624",
             addressText: "경기도 수원시 팔달구 신규로 3",
             summary: "신규 수집 소개",
           },
@@ -355,6 +373,19 @@ async function main() {
             addressText: "경기도 수원시 팔달구 롤백로 4",
           },
           cause: "synthetic_rollback",
+        },
+        {
+          id: duplicateSourceReviewId,
+          collectedRecordId: duplicateSourceRecordId,
+          type: "new_office",
+          risk: "high",
+          proposedValues: {
+            name: "중복 출처·주소 검증 사무소",
+            phoneNormalized: "0315556666",
+            phoneDisplay: "031-555-6666",
+            addressText: "경기도 수원시 팔달구 신규로 3",
+          },
+          cause: "synthetic_duplicate_source_address",
         },
       ])
       .returning({ id: reviewItems.id, updatedAt: reviewItems.updatedAt });
@@ -498,12 +529,35 @@ async function main() {
     assert.equal(newDetail.status, "approved");
     assert.equal(newDetail.office?.id, newApproval.id);
     assert.equal(newDetail.office?.name, "신규 수집 사무소");
+    assert.equal(newDetail.office?.phoneDisplay, "1800-6624");
     assert.equal(newDetail.actions[0]?.editedValues, null);
     assert.deepEqual(
       newDetail.office?.categories.map((item) => item.slug),
       ["family"],
     );
     assert.equal(newDetail.office?.sources[0]?.verifiedAt instanceof Date, true);
+
+    await assert.rejects(
+      approveReview({
+        reviewItemId: duplicateSourceReviewId,
+        actorId: "synthetic-reviewer",
+        reason: "같은 출처와 주소의 운영 업체 중복 승인 차단",
+        decision: "approved",
+        expectedReviewUpdatedAt: reviewUpdatedAt.get(duplicateSourceReviewId)!,
+        newOffice: {
+          slug: "sample-duplicate-source-office",
+          regionSlug: "gyeonggi-suwon-paldal",
+          serviceCategorySlugs: ["family"],
+          sourceType: "official_website",
+        },
+      }),
+      (error: unknown) => isApprovalError(error, "source_already_assigned"),
+    );
+    const duplicateSourceReview = await getReviewItem(duplicateSourceReviewId);
+    assert(duplicateSourceReview);
+    assert.equal(duplicateSourceReview.status, "pending");
+    assert.equal(duplicateSourceReview.office, null);
+    assert.equal(duplicateSourceReview.actions.length, 0);
 
     await assert.rejects(
       approveReview({
@@ -527,6 +581,32 @@ async function main() {
     assert.equal(rollbackReview.status, "pending");
     assert.equal(rollbackReview.office, null);
     assert.equal(rollbackReview.actions.length, 0);
+
+    const sharedSourceApproval = await approveReview({
+      reviewItemId: rollbackReviewId,
+      actorId: "synthetic-reviewer",
+      reason: "공식 출처를 공유하는 별도 주소 지점 승인 검증",
+      decision: "approved",
+      expectedReviewUpdatedAt: reviewUpdatedAt.get(rollbackReviewId)!,
+      newOffice: {
+        slug: "sample-rollback-office",
+        regionSlug: "gyeonggi-suwon-paldal",
+        serviceCategorySlugs: ["evidence-fact-checking"],
+        sourceType: "official_website",
+      },
+    });
+    assert.equal(sharedSourceApproval.status, "published");
+    const sharedSourceDetail = await getReviewItem(rollbackReviewId);
+    assert(sharedSourceDetail);
+    assert.equal(sharedSourceDetail.status, "approved");
+    assert.equal(
+      sharedSourceDetail.office?.sources[0]?.url,
+      "https://example.invalid/new-office",
+    );
+    assert.deepEqual(
+      sharedSourceDetail.office?.categories.map((item) => item.slug),
+      ["evidence-fact-checking"],
+    );
 
     const publishedList = await listPublicOffices({
       region: "gyeonggi",
@@ -574,7 +654,7 @@ async function main() {
     const pendingQueue = await listReviewQueue("pending");
     assert.deepEqual(
       pendingQueue.map((item) => item.id),
-      [rollbackReviewId, invalidReviewId],
+      [duplicateSourceReviewId, invalidReviewId],
     );
     await assert.rejects(
       listReviewQueue("unsupported"),

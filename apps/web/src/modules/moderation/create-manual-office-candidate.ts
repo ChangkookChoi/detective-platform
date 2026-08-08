@@ -8,6 +8,7 @@ import {
   collectionRuns,
   reviewItems,
 } from "@/db/schema";
+import { normalizeDomesticPhoneDigits } from "@/modules/shared/domestic-phone";
 import { isPublicHttpUrl } from "@/modules/shared/public-url";
 
 export type ManualOfficeCandidateFailure =
@@ -75,19 +76,9 @@ function normalizeSourceUrl(value: string) {
 
 function normalizePhone(value: string) {
   const display = normalizeRequiredText(value, 9, 50, "invalid_phone");
-  let normalized = display.replace(/\D/g, "");
+  const normalized = normalizeDomesticPhoneDigits(display);
 
-  if (normalized.startsWith("82") && normalized.length >= 10) {
-    normalized = `0${normalized.slice(2)}`;
-  }
-
-  const isStandardDomesticNumber =
-    normalized.startsWith("0") &&
-    normalized.length >= 9 &&
-    normalized.length <= 11;
-  const isNationalRepresentativeNumber = /^(15|16|18)\d{6}$/.test(normalized);
-
-  if (!isStandardDomesticNumber && !isNationalRepresentativeNumber) {
+  if (!normalized) {
     throw new ManualOfficeCandidateError("invalid_phone");
   }
 
