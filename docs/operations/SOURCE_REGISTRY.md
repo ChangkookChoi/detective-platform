@@ -10,6 +10,7 @@
 | --- | --- |
 | `pilot_approved` | 제한된 상세 URL과 사실 필드만 저빈도로 시험 수집 가능 |
 | `manual_candidate` | 공식 출처와 최소 사실 필드는 확인했지만 자동 수집 구조·제한이 맞지 않아 관리자 수동 등록 전 재확인 |
+| `manual_registered` | 최신 공식 원문의 최소 사실 필드를 재확인해 비공개 고위험 수동 후보로 등록했으며 공개 승인 전 |
 | `manual_approved` | 공식 출처·최소 사실·소재지·관리형 업무 분야를 검수하고 수동 후보를 승인·공개 |
 | `deferred` | 구조 또는 허용 근거가 부족해 자동 수집하지 않음 |
 | `blocked` | 약관·robots·접근 통제 또는 품질 문제로 자동 수집 금지 |
@@ -97,19 +98,19 @@
 
 | 후보 | 확인 결과 | 결정 |
 | --- | --- | --- |
-| `www.genie-world.co.kr` | robots 전체 허용과 공식 사업자·서울 금천 소재 표시는 확인했으나 지원 가능한 사업체 JSON-LD가 없음 | `manual_candidate` — JavaScript 번들 전용 어댑터를 만들지 않고 수동 재확인 |
-| `daok.kr` | robots 전체 허용과 공식 사업자·서울 송파 소재 표시는 확인했으나 지원 가능한 JSON-LD가 없음 | `manual_candidate` — 사이트별 DOM 파서를 만들지 않고 수동 재확인 |
+| `www.genie-world.co.kr` | 2026-08-10 HTTP 200·3,953 byte와 robots HTTP 200, 공식 사업자·서울 금천 단일 주소·대표번호를 재확인 | `manual_registered` — 비공개 고위험 후보 등록, JavaScript 전용 자동 어댑터는 만들지 않음 |
+| `daok.kr` | 2026-08-10 HTTP 200·57,346 byte와 robots HTTP 200, 공식 푸터의 서울 송파 단일 주소·전국 대표번호를 재확인하고 상담·실시간 현황은 제외 | `manual_registered` — 비공개 고위험 후보 등록 |
 | `www.apmtwo.com` | robots는 공개 경로를 허용하지만 `OnlineStore` JSON-LD 주소가 `-`로 제공되어 운영 정보 후보로 부적합 | `deferred` — 화면 본문을 별도 파싱하지 않음 |
 | `xn--jk1bs41btlgz1e.com` | `robots.txt`가 404이고 지원 가능한 JSON-LD가 없음 | `deferred` — 허용과 구조가 모두 불명확 |
 | `sonamoo.or.kr` | 공식 사업자·경기 화성 소재지는 검색 색인에서 확인되지만 2026-08-05 재확인에서도 DNS 실패와 외부 502가 관찰됨 | `deferred` — 공식 원문의 안정적인 접근 복구 전 등록 금지 |
-| `tamjung.mgdetective.co.kr` | 공개 경로의 robots 허용과 공식 사업자·경기 부천 소재 표시는 확인했으나 지원 가능한 사업체 JSON-LD가 없음 | `manual_candidate` — 공식 원문을 수동 재확인 |
+| `tamjung.mgdetective.co.kr` | 2026-08-10 HTTP 200·53,561 byte와 robots HTTP 200, 공식 푸터의 경기 부천 본사 주소·대표번호를 재확인 | `manual_registered` — 비공개 고위험 후보 등록 |
 | `htamjung.com` | 공식 사업자 표기와 경기 안산 소재지는 확인했으나 정책 실행 환경에서 DNS 재확인이 불가능함 | `deferred` — 자동 등록하지 않고 수동 후보 검토 |
 | `jeongtam.com` | 공식 사업자 표기와 경기 화성 소재지는 확인했으나 유효한 robots 정책과 지원 JSON-LD가 없음 | `deferred` — 공식 원문을 수동 후보로 검토 |
-| `xn--m01bq5ku5ay6xjtk.com` | 공개 경로의 robots 허용과 공식 사업자·경기 시흥 소재 표시는 확인했으나 JSON-LD 유형이 현재 지원 범위 밖임 | `manual_candidate` — 공식 원문을 수동 재확인 |
+| `xn--m01bq5ku5ay6xjtk.com` | 2026-08-10 HTTP 200·1,337,156 byte와 robots HTTP 200, 공식 푸터의 경기 시흥 단일 주소·대표번호를 재확인 | `manual_registered` — 비공개 고위험 후보 등록, 대용량 Imweb 자동 수집은 금지 유지 |
 | `leeandjang.net` | 2026-07-24에는 공식 사업자·서울 종로 소재지와 대표 전화를 확인했지만 2026-08-08 등록 직전 DNS가 `NXDOMAIN`으로 응답해 공식 원문과 robots를 재확인할 수 없음 | `deferred` — DNS와 공식 원문 접근이 복구된 뒤 최소 사실 필드를 다시 확인하기 전 등록 금지 |
 | `hositamtam.kr` | 2026-08-08 robots는 공개 경로를 허용하지만 홈페이지가 `사이트 기간 만료` 안내만 반환하며, 이전 화면에는 의정부 본사 연구실 외에 별도 상담실 주소도 표시됨 | `deferred` — 정상 홈페이지 복구 후 본사·상담실을 사무소별로 구분하고 최소 사실 필드를 다시 확인하기 전 등록 금지 |
-| `xn--z52bt3m.com` | 공식 사업자·경기 고양 소재와 대표 전화는 확인했으나 응답이 약 1.2MB로 현재 한도를 넘고 접근 환경별 403 및 `Organization` 중심 JSON-LD가 확인됨 | `manual_candidate` — 접근 상태와 원문을 브라우저에서 다시 확인 |
-| `tracker.imweb.me` | 공식 사업자·서울 강남 소재와 대표 전화, 공개 경로 robots 허용을 확인했으나 응답이 약 764KB이고 `OnlineStore` JSON-LD만 제공 | `manual_candidate` — 대용량 Imweb 본문을 자동 수집하지 않고 수동 재확인 |
+| `xn--z52bt3m.com` | 2026-08-10 정책 확인 HTTP 200·1,264,538 byte와 robots HTTP 200, 공식 푸터의 경기 고양 본사 주소·대표번호를 재확인 | `manual_registered` — 비공개 고위험 후보 등록, 대용량 본문 자동 수집은 금지 유지 |
+| `tracker.imweb.me` | 2026-08-10 HTTP 200·788,770 byte와 robots HTTP 200, 공식 사업자 정보의 서울 강남 단일 주소·대표번호를 재확인 | `manual_registered` — 비공개 고위험 후보 등록, 대용량 Imweb 자동 수집은 금지 유지 |
 | `xn--2z1b33o18ft2cdrq3lc.com` | 공식 법인 표기는 확인했지만 한 페이지에 서울 본사·강남과 전국 권역 지점, 서로 다른 대표번호가 함께 표시되어 한 사무소로 확정할 수 없음 | `deferred` — 지점별 공식 주소·대표번호 근거를 분리하기 전 수동 등록 금지 |
 | `jnkpri.co.kr` | 2026-08-09 HTTP 200·95,525 byte와 robots 전체 허용, 공식 푸터의 자사 상호·서울 서초 단일 주소·대표번호를 재확인하고 협력 기관 정보는 제외 | `manual_approved` — J&K 서초 사무소 승인·공개 |
 | `justicedt.com` | 2026-08-09 HTTP 200·11,015 byte와 공식 푸터의 사업자 상호·서울 강남 단일 주소·업무용 연락처를 재확인했으며 `robots.txt`는 404 유지 | `manual_approved` — 정의 강남 사무소 승인·공개, 자동 수집 금지 유지 |
@@ -122,11 +123,11 @@
 | `www.ok24call.co.kr` | 검색 색인에는 공식 사업자·경기 안산 본사와 전국 지점 홍보가 있으나 정책 실행 환경에서 DNS를 확인할 수 없음 | `deferred` — 공식 원문과 지점별 주소 근거를 직접 확인하기 전 등록 금지 |
 | `www.2win.co.kr` | 공식 사업자·경기 성남 소재 표시는 확인되지만 `robots.txt`가 `GPTBot`과 `ChatGPT-User`를 명시적으로 차단함 | `blocked` — 자동·AI 보조 접근을 중단하고 사람이 직접 재검토하기 전 등록 금지 |
 | `www.xn--hu1bk3my0dmsjjll.com` | 검색 색인에는 공식 사업자·경기 군포 소재지가 있으나 정책 실행 환경에서 DNS를 확인할 수 없음 | `deferred` — 공식 원문 접근 복구 전 등록 금지 |
-| `incheon.tamjungs.com` | 공식 사업자·경기 화성 본사와 사업상 연락처, robots 전체 허용을 확인했으나 인천 명칭의 하위 도메인과 다른 지역 하위 도메인 자산이 섞여 있고 지원 사업체 JSON-LD가 없음 | `manual_candidate` — 인천 지점이 아닌 화성 본사 한 곳으로만 공식 푸터를 수동 재확인 |
+| `incheon.tamjungs.com` | 이전 공식 사업자·경기 화성 본사 표시는 남아 있지만 2026-08-10 홈페이지와 robots 직접 재접속이 반복 timeout | `deferred` — 현재 공식 원문 접근이 복구되고 화성 본사 최소 필드를 다시 확인하기 전 등록 금지 |
 | `thepia.kr` | 검색 색인에는 공식 사업자·서울 서초 본사와 전국 지사 표기가 있으나 공식 홈페이지 확인이 timeout이고 `robots.txt`는 403을 반환함 | `deferred` — 공식 원문과 서울 본사 접근 정책을 직접 확인하기 전 등록 금지 |
-| `naeil-detective-sp.imweb.me` | 공식 사업자·서울 성동 단일 사무소와 사업상 연락처, 공개 경로 robots 허용을 확인했으나 응답이 약 2.0MB이고 `Organization` JSON-LD만 제공 | `manual_candidate` — 공식 푸터 최소 사실 필드만 수동 재확인 |
-| `mjdet.com` | 공식 사업자·서울 동작 단일 사무소와 사업상 연락처, 공개 경로 robots 허용을 확인했으나 응답이 약 1.1MB이고 최근 검색 색인과 현재 푸터의 호수가 다름 | `manual_candidate` — 주소 호수를 입력 직전 공식 원문과 추가 근거로 재검증 |
-| `www.kjidetective.com` | 공식 사업자·부산 본점과 서울 송파 지점을 주소·전화로 구분하고 robots 공개 경로를 허용하지만 응답이 약 1.7MB이며 `Organization` JSON-LD는 부산 본점 중심임 | `manual_candidate` — MVP 범위인 서울 지점 최소 사실 필드만 수동 재확인 |
+| `naeil-detective-sp.imweb.me` | 2026-08-10 HTTP 200·1,969,844 byte와 robots HTTP 200, 공식 사업자 정보의 서울 성동 단일 주소·대표번호를 재확인 | `manual_registered` — 비공개 고위험 후보 등록, 대용량 Imweb 자동 수집은 금지 유지 |
+| `mjdet.com` | 2026-08-10 HTTP 200·1,088,840 byte와 robots HTTP 200이지만 현재 HTML의 관악구 구조화 주소와 동작구 푸터 주소가 충돌 | `deferred` — 공식 주소가 한 사무소로 정리되고 추가 근거와 일치하기 전 등록 금지 |
+| `www.kjidetective.com` | 2026-08-10 HTTP 200·1,708,241 byte와 robots HTTP 200, 현재 공식 지점 영역에서 부산 본점과 구분된 서울 송파 지점 주소·전용 연락처를 재확인 | `manual_registered` — MVP 범위 서울지점만 비공개 고위험 후보 등록 |
 | `phytoption.com` | 공식 사업자·서울 송파 소재 표시는 있으나 `robots.txt`가 `GPTBot`을 명시적으로 차단하고 정식 등록·전국 지사·법적 효력을 단정하는 고위험 홍보 문구가 함께 있음 | `blocked` — 추가 AI 보조 접근을 중단하고 운영 주체·표현의 별도 검증 전 등록 금지 |
 
 위 후보는 모두 `sources.toml`에 넣지 않으며 자동으로 요청하지 않는다.
@@ -290,6 +291,32 @@
 - 실제 Clerk 관리자 UI에서 다섯 후보를 모두 `approved`로 처리했다. 감사
   처리자 권한과 필드·분류별 출처 근거, `published` 업체 총 6건, 다섯 신규
   공개 상세 HTTP 200과 브라우저 오류 0건을 확인했다.
+
+### 2026-08-10 여덟 사무소 수동 후보 등록
+
+- 남은 `manual_candidate` 10곳의 정규 홈페이지와 robots 응답을 다시 확인했다.
+  지니·다해결·명가·반딧불·시몬·트래커·내일·김전일컴퍼니 서울지점은
+  HTTP 200을 반환했고 공식 상호, 사업상 대표번호와 정확한 한 개 사무소
+  주소가 현재 원문에서 일치했다.
+- 대용량 Imweb 페이지의 본문·이미지·후기·상담 폼은 자동 수집하지 않았다.
+  다해결의 실시간 현황, 명가의 개별 게시물 연락처, 김전일의 부산 본점과
+  다른 지점 연락처도 후보 값에서 제외했다.
+- 김전일은 현재 공식 지점 영역에서 `김전일컴퍼니 서울지점`, 서울 송파 주소와
+  해당 지점 전화가 한 묶음으로 반복되는 것을 확인해 MVP 지역의 서울지점만
+  등록했다. 부산 본점과 제주지점은 등록하지 않았다.
+- 다해 화성 본사의 `incheon.tamjungs.com`은 최신 색인에 이전 최소 사실
+  필드가 남아 있어도 현재 홈페이지와 robots 직접 재접속이 반복 timeout이라
+  등록하지 않았다. 명진은 현재 HTML의 관악구 구조화 주소와 동작구 푸터
+  주소가 충돌해 정확한 한 사무소를 확정할 수 없으므로 등록하지 않았다.
+- Clerk Development의 공식 testing token과 실제 allowlist 관리자 세션으로
+  `/admin/reviews/new`와 `createManualOfficeCandidateAction`을 그대로 실행했다.
+  SQL 직접 삽입이나 인증·Server Action 권한 우회는 사용하지 않았다.
+- 유효한 8건은 `manual_admin/manual-v1`, `pending/new_office/high`로 생성됐다.
+  독립 DB 점검에서 모두 제출자 권한 유효, 감사 작업과 운영 업체 연결 0건이며
+  기존 수동 승인 5건과 `published` 업체 6건이 변하지 않았음을 확인했다.
+- 등록 자동화는 같은 URL·주소의 기존 대기 후보를 재사용하도록 제한하고,
+  실행 전후 정확한 후보 값·비공개 상태·공개 업체 불변을 확인한 뒤 제거했다.
+  이번 단계에서는 소재 지역·업무 분야 지정이나 승인·공개를 수행하지 않았다.
 
 ## 5. 재검토
 
