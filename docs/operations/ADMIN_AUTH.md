@@ -191,3 +191,10 @@ UI 메뉴 숨김이나 Layout 검사만으로 Server Action을 보호하지 않�
   보류 1건·대기 0건, 공개 업체는 26건이다. 공개 상세에서 Clerk 로그아웃 helper가
   로딩을 기다리다 제한시간을 초과한 1회 실행은 승인 결과와 분리해 읽기 전용
   DB·production Chrome 검증으로 재실행했고 1건이 통과했다.
+- 다음 공식 출처 묶음의 PIS·전국명품탐정·탐정법인 루미노케이 서울본부·
+  쌍용탐정사무소 4건을 같은 Clerk 공식 testing token과 실제 allowlist 관리자
+  세션의 `/admin/reviews/new` 폼으로 등록했다. 네 건 모두
+  `pending/new_office/high`, 유효한 제출자, `manual_admin/manual-v1`, 감사 작업
+  0건·운영 업체 미연결이며 공개 업체 26건 불변을 확인했다. 첫 실행 중 개발
+  세션 만료와 재로그인 상태 충돌을 각각 감지한 뒤 후보 URL 기준 재개 안전성을
+  적용해 중복 없이 완료했으며, 일회성 자동화는 독립 DB 검증 후 제거했다.
