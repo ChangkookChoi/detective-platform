@@ -179,3 +179,8 @@ UI 메뉴 숨김이나 Layout 검사만으로 Server Action을 보호하지 않�
   그대로 `approved` 처리됐고 유효한 감사 처리자·대표 출처·필드별 근거, 공개
   상세 HTTP 200과 브라우저 오류 0건을 확인했다. 공개 업체는 23건이며 SQL 직접
   삽입이나 인증·Server Action 권한 우회는 사용하지 않았다.
+- 다음 공식 출처 묶음의 DSI·에이원·넘버원 3건도 Clerk 공식 testing token과
+  실제 allowlist 관리자 세션의 `/admin/reviews/new` 폼으로 등록했다. 모두
+  `pending/new_office/high`, 유효한 제출자, 감사 작업·운영 업체 연결 0건이며
+  공개 업체 23건 불변을 확인했다. 승인 권한은 실행하지 않았고 일회성 등록
+  자동화는 검증 후 제거했다.
