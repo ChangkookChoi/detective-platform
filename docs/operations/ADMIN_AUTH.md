@@ -173,3 +173,9 @@ UI 메뉴 숨김이나 Layout 검사만으로 Server Action을 보호하지 않�
   운영 업체 미연결이며 기존 공개 업체 19건은 변하지 않았다. 등록용 브라우저
   자동화는 정확한 제안값과 공개 업체 불변을 독립 DB 쿼리로 확인한 뒤 제거했다.
   SQL 직접 삽입이나 인증·Server Action 권한 우회는 사용하지 않았다.
+- 인앱 Browser가 노출되지 않은 상태에서도 같은 Clerk 공식 testing token과
+  관리자 sign-in token을 사용하는 저장소의 production Chrome 검증 경로로 네
+  후보의 실제 관리자 상세 폼과 `approveReviewAction`을 실행했다. 모두 제안값
+  그대로 `approved` 처리됐고 유효한 감사 처리자·대표 출처·필드별 근거, 공개
+  상세 HTTP 200과 브라우저 오류 0건을 확인했다. 공개 업체는 23건이며 SQL 직접
+  삽입이나 인증·Server Action 권한 우회는 사용하지 않았다.
