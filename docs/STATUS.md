@@ -69,7 +69,10 @@ Next.js와 ESLint 설정을 16.3.0으로 올리고 전체 회귀 검증을 통�
 의존성 보안 감사도 0건으로 정리했습니다. PostgreSQL 합성 논리 백업·복구
 리허설은 자동화했습니다. 추가 비용 없는 Neon Free를 출시 리허설 후보로
 비교하고 pooled 런타임·direct migration 역할 분리, TLS·풀 상한과 실제 권한
-검증 명령을 준비했지만 외부 리소스와 실제 백업·배포는 아직 준비 전입니다.
+검증 명령을 준비했습니다. Vercel `sin1` 설정, runtime·read-only backup 역할
+구성과 `age` 암호화 일일 GitHub Actions artifact·수동 격리 복원 자동화를
+추가하고 합성 암호화 복원을 통과했지만, 외부 리소스와 실제 운영 백업·배포는
+아직 준비 전입니다.
 
 ## 완료
 
@@ -418,15 +421,32 @@ Next.js와 ESLint 설정을 16.3.0으로 올리고 전체 회귀 검증을 통�
 - 비밀값을 출력하지 않고 Production URL의 TLS·역할/DB 분리·pool 상한·HTTPS
   origin을 검사하는 사전검증과, 실제 PostgreSQL 17·TLS·migration·최소 권한을
   읽기 전용으로 확인하는 연결 검증 명령 추가
+- Vercel Hobby의 단일 Function 리전을 Neon Singapore 후보와 맞추는 `sin1`
+  프로젝트 설정 추가
+- migration 소유자 자격 증명으로 runtime 최소 DML 역할과 별도 read-only
+  backup 역할을 멱등 생성·비밀번호 회전하고 `public` schema 생성 권한을
+  회수하는 운영 역할 구성 명령 추가
+- 운영 설정·연결 검증을 runtime·migration뿐 아니라 backup direct URL과 역할
+  분리, 모든 현재 테이블의 read-only·DML 부재 확인까지 확장
+- GitHub Actions에서 매일 02:23 KST에 PostgreSQL 17 custom dump를 `age`
+  공개키로 암호화하고 SHA-256 manifest와 함께 14일 보존하는 예약 workflow,
+  24시간 이내 artifact만 빈 격리 DB로 복원하는 수동 workflow 추가
+- 암호화 archive를 15MiB에서 차단해 14개가 모두 상한이어도 약 210MiB로
+  GitHub Free 500MB 공유 한도에 여유를 두고 예상 밖 과금을 조기 차단
+- 공식 `age` v1.3.1 macOS ARM64 archive의 SHA-256을 대조한 임시 바이너리로
+  합성 custom dump 44,876바이트를 암호화·복호화하고 빈 PostgreSQL 17에 0초
+  복원한 뒤 migration·seed·관계·제약 검증 통과
 
 ## 다음 작업 후보
 
-1. 사용자 승인 후 Vercel 프로젝트와 Neon Free 리허설 DB를 Singapore에 만들고,
-   Vercel `sin1` 단일 Function 리전·최소 권한 runtime 역할·direct migration
-   역할을 연결해 migration·seed·지연·scale-to-zero 첫 요청을 실제 측정
-2. 추가 비용을 쓰지 않을 경우 독립 저장소의 암호화 일일 `pg_dump` 자동화와
-   14일 보존을 설계하고, 유료 보존 구간과 비용·운영 복잡도를 비교한 뒤 실제
-   격리 복원으로 RPO 24시간·RTO 4시간을 검증
+1. 만료된 Vercel CLI 인증을 사용자가 기기 승인으로 갱신한 뒤 Vercel 프로젝트와
+   Neon Free 리허설 DB를 Singapore에 만들고, `sin1`·최소 권한 runtime·
+   read-only backup 역할을 연결해 migration·seed·TLS·지연·scale-to-zero 첫
+   요청을 실제 측정
+2. 기본 branch에 백업 workflow가 반영된 뒤 repository variable·secret과
+   Actions 0원 초과 사용 중지 예산을 설정해 실제 Neon 첫
+   암호화 artifact를 생성한다. 24시간 이내 artifact를 격리 복원해 RPO·RTO를
+   측정하고 최초 artifact의 14일 만료를 추적
 3. 실제 배포 대상과 canonical origin, Clerk production 환경을 정하고 배포 후
    보안 헤더·robots·sitemap·JSON-LD·로그인·공개/관리자 핵심 흐름을 smoke 검증
 4. 개인정보 처리방침의 운영 주체·문의 채널·보유 기간·위탁/국외 이전 여부를
@@ -522,6 +542,16 @@ Next.js와 ESLint 설정을 16.3.0으로 올리고 전체 회귀 검증을 통�
   Neon 리소스나 자격 증명은 만들지 않았다. 무료 6시간 복원 이력은 14일
   보존 정책을 충족하지 않으므로 외부 암호화 백업 또는 유료 보존 구간과 실제
   복원을 확정하기 전에는 공개 운영 DB가 준비됐다고 보지 않는다.
+- Vercel CLI의 기존 토큰은 2026-08-11 사전검증에서 만료 상태였고 Codex 내장
+  브라우저 인스턴스도 연결되지 않아 기기 인증 승인 전에는 Vercel 프로젝트·
+  Neon 리소스를 만들 수 없다. 리소스 생성 전까지 비용이나 외부 DB 변경은
+  발생하지 않았다.
+- GitHub Actions 암호화 백업·복원 workflow와 역할 구성은 구현했고 합성
+  PostgreSQL 17 복원을 통과했다. 2026-08-11 GitHub CLI 인증은 복구했고 공개
+  저장소의 Actions variable·secret이 아직 비어 있음을 확인했다. 기본 branch에
+  workflow가 반영되기 전에는 repository variable·secret과 실제 Neon read-only
+  URL, 첫 artifact·격리 복원·14일 만료를 검증할 수 없으므로 운영 RPO·RTO
+  달성으로 보고하지 않는다.
 - 공개 안내·SEO 기술 기반은 lint와 production build를 통과했지만 개인정보
   처리방침의 운영 주체·문의 채널·최종 보유 기간·위탁 및 국외 이전 여부는 운영
   인프라와 법무 검토 후 확정해야 한다. production canonical origin 설정과 실제

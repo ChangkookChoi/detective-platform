@@ -21,9 +21,11 @@ PostgreSQL 운영 데이터의 손실 범위를 제한하고 실제 복구 가�
 검토한다.
 
 2026-08-11 현재 Neon Free는 출시 리허설 후보일 뿐이다. 무료 6시간 복원
-이력은 이 문서의 자동 일일 백업 14일 보존을 충족하지 않는다. 유료 보존
-구간 또는 독립 저장소의 암호화된 일일 논리 백업과 실제 복원을 검증하기
-전에는 공개 운영 백업이 준비됐다고 판단하지 않는다. 공급자 연결 절차는
+이력은 이 문서의 자동 일일 백업 14일 보존을 충족하지 않는다. 무과금 보완
+경로로 [ADR-0009](../decisions/ADR-0009-encrypted-logical-backups.md)에 따라
+암호화된 GitHub Actions artifact를 선택하고 합성 복원을 통과했지만, 실제
+운영 archive의 14일 보존과 격리 복원을 검증하기 전에는 공개 운영 백업이
+준비됐다고 판단하지 않는다. 공급자 연결 절차는
 [운영 PostgreSQL 준비](PRODUCTION_DATABASE.md)를 따른다.
 
 ## 3. 백업 계층
@@ -42,8 +44,9 @@ PostgreSQL 운영 데이터의 손실 범위를 제한하고 실제 복구 가�
    - 실제 개인정보나 운영 비밀을 로컬 DB 또는 검증 백업에 넣지 않는다.
 
 운영 공급자가 위 보존 기간이나 격리 조건을 제공하지 못하면 출시 전에 별도
-암호화 저장소와 자동 내보내기를 설계한다. 공급자 선택 전에는 외부 저장소나
-예약 작업을 임의로 만들지 않는다.
+암호화 저장소와 자동 내보내기를 설계한다. 현재 무과금 리허설은 GitHub Actions
+artifact를 사용하며 실제 운영 검증이 끝나기 전까지 공급자 백업을 대체했다고
+보지 않는다.
 
 ## 4. 보안과 접근
 
@@ -70,10 +73,11 @@ PostgreSQL 운영 데이터의 손실 범위를 제한하고 실제 복구 가�
 2. migration과 기준 데이터 seed를 적용한다.
 3. 합성 업체, 수집 실행·레코드, 보류 검수와 감사 작업을 만든다.
 4. `pg_dump --format=custom`으로 소유자·권한을 제외한 논리 백업을 만든다.
-5. 빈 데이터베이스에 `pg_restore --exit-on-error`로 복원한다.
-6. 원본·복원 DB의 migration과 핵심 테이블 건수를 비교한다.
-7. 수집 레코드부터 검수 감사 작업까지의 관계와 DB 제약·seed를 검증한다.
-8. 임시 서버, 데이터와 백업 파일을 성공·실패와 관계없이 삭제한다.
+5. 임시 `age` X25519 키로 archive를 암호화하고 SHA-256을 검증해 복호화한다.
+6. 빈 데이터베이스에 `pg_restore --exit-on-error`로 복원한다.
+7. 원본·복원 DB의 migration과 핵심 테이블 건수를 비교한다.
+8. 수집 레코드부터 검수 감사 작업까지의 관계와 DB 제약·seed를 검증한다.
+9. 임시 서버, 키, 평문 dump와 암호화 파일을 성공·실패와 관계없이 삭제한다.
 
 기본 포트 `55434`가 사용 중이면 다른 포트를 지정한다.
 
@@ -84,7 +88,44 @@ PG_BACKUP_TEST_PORT=55435 ./scripts/verify-postgres-backup.sh
 이 검증은 공급자 시점 복구, 암호화 키, 네트워크 접근 통제, 대용량 복원
 시간을 대신하지 않는다.
 
-## 6. 운영 복구 절차
+## 6. GitHub Actions 무과금 리허설
+
+예약 백업은 [database-backup.yml](../../.github/workflows/database-backup.yml),
+수동 격리 복원은
+[database-backup-restore.yml](../../.github/workflows/database-backup-restore.yml)을
+사용한다. 예약 workflow는 기본 branch의 최신 커밋에서만 실행되므로 merge 전
+branch에 파일이 존재하는 것만으로 백업이 활성화되지는 않는다.
+
+필수 GitHub 설정:
+
+| 종류 | 이름 | 값과 권한 |
+| --- | --- | --- |
+| Actions variable | `DATABASE_BACKUP_AGE_RECIPIENT` | `age1...` 공개 recipient |
+| Repository secret | `PRODUCTION_DATABASE_BACKUP_URL` | direct TLS, read-only backup 역할 |
+| Repository secret | `DATABASE_BACKUP_AGE_IDENTITY` | recipient에 대응하는 복호화 identity |
+
+추가 운영 설정:
+
+1. Actions 사용 예산을 0원·한도 도달 시 사용 중지로 설정한다.
+2. 매일 02:23 KST 예약과 최근 성공 알림 담당자를 확인한다.
+3. 최초 백업 workflow run ID로 수동 복원 workflow를 실행한다.
+4. 복원 workflow가 24시간 이내 archive, SHA-256, 복호화, 빈 PostgreSQL 17
+   복원과 `db:verify`를 통과하는지 확인한다.
+5. 첫 14일 동안 artifact 수·총 용량을 매일 확인하고, 이후 최초 artifact가
+   만료되는지 확인한다.
+
+archive는 15MiB를 넘으면 실패한다. 매일 상한 크기 14개는 약 210MiB지만,
+GitHub Free의 500MB는 Actions artifact와 Packages가 공유한다. 수동 재실행과
+다른 artifact도 포함해 월별 사용량을 확인한다. archive가 상한에 가까워지면
+보존을 줄여 정책을 어기지 말고 R2 Standard 무료 구간 또는 유료 관리형 백업을
+비교한다.
+
+백업 생성과 수동 복원 명령은 각각
+`scripts/create-encrypted-postgres-backup.sh`,
+`scripts/restore-encrypted-postgres-backup.sh`에 있다. 평문 dump와 identity를
+artifact나 로그에 포함하지 않는다.
+
+## 7. 운영 복구 절차
 
 1. 장애 범위와 마지막 정상 시각을 확인하고 쓰기를 중단한다.
 2. 운영 원본을 덮어쓰지 않고 격리된 새 데이터베이스로 복원한다.
@@ -100,7 +141,7 @@ PG_BACKUP_TEST_PORT=55435 ./scripts/verify-postgres-backup.sh
 복원 검증 전 운영 원본을 삭제하거나 복원본으로 덮어쓰지 않는다. 전환은
 연결 대상 변경처럼 되돌릴 수 있는 방식으로 수행한다.
 
-## 7. 검증 주기와 출시 조건
+## 8. 검증 주기와 출시 조건
 
 - DB·migration 관련 PR: merge 전에 합성 논리 백업·복구 스크립트 실행
 - 매월: 운영과 같은 PostgreSQL major 버전으로 격리 복구 리허설

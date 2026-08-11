@@ -224,37 +224,41 @@ insert into review_actions (
 SQL
 
 source_fingerprint="$(database_fingerprint "$SOURCE_DATABASE")"
-backup_file="$PG_BACKUP_TEST_ROOT/detective-platform.dump"
+backup_output_dir="$PG_BACKUP_TEST_ROOT/encrypted-backup"
+backup_identity_file="$PG_BACKUP_TEST_ROOT/backup-identity.txt"
+backup_basename="detective-platform-backup-self-test"
 
-"$PG_BIN/pg_dump" \
-  -h 127.0.0.1 \
-  -p "$PG_BACKUP_TEST_PORT" \
-  -d "$SOURCE_DATABASE" \
-  --format=custom \
-  --no-owner \
-  --no-privileges \
-  --file="$backup_file"
-
-if [[ ! -s "$backup_file" ]]; then
-  echo "Backup archive is empty." >&2
+if ! command -v age >/dev/null 2>&1 ||
+  ! command -v age-keygen >/dev/null 2>&1; then
+  echo "age and age-keygen are required for encrypted backup verification." >&2
   exit 1
 fi
 
-"$PG_BIN/pg_restore" --list "$backup_file" >/dev/null
+age-keygen -o "$backup_identity_file" >/dev/null 2>&1
+backup_recipient="$(age-keygen -y "$backup_identity_file")"
+
+DATABASE_BACKUP_URL="$DATABASE_URL" \
+BACKUP_ENCRYPTION_RECIPIENT="$backup_recipient" \
+BACKUP_OUTPUT_DIR="$backup_output_dir" \
+BACKUP_BASENAME="$backup_basename" \
+BACKUP_ALLOW_INSECURE_LOCAL=true \
+POSTGRES_CLIENT_MODE=local \
+  "$ROOT_DIR/scripts/create-encrypted-postgres-backup.sh"
+
+backup_file="$backup_output_dir/$backup_basename.dump.age"
+backup_sha256_file="$backup_file.sha256"
 
 "$PG_BIN/createdb" \
   -h 127.0.0.1 \
   -p "$PG_BACKUP_TEST_PORT" \
   "$RESTORED_DATABASE"
 
-"$PG_BIN/pg_restore" \
-  -h 127.0.0.1 \
-  -p "$PG_BACKUP_TEST_PORT" \
-  -d "$RESTORED_DATABASE" \
-  --exit-on-error \
-  --no-owner \
-  --no-privileges \
-  "$backup_file"
+RESTORE_DATABASE_URL="postgresql://$(id -un)@127.0.0.1:$PG_BACKUP_TEST_PORT/$RESTORED_DATABASE" \
+BACKUP_ARCHIVE="$backup_file" \
+BACKUP_SHA256_FILE="$backup_sha256_file" \
+BACKUP_DECRYPTION_IDENTITY_FILE="$backup_identity_file" \
+POSTGRES_CLIENT_MODE=local \
+  "$ROOT_DIR/scripts/restore-encrypted-postgres-backup.sh"
 
 restored_fingerprint="$(database_fingerprint "$RESTORED_DATABASE")"
 if [[ "$source_fingerprint" != "$restored_fingerprint" ]]; then

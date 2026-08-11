@@ -57,7 +57,7 @@ HTML 보고서는 Git 제외된 `test-results`, `playwright-report`에 생성됩
 
 ## 데이터베이스
 
-[`./.env.example`](.env.example)을 참고해 로컬 `.env.local`에 `DATABASE_URL`을 설정합니다. 실제 자격 증명은 Git에 커밋하지 않습니다. 운영에서는 pooled 최소 권한 `DATABASE_URL`과 신뢰된 배포 환경에만 두는 direct `DATABASE_MIGRATION_URL`을 분리하고, 인스턴스별 풀 상한을 `DATABASE_POOL_MAX`로 설정합니다.
+[`./.env.example`](.env.example)을 참고해 로컬 `.env.local`에 `DATABASE_URL`을 설정합니다. 실제 자격 증명은 Git에 커밋하지 않습니다. 운영에서는 pooled 최소 권한 `DATABASE_URL`, 신뢰된 배포 환경에만 두는 direct `DATABASE_MIGRATION_URL`, 백업 runner의 read-only `DATABASE_BACKUP_URL`을 분리하고 인스턴스별 풀 상한을 `DATABASE_POOL_MAX`로 설정합니다.
 
 관리자 기능에는 같은 파일의 Clerk 키와 역할별 사용자 ID allowlist도 필요합니다. 실제 값을 설정하기 전에 [`../../docs/operations/ADMIN_AUTH.md`](../../docs/operations/ADMIN_AUTH.md)의 역할과 운영 절차를 확인합니다.
 
@@ -68,6 +68,11 @@ npm run db:migrate
 npm run db:seed
 npm run db:validate-production-config:self-test
 ```
+
+실제 관리형 PostgreSQL을 준비할 때는 migration·seed 이후 process 환경에만
+역할 이름과 서로 다른 32자 이상 비밀번호를 주입해
+`npm run db:configure-production-roles`를 실행합니다. 세 역할의 URL을 구성한
+뒤 `npm run db:verify-production-connection`으로 TLS와 최소 권한을 확인합니다.
 
 스키마를 변경한 경우 `npm run db:generate`로 SQL migration을 생성하고 내용을 검토한 뒤 커밋합니다. 운영 데이터베이스에는 `drizzle-kit push`를 사용하지 않습니다.
 

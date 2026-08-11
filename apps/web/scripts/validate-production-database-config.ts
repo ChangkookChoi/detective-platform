@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { config } from "dotenv";
 
 type ProductionDatabaseConfiguration = {
+  backupUrl?: string;
   runtimeUrl?: string;
   migrationUrl?: string;
   poolMax?: string;
@@ -16,7 +17,7 @@ type ValidatedDatabaseUrl = {
 
 type ProductionDatabaseValidation = {
   poolMax: number;
-  runtimeAndMigrationRolesSeparated: true;
+  databaseRolesSeparated: true;
   tlsRequired: true;
   siteUsesHttps: true;
 };
@@ -33,7 +34,7 @@ function requireValue(value: string | undefined, name: string) {
 
 function validateDatabaseUrl(
   value: string | undefined,
-  name: "DATABASE_URL" | "DATABASE_MIGRATION_URL",
+  name: "DATABASE_URL" | "DATABASE_MIGRATION_URL" | "DATABASE_BACKUP_URL",
 ): ValidatedDatabaseUrl {
   const rawUrl = requireValue(value, name);
   let parsed: URL;
@@ -135,22 +136,35 @@ function validateProductionDatabaseConfiguration(
     configuration.migrationUrl,
     "DATABASE_MIGRATION_URL",
   );
+  const backup = validateDatabaseUrl(
+    configuration.backupUrl,
+    "DATABASE_BACKUP_URL",
+  );
 
-  if (configuration.runtimeUrl?.trim() === configuration.migrationUrl?.trim()) {
+  const configuredUrls = [
+    configuration.runtimeUrl?.trim(),
+    configuration.migrationUrl?.trim(),
+    configuration.backupUrl?.trim(),
+  ];
+
+  if (new Set(configuredUrls).size !== configuredUrls.length) {
     throw new Error(
-      "DATABASE_URL and DATABASE_MIGRATION_URL must use separate credentials.",
+      "Runtime, migration, and backup URLs must use separate credentials.",
     );
   }
 
-  if (runtime.username === migration.username) {
+  if (new Set([runtime.username, migration.username, backup.username]).size !== 3) {
     throw new Error(
-      "Runtime and migration database URLs must use different PostgreSQL roles.",
+      "Runtime, migration, and backup database URLs must use different PostgreSQL roles.",
     );
   }
 
-  if (runtime.databaseName !== migration.databaseName) {
+  if (
+    runtime.databaseName !== migration.databaseName ||
+    backup.databaseName !== migration.databaseName
+  ) {
     throw new Error(
-      "Runtime and migration database URLs must target the same database name.",
+      "Runtime, migration, and backup URLs must target the same database name.",
     );
   }
 
@@ -159,7 +173,7 @@ function validateProductionDatabaseConfiguration(
 
   return {
     poolMax,
-    runtimeAndMigrationRolesSeparated: true,
+    databaseRolesSeparated: true,
     tlsRequired: true,
     siteUsesHttps: true,
   };
@@ -167,6 +181,7 @@ function validateProductionDatabaseConfiguration(
 
 function readProcessConfiguration(): ProductionDatabaseConfiguration {
   return {
+    backupUrl: process.env.DATABASE_BACKUP_URL,
     runtimeUrl: process.env.DATABASE_URL,
     migrationUrl: process.env.DATABASE_MIGRATION_URL,
     poolMax: process.env.DATABASE_POOL_MAX,
@@ -176,6 +191,8 @@ function readProcessConfiguration(): ProductionDatabaseConfiguration {
 
 function runSelfTest() {
   const validConfiguration: ProductionDatabaseConfiguration = {
+    backupUrl:
+      "postgresql://backup_reader:secret@database.example.com/platform?sslmode=require",
     runtimeUrl:
       "postgresql://app_runtime:secret@database-pool.example.com/platform?sslmode=require",
     migrationUrl:
@@ -186,7 +203,7 @@ function runSelfTest() {
 
   assert.deepEqual(validateProductionDatabaseConfiguration(validConfiguration), {
     poolMax: 5,
-    runtimeAndMigrationRolesSeparated: true,
+    databaseRolesSeparated: true,
     tlsRequired: true,
     siteUsesHttps: true,
   });
@@ -229,6 +246,15 @@ function runSelfTest() {
     () =>
       validateProductionDatabaseConfiguration({
         ...validConfiguration,
+        backupUrl:
+          "postgresql://app_runtime:other@database.example.com/platform?sslmode=require",
+      }),
+    /different PostgreSQL roles/,
+  );
+  assert.throws(
+    () =>
+      validateProductionDatabaseConfiguration({
+        ...validConfiguration,
         poolMax: "11",
       }),
     /integer from 1 through 10/,
@@ -259,7 +285,7 @@ try {
     console.log("Production database configuration is ready for connectivity checks.");
     console.log(`Runtime pool maximum per instance: ${result.poolMax}`);
     console.log("TLS requirement: configured");
-    console.log("Runtime/migration role separation: configured");
+    console.log("Runtime/migration/backup role separation: configured");
     console.log("Production site origin: HTTPS");
   }
 } catch (error) {

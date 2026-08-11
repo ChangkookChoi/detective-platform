@@ -19,6 +19,7 @@
     "db:check": "drizzle-kit check",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:configure-production-roles": "tsx scripts/configure-production-database-roles.ts",
     "db:validate-production-config": "tsx scripts/validate-production-database-config.ts",
     "db:validate-production-config:self-test": "tsx scripts/validate-production-database-config.ts --self-test",
     "db:verify-production-connection": "tsx scripts/verify-production-database-connection.ts",

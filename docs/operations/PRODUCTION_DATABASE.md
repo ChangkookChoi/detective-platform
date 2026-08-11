@@ -38,6 +38,7 @@ TLS·풀링·최소 권한, migration과 복구 검증 절차를 정의한다.
 | --- | --- | --- | --- |
 | `DATABASE_URL` | Vercel Production 비밀 | pooled | 웹 런타임 최소 DML |
 | `DATABASE_MIGRATION_URL` | 신뢰된 배포 터미널 또는 CI 비밀 | direct | migration·seed 소유자 |
+| `DATABASE_BACKUP_URL` | GitHub Actions repository secret | direct | 논리 백업 read-only |
 | `DATABASE_POOL_MAX` | Vercel Production 설정 | 해당 없음 | 인스턴스별 풀 상한, 기본 5 |
 | 수집기 실행 시 `DATABASE_URL` | 별도 수집기 실행 환경 비밀 | direct 또는 제한된 pool | 후보 조회·적재 전용 |
 
@@ -81,11 +82,13 @@ Function을 DB와 가까운 리전에 두도록 권고하고, Hobby는 단일 �
 4. 초기 소유자 URL을 웹 프로젝트에 바로 연결하지 않는다. CLI를 사용할 경우
    `vercel integration add neon --no-connect`로 리소스만 만든다.
 5. Neon에서 웹 런타임용 별도 로그인 역할을 만들고 아래 현재 테이블 권한만
-   부여한다. 새 migration이 테이블을 추가하면 권한도 함께 검토한다.
+   부여한다. read-only 백업 역할도 별도로 만든다. 새 migration이 테이블을
+   추가하면 두 역할 권한도 함께 검토한다.
 6. pooled 런타임 URL만 Vercel Production의 `DATABASE_URL`에 민감값으로 저장한다.
 7. direct 소유자 URL은 신뢰된 배포 환경의 `DATABASE_MIGRATION_URL`에만 저장한다.
 8. `DATABASE_POOL_MAX=5`, 실제 HTTPS origin과 Clerk Production 값을 설정한다.
-9. migration 전 논리 백업, migration, seed, 연결·역할 검증 순서로 진행한다.
+9. 아래 역할 구성 명령으로 runtime·backup 역할을 만든 뒤 migration 전 논리
+   백업, migration, seed, 연결·역할 검증 순서로 진행한다.
 10. 공개 배포 전에 백업 보존과 복원 조건을 별도로 통과한다.
 
 Marketplace 연결은 환경변수를 자동 추가할 수 있다. 연결 전에 어떤 역할의
@@ -107,6 +110,8 @@ URL인지 확인하고, 소유자 URL이 웹 런타임에 남지 않게 한다. 
 - `analytics_events`: `DELETE`
 
 `regions`, `service_categories` seed 변경과 schema DDL은 migration 역할만 수행한다.
+백업 역할은 모든 현재 테이블·sequence의 `SELECT`만 가지며 DML·DDL 권한을
+갖지 않는다.
 수집기는 [로컬 최소 권한 계약](LOCAL_DATABASE.md)의 운영 버전을 별도 역할로
 적용하며 웹 역할이나 migration 역할을 공유하지 않는다.
 
@@ -127,8 +132,15 @@ cd apps/web
 npm run db:validate-production-config
 npm run db:migrate
 npm run db:seed
+npm run db:configure-production-roles
 npm run db:verify-production-connection
 ```
+
+역할 구성에는 `DATABASE_MIGRATION_URL`, `DATABASE_RUNTIME_ROLE`,
+`DATABASE_RUNTIME_PASSWORD`, `DATABASE_BACKUP_ROLE`,
+`DATABASE_BACKUP_PASSWORD`를 process 환경으로만 주입한다. 비밀번호는 서로
+다른 32자 이상 값이어야 하며 명령은 값을 출력하지 않는다. 구성 후 runtime
+pooled URL과 backup direct URL을 별도로 조립해 연결 검증에 주입한다.
 
 `drizzle.config.ts`, seed와 DB 검증 명령은 명령 실행 전에 process 환경으로
 주입된 `DATABASE_MIGRATION_URL`만 우선한다. `.env.local`에서 뒤늦게 읽은
@@ -138,7 +150,7 @@ migration URL이 임시 E2E의 명시적 `DATABASE_URL`을 덮어쓰지 못한�
 사전검증은 값을 출력하지 않고 다음을 확인한다.
 
 - Production URL의 TLS 요구
-- 런타임·migration URL의 역할 분리와 DB 이름 일치
+- 런타임·migration·backup URL의 역할 분리와 DB 이름 일치
 - 인스턴스별 풀 상한 1~10
 - HTTPS canonical origin
 
@@ -152,6 +164,7 @@ migration URL이 임시 E2E의 명시적 `DATABASE_URL`을 덮어쓰지 못한�
 - 런타임 role의 superuser·role/database/schema 생성 권한 부재
 - migration role의 schema 생성 권한
 - 현재 테이블의 런타임 최소 DML 권한
+- backup 역할의 모든 현재 테이블 read-only 권한과 DML·DDL 부재
 
 ## 8. 백업 출시 차단 조건
 
@@ -166,6 +179,8 @@ Neon Free의 6시간 복원 이력만으로는
 5. 측정된 RPO 24시간 이내·RTO 4시간 이내
 6. 백업 담당자와 복구 승인자
 
-무료 경로를 유지하려면 독립 저장소로 암호화한 `pg_dump`를 자동화해야 한다.
-저장소·암호화 키·스케줄러가 결정되기 전에는 임시 구현이나 운영 자격 증명
-공유를 하지 않는다.
+무료 경로는 [백업·복구](DATABASE_BACKUP.md)와
+[ADR-0009](../decisions/ADR-0009-encrypted-logical-backups.md)의 암호화된
+GitHub Actions artifact로 준비했다. 합성 암호화 복원만 통과한 상태이므로 실제
+Neon read-only 역할의 첫 archive·24시간 RPO·4시간 RTO와 14일 만료를 확인하기
+전에는 출시 차단 조건이 해제되지 않는다.

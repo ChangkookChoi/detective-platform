@@ -188,6 +188,54 @@ async function verifyRuntimeTablePrivileges(pool: Pool) {
   }
 }
 
+async function verifyBackupTablePrivileges(pool: Pool) {
+  const result = await pool.query<{
+    table_name: string;
+    can_select: boolean;
+    can_insert: boolean;
+    can_update: boolean;
+    can_delete: boolean;
+    can_truncate: boolean;
+  }>(
+    `select expected.table_name,
+            has_table_privilege(
+              current_user,
+              format('public.%I', expected.table_name),
+              'SELECT'
+            ) as can_select,
+            has_table_privilege(
+              current_user,
+              format('public.%I', expected.table_name),
+              'INSERT'
+            ) as can_insert,
+            has_table_privilege(
+              current_user,
+              format('public.%I', expected.table_name),
+              'UPDATE'
+            ) as can_update,
+            has_table_privilege(
+              current_user,
+              format('public.%I', expected.table_name),
+              'DELETE'
+            ) as can_delete,
+            has_table_privilege(
+              current_user,
+              format('public.%I', expected.table_name),
+              'TRUNCATE'
+            ) as can_truncate
+       from unnest($1::text[]) as expected(table_name)`,
+    [requiredTables],
+  );
+
+  for (const row of result.rows) {
+    assert(row.can_select, `Backup role requires SELECT on ${row.table_name}.`);
+    assert(!row.can_insert, `Backup role must not INSERT into ${row.table_name}.`);
+    assert(!row.can_update, `Backup role must not UPDATE ${row.table_name}.`);
+    assert(!row.can_delete, `Backup role must not DELETE from ${row.table_name}.`);
+    assert(!row.can_truncate, `Backup role must not TRUNCATE ${row.table_name}.`);
+  }
+}
+
 async function main() {
   const runtimePool = createPool(
     requireValue(process.env.DATABASE_URL, "DATABASE_URL"),
@@ -200,11 +248,16 @@ async function main() {
     ),
     "detective-platform-migration-check",
   );
+  const backupPool = createPool(
+    requireValue(process.env.DATABASE_BACKUP_URL, "DATABASE_BACKUP_URL"),
+    "detective-platform-backup-check",
+  );
 
   try {
-    const [runtime, migration] = await Promise.all([
+    const [runtime, migration, backup] = await Promise.all([
       inspectConnection(runtimePool),
       inspectConnection(migrationPool),
+      inspectConnection(backupPool),
     ]);
     const migrationCountResult = await migrationPool.query<{ count: string }>(
       "select count(*)::text as count from drizzle.__drizzle_migrations",
@@ -216,13 +269,28 @@ async function main() {
       migration.databaseName,
       "Runtime and migration roles must target the same database.",
     );
+    assert.equal(
+      backup.databaseName,
+      migration.databaseName,
+      "Backup and migration roles must target the same database.",
+    );
     assert.notEqual(
       runtime.roleName,
       migration.roleName,
       "Runtime and migration credentials must use different roles.",
     );
+    assert.notEqual(
+      backup.roleName,
+      migration.roleName,
+      "Backup and migration credentials must use different roles.",
+    );
+    assert.notEqual(
+      backup.roleName,
+      runtime.roleName,
+      "Backup and runtime credentials must use different roles.",
+    );
 
-    for (const inspection of [runtime, migration]) {
+    for (const inspection of [runtime, migration, backup]) {
       assert(inspection.tlsEnabled, "Every production database connection requires TLS.");
       assert(
         inspection.serverVersion >= 170000,
@@ -241,9 +309,19 @@ async function main() {
       migration.canCreateSchemaObjects,
       "Migration role requires CREATE on the public schema.",
     );
+    assert(!backup.isSuperuser, "Backup role must not be a superuser.");
+    assert(!backup.canCreateRole, "Backup role must not create roles.");
+    assert(!backup.canCreateDatabase, "Backup role must not create databases.");
+    assert(
+      !backup.canCreateSchemaObjects,
+      "Backup role must not create objects in the public schema.",
+    );
     assert(migrationCount >= 1, "Applied Drizzle migrations are required.");
 
-    await verifyRuntimeTablePrivileges(runtimePool);
+    await Promise.all([
+      verifyRuntimeTablePrivileges(runtimePool),
+      verifyBackupTablePrivileges(backupPool),
+    ]);
 
     console.log("Production database connectivity and role verification completed.");
     console.log(`PostgreSQL server version: ${runtime.serverVersion}`);
@@ -251,8 +329,9 @@ async function main() {
     console.log("TLS connections: verified");
     console.log("Runtime/migration role separation: verified");
     console.log("Runtime table privileges: verified");
+    console.log("Backup role separation and read-only privileges: verified");
   } finally {
-    await Promise.all([runtimePool.end(), migrationPool.end()]);
+    await Promise.all([runtimePool.end(), migrationPool.end(), backupPool.end()]);
   }
 }
 
