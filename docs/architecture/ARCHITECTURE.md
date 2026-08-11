@@ -37,6 +37,9 @@ Python collector (services/collector)
 - PostgreSQL: 두 애플리케이션의 영속 저장소
 
 웹과 수집기는 같은 저장소와 데이터 계약을 공유하지만 실행 수명과 배포 방식은 분리한다. 수집기는 공개 데이터를 직접 갱신하지 않고 후보만 생성한다.
+관리형 PostgreSQL의 출시 후보, 런타임 pooled 연결·migration direct 연결과
+환경별 자격 증명 계약은 [운영 PostgreSQL 준비](../operations/PRODUCTION_DATABASE.md)를
+따른다.
 
 ## 4. 웹 모듈 경계
 

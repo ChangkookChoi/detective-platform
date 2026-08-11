@@ -5,6 +5,9 @@ import { Pool } from "pg";
 
 import { regionSeed, serviceCategorySeed } from "../src/db/seed-data";
 
+const injectedMigrationDatabaseUrl =
+  process.env.DATABASE_MIGRATION_URL?.trim();
+
 config({ path: ".env.local", quiet: true });
 config({ quiet: true });
 
@@ -42,10 +45,13 @@ function isPostgresErrorWithCode(error: unknown, code: string) {
 }
 
 async function main() {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString =
+    injectedMigrationDatabaseUrl || process.env.DATABASE_URL;
 
   if (!connectionString) {
-    throw new Error("DATABASE_URL is required for database verification.");
+    throw new Error(
+      "DATABASE_MIGRATION_URL or DATABASE_URL is required for database verification.",
+    );
   }
 
   const pool = new Pool({ connectionString });

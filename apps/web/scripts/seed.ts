@@ -1,7 +1,14 @@
 import { config } from "dotenv";
 
+const injectedMigrationDatabaseUrl =
+  process.env.DATABASE_MIGRATION_URL?.trim();
+
 config({ path: ".env.local", quiet: true });
 config({ quiet: true });
+
+if (injectedMigrationDatabaseUrl) {
+  process.env.DATABASE_URL = injectedMigrationDatabaseUrl;
+}
 
 async function main() {
   const [{ closeDatabase, getDatabase }, schema, seedData] = await Promise.all([
