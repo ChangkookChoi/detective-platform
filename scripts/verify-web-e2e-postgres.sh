@@ -92,6 +92,7 @@ export DATABASE_URL="postgresql://$(id -un)@127.0.0.1:$PG_E2E_PORT/$PG_DATABASE"
 
 npm --prefix "$WEB_DIR" run db:migrate
 npm --prefix "$WEB_DIR" run db:seed
+npm --prefix "$WEB_DIR" exec -- next build --webpack
 npm --prefix "$WEB_DIR" run test:e2e:db:browser
 
 echo "Database-backed web E2E verification completed."

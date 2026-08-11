@@ -31,6 +31,12 @@ export default function RootLayout({
   return (
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full bg-stone-50 text-slate-950">
+        <a
+          href="#main-content"
+          className="fixed left-4 top-4 z-50 -translate-y-24 rounded-lg bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-lg transition-transform focus:translate-y-0 focus:outline-2 focus:outline-offset-2 focus:outline-sky-600"
+        >
+          본문으로 건너뛰기
+        </a>
         <div className="flex min-h-screen flex-col">
           <header className="border-b border-slate-200 bg-white">
             <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
@@ -50,7 +56,13 @@ export default function RootLayout({
               </nav>
             </div>
           </header>
-          <div className="flex flex-1 flex-col">{children}</div>
+          <div
+            id="main-content"
+            tabIndex={-1}
+            className="flex flex-1 flex-col outline-none"
+          >
+            {children}
+          </div>
           <footer className="border-t border-slate-200 bg-white">
             <div className="mx-auto w-full max-w-6xl px-5 py-8 text-sm leading-6 text-slate-600 sm:px-8">
               <p className="font-semibold text-slate-800">

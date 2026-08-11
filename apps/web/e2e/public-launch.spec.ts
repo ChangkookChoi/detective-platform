@@ -55,6 +55,13 @@ test("홈에서 핵심 안내와 정책 페이지에 접근할 수 있다", asyn
     "/offices",
   );
 
+  await page.keyboard.press("Tab");
+  const skipLink = page.getByRole("link", { name: "본문으로 건너뛰기" });
+  await expect(skipLink).toBeVisible();
+  await expect(skipLink).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+
   const footer = page.locator("footer");
   await expect(footer.getByRole("link", { name: "이용 안내" })).toHaveAttribute(
     "href",
@@ -73,6 +80,26 @@ test("홈에서 핵심 안내와 정책 페이지에 접근할 수 있다", asyn
   expect(new URL(canonicalHref!).pathname).toBe("/");
   await expectNoHorizontalOverflow(page);
   expect(browserErrors).toEqual([]);
+});
+
+test("공개 응답은 출시 기본 보안 헤더를 제공한다", async ({ request }) => {
+  const response = await request.get("/");
+  const headers = response.headers();
+
+  expect(response.status()).toBe(200);
+  expect(headers["content-security-policy"]).toContain("base-uri 'self'");
+  expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(headers["content-security-policy"]).toContain("object-src 'none'");
+  expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers["x-frame-options"]).toBe("DENY");
+  expect(headers["permissions-policy"]).toBe(
+    "camera=(), geolocation=(), microphone=()",
+  );
+  expect(headers["cross-origin-opener-policy"]).toBe(
+    "same-origin-allow-popups",
+  );
+  expect(headers["strict-transport-security"]).toContain("max-age=63072000");
 });
 
 for (const informationPage of informationPages) {
