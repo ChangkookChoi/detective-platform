@@ -594,6 +594,12 @@ branch protection을 적용했습니다.
 - `verify-vercel-production-smoke.sh`를 추가해 배포 보호를 유지한 채 실제 최신
   Production의 홈·목록·robots·sitemap HTTP 200, 관리자·로그인 HTTP 503과
   `Retry-After: 3600`·`X-Robots-Tag: noindex, nofollow`를 자동 검증
+- 실제 Clerk 관리자 E2E에 공개 정정 접수→관리자 확인 출처 입력→승인→공개
+  상세 반영 흐름을 추가. 관리자 5건·reviewer 2건을 통과하고 요청자 제안 URL
+  미저장, 운영자 확인 비대표 출처·이름 필드 근거, 감사 처리자와 출처 스냅샷,
+  공개 상호 변경을 임시 PostgreSQL·Production Chrome에서 확인
+- 관리자 E2E 실행기도 잘못된 `npm --prefix ... exec` 빌드 경계를 CI와 같은
+  `npm run build -- --webpack`으로 교정해 재현 가능한 작업 디렉터리를 사용
 
 ## 다음 작업 후보
 
@@ -668,8 +674,8 @@ branch protection을 적용했습니다.
   않는 통화 앱 실행 성공과 실제 통화 성립은 검증 범위가 아니다.
 - 공개 정정 폼의 정상 제출·성공 화면·검수 후보 저장과 승인 전 운영값 불변,
   민감정보 확인 누락·위험 URL·중복·속도 제한 화면은 production Chrome E2E로
-  검증했다. 로그인 관리자의 확인 출처 입력·정정 승인 화면은 아직 자동
-  브라우저 검증 범위가 아니다.
+  검증했다. 실제 Clerk 관리자 세션의 확인 출처 입력·정정 승인, 미검증 제안
+  URL 미저장과 공개 상세 반영도 자동 브라우저·DB 경계에서 통과했다.
 - 공식 출처 수동 후보 등록·중복 안내·반려 결정은 실제 allowlist 관리자 테스트
   세션과 production Chrome·임시 PostgreSQL에서 통과했다. 지속형 개발 DB의 실제
   수동 후보 30건은 testing token과 일회성 sign-in token으로 지역 2단계 선택·

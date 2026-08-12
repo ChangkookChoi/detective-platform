@@ -11,6 +11,17 @@ const approvedOfficeSlug = "e2e-admin-approved-office";
 const rejectionReason = "합성 관리자 E2E 후보이므로 공개하지 않고 반려합니다.";
 const holdReason = "합성 관리자 E2E 후보의 보류 분기를 검증합니다.";
 const approvalReason = "합성 관리자 E2E 후보의 승인 공개 분기를 검증합니다.";
+const correctionOfficeId = "73000000-0000-4000-8000-000000000001";
+const correctionSourceId = "73000000-0000-4000-8000-000000000002";
+const correctionOfficeSlug = "e2e-admin-correction-office";
+const correctionOfficeName = "E2E 관리자 정정 대상 사무소";
+const correctedOfficeName = "E2E 관리자 정정 완료 사무소";
+const correctionSubmittedSourceUrl =
+  "https://reporter.example.invalid/e2e-admin-correction";
+const correctionVerifiedSourceUrl =
+  "https://official.example.invalid/e2e-admin-correction";
+const correctionApprovalReason =
+  "공식 공개 출처를 직접 확인한 합성 정정 승인입니다.";
 
 let adminUserId = "";
 let adminEmailAddress = "";
@@ -60,6 +71,41 @@ async function cleanupSyntheticReviewData() {
   await db.query(
     `delete from review_actions
      where review_item_id in (
+       select id from review_items where office_id = $1
+     )`,
+    [correctionOfficeId],
+  );
+  await db.query("delete from review_items where office_id = $1", [
+    correctionOfficeId,
+  ]);
+  await db.query("delete from analytics_events where office_id = $1", [
+    correctionOfficeId,
+  ]);
+  await db.query("delete from office_daily_metrics where office_id = $1", [
+    correctionOfficeId,
+  ]);
+  await db.query("delete from placements where office_id = $1", [
+    correctionOfficeId,
+  ]);
+  await db.query(
+    `delete from office_source_evidence
+     where office_source_id in (
+       select id from office_sources where office_id = $1
+     )`,
+    [correctionOfficeId],
+  );
+  await db.query("delete from office_sources where office_id = $1", [
+    correctionOfficeId,
+  ]);
+  await db.query(
+    "delete from office_service_categories where office_id = $1",
+    [correctionOfficeId],
+  );
+  await db.query("delete from offices where id = $1", [correctionOfficeId]);
+
+  await db.query(
+    `delete from review_actions
+     where review_item_id in (
        select review_items.id
        from review_items
        join collected_records
@@ -105,6 +151,67 @@ async function cleanupSyntheticReviewData() {
        where source_url = $1
      )`,
     [candidateSourceUrl],
+  );
+}
+
+async function seedCorrectionOffice() {
+  const db = getDatabase();
+  const region = await db.query<{ id: string }>(
+    "select id from regions where slug = 'seoul-gangnam' and is_active = true",
+  );
+  const category = await db.query<{ id: string }>(
+    "select id from service_categories where slug = 'family' and is_active = true",
+  );
+
+  if (!region.rows[0] || !category.rows[0]) {
+    throw new Error("The correction E2E seed requires Gangnam and family.");
+  }
+
+  const verifiedAt = new Date("2026-08-01T00:00:00.000Z");
+  await db.query(
+    `insert into offices (
+       id, slug, name, summary, phone_normalized, phone_display, address_text,
+       region_id, status, published_at, last_verified_at
+     ) values ($1, $2, $3, $4, $5, $6, $7, $8, 'published', $9, $9)`,
+    [
+      correctionOfficeId,
+      correctionOfficeSlug,
+      correctionOfficeName,
+      "관리자 정정 승인을 검증하기 위한 합성 공개 업체입니다.",
+      "0211112222",
+      "02-1111-2222",
+      "서울특별시 강남구 정정로 10",
+      region.rows[0].id,
+      verifiedAt,
+    ],
+  );
+  await db.query(
+    `insert into office_service_categories (office_id, service_category_id)
+     values ($1, $2)`,
+    [correctionOfficeId, category.rows[0].id],
+  );
+  await db.query(
+    `insert into office_sources (
+       id, office_id, source_type, url, retrieved_at, verified_at,
+       is_primary, access_status
+     ) values ($1, $2, 'official_website', $3, $4, $4, true, 'available')`,
+    [
+      correctionSourceId,
+      correctionOfficeId,
+      "https://example.com/e2e-admin-correction-original",
+      verifiedAt,
+    ],
+  );
+  await db.query(
+    `insert into office_source_evidence (
+       office_source_id, field_name, service_category_id, verified_at
+     ) values
+       ($1, 'name', null, $3),
+       ($1, 'phone', null, $3),
+       ($1, 'address', null, $3),
+       ($1, 'summary', null, $3),
+       ($1, 'service_category', $2, $3)`,
+    [correctionSourceId, category.rows[0].id, verifiedAt],
   );
 }
 
@@ -480,5 +587,136 @@ test("실제 Clerk 관리자가 수동 후보를 승인하고 공개한다", asy
   await expect(
     page.locator(`a[href="${candidateSourceUrl}"]`),
   ).toContainText("업체 공식 웹사이트");
+  expect(browserErrors).toEqual([]);
+});
+
+test("실제 Clerk 관리자가 정정 요청의 출처를 확인하고 승인한다", async ({
+  page,
+}) => {
+  const browserErrors = collectBrowserErrors(page);
+  await seedCorrectionOffice();
+
+  await page.goto(`/offices/${correctionOfficeSlug}/correction`, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.getByLabel("수정할 항목").selectOption("name");
+  await page.getByLabel("올바른 공개 정보").fill(correctedOfficeName);
+  await page
+    .getByLabel("공개 근거 URL (선택)")
+    .fill(correctionSubmittedSourceUrl);
+  await page
+    .getByLabel(/민감정보를 포함하지 않았음을 확인합니다/)
+    .check();
+  await page.getByRole("button", { name: "수정 요청 접수" }).click();
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/offices/${correctionOfficeSlug}/correction\\?result=submitted$`,
+    ),
+  );
+
+  const correctionReview = await getDatabase().query<{ id: string }>(
+    `select id from review_items
+     where office_id = $1 and type = 'correction_request' and status = 'pending'`,
+    [correctionOfficeId],
+  );
+  const reviewItemId = correctionReview.rows[0]?.id;
+  expect(reviewItemId).toBeTruthy();
+
+  await page.goto("/sign-in", { waitUntil: "domcontentloaded" });
+  await clerk.signIn({ page, emailAddress: adminEmailAddress });
+  await page.goto(`/admin/reviews/${reviewItemId}`, {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: correctionOfficeName }),
+  ).toBeVisible();
+  const verifiedSourceInput = page.getByLabel("직접 확인한 공개 출처 URL");
+  await expect(verifiedSourceInput).toHaveValue(correctionSubmittedSourceUrl);
+  await verifiedSourceInput.fill(correctionVerifiedSourceUrl);
+  await page
+    .getByLabel("확인 출처 유형")
+    .selectOption("official_website");
+  await page.getByLabel("승인 사유").fill(correctionApprovalReason);
+  await page
+    .getByRole("button", { name: "제안값 그대로 승인·공개" })
+    .click();
+
+  await expect(page).toHaveURL(
+    /\/admin\/reviews\?status=approved&result=approved$/,
+  );
+  await expect(page.getByRole("status")).toContainText(
+    "검수 결정이 저장되었습니다.",
+  );
+
+  const approval = await getDatabase().query<{
+    status: string;
+    office_name: string;
+    actor_id: string;
+    decision: string;
+    edited_values: Record<string, string>;
+  }>(
+    `select review_items.status, offices.name as office_name,
+            review_actions.actor_id, review_actions.decision,
+            review_actions.edited_values
+     from review_items
+     join offices on offices.id = review_items.office_id
+     join review_actions on review_actions.review_item_id = review_items.id
+     where review_items.id = $1`,
+    [reviewItemId],
+  );
+  expect(approval.rows[0]).toEqual({
+    status: "approved",
+    office_name: correctedOfficeName,
+    actor_id: adminUserId,
+    decision: "approved",
+    edited_values: {
+      correctionSourceUrl: correctionVerifiedSourceUrl,
+      correctionSourceType: "official_website",
+    },
+  });
+
+  const sourceEvidence = await getDatabase().query<{
+    verified_source_count: number;
+    submitted_source_count: number;
+    evidence_count: number;
+  }>(
+    `select
+       count(distinct office_sources.id) filter (
+         where office_sources.url = $2 and office_sources.is_primary = false
+       )::integer as verified_source_count,
+       count(distinct office_sources.id) filter (
+         where office_sources.url = $3
+       )::integer as submitted_source_count,
+       count(office_source_evidence.id) filter (
+         where office_sources.url = $2
+           and office_source_evidence.field_name = 'name'
+       )::integer as evidence_count
+     from office_sources
+     left join office_source_evidence
+       on office_source_evidence.office_source_id = office_sources.id
+     where office_sources.office_id = $1`,
+    [
+      correctionOfficeId,
+      correctionVerifiedSourceUrl,
+      correctionSubmittedSourceUrl,
+    ],
+  );
+  expect(sourceEvidence.rows[0]).toEqual({
+    verified_source_count: 1,
+    submitted_source_count: 0,
+    evidence_count: 1,
+  });
+
+  const publicResponse = await page.goto(`/offices/${correctionOfficeSlug}`, {
+    waitUntil: "domcontentloaded",
+  });
+  expect(publicResponse?.status()).toBe(200);
+  await expect(
+    page.getByRole("heading", { level: 1, name: correctedOfficeName }),
+  ).toBeVisible();
+  await expect(
+    page.locator(`a[href="${correctionVerifiedSourceUrl}"]`),
+  ).toBeVisible();
   expect(browserErrors).toEqual([]);
 });
