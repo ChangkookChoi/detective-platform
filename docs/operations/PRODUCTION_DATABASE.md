@@ -5,10 +5,12 @@
 관리형 PostgreSQL 리소스를 만들기 전후에 필요한 공급자 선택, 환경 분리,
 TLS·풀링·최소 권한, migration과 복구 검증 절차를 정의한다.
 
-2026-08-11 현재 [ADR-0008](../decisions/ADR-0008-managed-postgres-prelaunch.md)에
-따라 Neon Free를 비용 없는 출시 리허설 후보로 제안한다. 실제 리소스는 아직
-없고 저장소도 Vercel 프로젝트에 연결되지 않았다. 무료 복원 이력은 현재
-14일 백업 정책을 충족하지 않으므로 공개 운영 DB로 확정하지 않는다.
+2026-08-11 [ADR-0008](../decisions/ADR-0008-managed-postgres-prelaunch.md)에
+따라 비용 없는 Vercel Hobby 프로젝트와 Neon Free Singapore 리소스를 만들고
+GitHub 저장소를 연결했다. PostgreSQL 17 schema migration과 기준 seed는 실제
+direct 연결에서 통과했다. 최소 권한 runtime·backup 역할, 비밀 저장, 실제 공개
+데이터 승격과 백업 복원이 끝나지 않았고 무료 복원 이력도 14일 정책에 미달하므로
+아직 공개 운영 DB로 확정하지 않는다.
 
 ## 2. 공급자 비교
 
@@ -90,6 +92,24 @@ Function을 DB와 가까운 리전에 두도록 권고하고, Hobby는 단일 �
 9. 아래 역할 구성 명령으로 runtime·backup 역할을 만든 뒤 migration 전 논리
    백업, migration, seed, 연결·역할 검증 순서로 진행한다.
 10. 공개 배포 전에 백업 보존과 복원 조건을 별도로 통과한다.
+
+초기 운영 DB가 비어 있을 때만 로컬 검수 DB의 `published` 업체와 공개에 필요한
+업무 분야·출처·필드 근거를 승격한다. 검수 후보·감사 처리자·수집 원문·분석
+이벤트는 복사하지 않는다. 명령은 대상의 모든 운영 테이블이 비어 있지 않으면
+중단하며, 전체 입력을 한 트랜잭션으로 반영한다.
+
+```bash
+cd apps/web
+SOURCE_DATABASE_URL="postgresql://...localhost..." \
+TARGET_DATABASE_URL="postgresql://...direct...?sslmode=verify-full&channel_binding=require" \
+BOOTSTRAP_PUBLIC_DATA_CONFIRM=IMPORT_PUBLISHED_DATA_TO_EMPTY_TARGET \
+npm run db:bootstrap-public-data
+```
+
+`TARGET_DATABASE_URL`은 migration 소유자의 direct URL을 실행 시 process 환경에만
+주입한다. 명령은 로컬 원본, 원격 direct 대상, TLS hostname 검증, 채널 바인딩,
+서로 다른 DB와 명시적 확인 문자열을 강제한다. 재실행이나 이미 운영 데이터가
+있는 DB로의 덮어쓰기는 지원하지 않는다.
 
 Marketplace 연결은 환경변수를 자동 추가할 수 있다. 연결 전에 어떤 역할의
 URL인지 확인하고, 소유자 URL이 웹 런타임에 남지 않게 한다. `vercel env pull`은

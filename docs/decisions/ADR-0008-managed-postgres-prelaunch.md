@@ -1,7 +1,8 @@
 # ADR-0008: 출시 리허설용 관리형 PostgreSQL 후보로 Neon Free 사용
 
-- 상태: 제안
+- 상태: 승인 (출시 리허설 한정)
 - 제안일: 2026-08-11
+- 승인일: 2026-08-11
 
 ## 맥락
 
@@ -16,8 +17,8 @@
 
 ## 제안
 
-Vercel Marketplace의 Neon Free를 **출시 리허설용 후보**로 사용한다.
-이 제안은 실제 리소스 생성이나 공개 운영 DB 확정을 뜻하지 않는다.
+Vercel Marketplace의 Neon Free를 **출시 리허설용 DB**로 사용한다.
+이 결정은 공개 운영 DB 확정을 뜻하지 않는다.
 
 - 기존 Drizzle과 `node-postgres`를 유지하며 Neon 전용 드라이버로 교체하지 않는다.
 - 웹 런타임은 PgBouncer pooled URL과 최소 권한 역할을 사용한다.
@@ -89,3 +90,7 @@ Neon Free의 6시간 복원 이력은 장애 직후 복구 리허설에는 유�
 - 실제 리전에 대해 웹→DB 지연과 scale-to-zero 첫 요청을 측정한다.
 - 최소 권한 런타임 역할과 별도 migration 자격 증명 검증을 통과한다.
 - 공개 출시 전 14일 보존 백업과 실제 복원 경로를 확정한다.
+
+2026-08-11 사용자가 Free 리소스 생성을 승인해 Vercel Hobby 프로젝트와
+Singapore Neon Free 리소스를 만들고 migration·seed를 적용했다. 나머지 조건은
+실제 최소 권한 역할·지연·scale-to-zero·암호화 백업 복원 검증으로 계속 추적한다.

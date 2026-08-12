@@ -71,8 +71,10 @@ Next.js와 ESLint 설정을 16.3.0으로 올리고 전체 회귀 검증을 통�
 비교하고 pooled 런타임·direct migration 역할 분리, TLS·풀 상한과 실제 권한
 검증 명령을 준비했습니다. Vercel `sin1` 설정, runtime·read-only backup 역할
 구성과 `age` 암호화 일일 GitHub Actions artifact·수동 격리 복원 자동화를
-추가하고 합성 암호화 복원을 통과했지만, 외부 리소스와 실제 운영 백업·배포는
-아직 준비 전입니다.
+추가하고 합성 암호화 복원을 통과했습니다. Vercel Hobby 프로젝트와 Neon Free
+Singapore 리소스를 생성해 실제 migration·seed를 적용했으며, 공개 30곳과 공개
+근거만 빈 운영 DB로 원자적으로 옮기는 초기 승격 명령도 격리 DB에서 검증했습니다.
+최소 권한 역할·비밀 저장, 실제 데이터 승격과 운영 백업·배포는 아직 완료 전입니다.
 
 ## 완료
 
@@ -436,29 +438,39 @@ Next.js와 ESLint 설정을 16.3.0으로 올리고 전체 회귀 검증을 통�
 - 공식 `age` v1.3.1 macOS ARM64 archive의 SHA-256을 대조한 임시 바이너리로
   합성 custom dump 44,876바이트를 암호화·복호화하고 빈 PostgreSQL 17에 0초
   복원한 뒤 migration·seed·관계·제약 검증 통과
+- Vercel Hobby `detective-platform` 프로젝트를 GitHub 저장소와 연결하고
+  Next.js Root Directory `apps/web`, Function 리전 `sin1` 설정 확인
+- Vercel Marketplace에서 카드 없는 Neon Free `free_v3` Singapore 리소스를
+  생성하고 direct 연결로 PostgreSQL migration 8.4초·seed 8.1초 실행 완료
+- 로컬 검수 DB의 `published` 업체만 빈 운영 DB로 옮기는 초기 승격 명령 추가.
+  지역·업무 분야는 안정 slug로 대상 seed에 매핑하고 업체 30건·출처 30건·
+  필드 근거 185건·업무 분야 연결 95건을 한 트랜잭션으로 복사
+- 격리 PostgreSQL에서 공개 데이터 승격 성공, 검수·수집·분석·광고 데이터
+  0건 유지, 두 번째 실행 거부와 테스트 DB 정리를 확인
 
 ## 다음 작업 후보
 
-1. 만료된 Vercel CLI 인증을 사용자가 기기 승인으로 갱신한 뒤 Vercel 프로젝트와
-   Neon Free 리허설 DB를 Singapore에 만들고, `sin1`·최소 권한 runtime·
-   read-only backup 역할을 연결해 migration·seed·TLS·지연·scale-to-zero 첫
-   요청을 실제 측정
-2. 기본 branch에 백업 workflow가 반영된 뒤 repository variable·secret과
+1. 사용자 재승인 후 임시 Neon 소유자 연결로 최소 권한 runtime·read-only
+   backup 역할을 생성·검증하고 Vercel Production·GitHub Actions에 각각 비밀을
+   저장한다. 완료 즉시 Development의 임시 소유자 연결과 로컬 임시 파일 제거
+2. 실제 운영 DB가 비어 있음을 다시 확인한 뒤 공개 30곳만 초기 승격하고,
+   runtime TLS·지연·scale-to-zero 첫 요청과 공개 조회 건수를 실제 측정
+3. 기본 branch에 백업 workflow가 반영된 뒤 repository variable·secret과
    Actions 0원 초과 사용 중지 예산을 설정해 실제 Neon 첫
    암호화 artifact를 생성한다. 24시간 이내 artifact를 격리 복원해 RPO·RTO를
    측정하고 최초 artifact의 14일 만료를 추적
-3. 실제 배포 대상과 canonical origin, Clerk production 환경을 정하고 배포 후
+4. 실제 배포 대상과 canonical origin, Clerk production 환경을 정하고 배포 후
    보안 헤더·robots·sitemap·JSON-LD·로그인·공개/관리자 핵심 흐름을 smoke 검증
-4. 개인정보 처리방침의 운영 주체·문의 채널·보유 기간·위탁/국외 이전 여부를
+5. 개인정보 처리방침의 운영 주체·문의 채널·보유 기간·위탁/국외 이전 여부를
    실제 인프라와 법무 검토 결과에 맞춰 확정
-5. 초기 업체 약 100곳 확대는 출시 기반 작업 뒤 재개. 공식 운영 주체·한 개
+6. 초기 업체 약 100곳 확대는 출시 기반 작업 뒤 재개. 공식 운영 주체·한 개
    사무소·최소 사실 필드와 업무 분야를 모두 확인한 건은 같은 위임 작업 안에서
    등록→승인→공개 검증까지 완료하고 불확실한 건만 보류
-6. 고려 공식 사이트의 `a동 720`·`B동 720호` 주소 충돌이 정정되는지 나중에
+7. 고려 공식 사이트의 `a동 720`·`B동 720호` 주소 충돌이 정정되는지 나중에
    재확인하고, 하나의 공식 주소가 추가 근거와 일치할 때만 보류 후보 재검수
-7. 다해 화성 본사의 접속 복구와 명진 공식 주소 정합성을 나중에 재확인하고,
+8. 다해 화성 본사의 접속 복구와 명진 공식 주소 정합성을 나중에 재확인하고,
    복구·정정된 경우에만 최소 사실 필드를 처음부터 다시 검수
-8. 리앤장 DNS와 호시탐탐 홈페이지 복구 여부를 나중에 재확인하고, 복구된
+9. 리앤장 DNS와 호시탐탐 홈페이지 복구 여부를 나중에 재확인하고, 복구된
    경우에만 운영 주체·대표번호·사무소별 주소를 처음부터 다시 검수
 
 ## 확정된 초기 데이터 모델
@@ -538,14 +550,13 @@ Next.js와 ESLint 설정을 16.3.0으로 올리고 전체 회귀 검증을 통�
 - 논리 백업·복구 리허설은 PostgreSQL 17 임시 클러스터와 합성 데이터에서
   통과했지만 운영 공급자의 자동 백업·시점 복구·암호화 키·네트워크 통제와
   실제 데이터 규모의 RPO·RTO는 아직 검증하지 않았다.
-- Neon Free는 비용 없는 출시 리허설 후보로만 제안한 상태이며 실제 Vercel·
-  Neon 리소스나 자격 증명은 만들지 않았다. 무료 6시간 복원 이력은 14일
-  보존 정책을 충족하지 않으므로 외부 암호화 백업 또는 유료 보존 구간과 실제
-  복원을 확정하기 전에는 공개 운영 DB가 준비됐다고 보지 않는다.
-- Vercel CLI의 기존 토큰은 2026-08-11 사전검증에서 만료 상태였고 Codex 내장
-  브라우저 인스턴스도 연결되지 않아 기기 인증 승인 전에는 Vercel 프로젝트·
-  Neon 리소스를 만들 수 없다. 리소스 생성 전까지 비용이나 외부 DB 변경은
-  발생하지 않았다.
+- Vercel Hobby 프로젝트와 Neon Free Singapore 리소스는 생성했고 실제
+  migration·seed를 통과했다. 다만 자동 승인 심사기의 실행 전 차단으로
+  runtime·backup 역할과 Vercel/GitHub 비밀 저장은 아직 수행하지 못했다.
+  임시 Development 소유자 연결은 후속 설정 완료 즉시 제거해야 한다.
+- 공개 30곳 승격 명령은 격리 DB에서 공개 필드·근거만 복사하고 내부 데이터를
+  제외하는 것을 통과했지만 실제 Neon에는 아직 실행하지 않았다. 원격 쓰기 전
+  대상이 비어 있는지 재확인하고 별도 사용자 승인을 적용한다.
 - GitHub Actions 암호화 백업·복원 workflow와 역할 구성은 구현했고 합성
   PostgreSQL 17 복원을 통과했다. 2026-08-11 GitHub CLI 인증은 복구했고 공개
   저장소의 Actions variable·secret이 아직 비어 있음을 확인했다. 기본 branch에

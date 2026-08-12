@@ -40,6 +40,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# marketplace-provided local agent skills
+/.agents/
+/skills-lock.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

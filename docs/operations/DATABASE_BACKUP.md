@@ -20,12 +20,13 @@ PostgreSQL 운영 데이터의 손실 범위를 제한하고 실제 복구 가�
 사건 접수 또는 다른 중요 쓰기 기능이 추가되면 RPO·RTO와 백업 빈도를 새로
 검토한다.
 
-2026-08-11 현재 Neon Free는 출시 리허설 후보일 뿐이다. 무료 6시간 복원
-이력은 이 문서의 자동 일일 백업 14일 보존을 충족하지 않는다. 무과금 보완
-경로로 [ADR-0009](../decisions/ADR-0009-encrypted-logical-backups.md)에 따라
-암호화된 GitHub Actions artifact를 선택하고 합성 복원을 통과했지만, 실제
-운영 archive의 14일 보존과 격리 복원을 검증하기 전에는 공개 운영 백업이
-준비됐다고 판단하지 않는다. 공급자 연결 절차는
+2026-08-11 Neon Free Singapore 출시 리허설 리소스에 migration·seed를
+적용했다. 무료 6시간 복원 이력은 이 문서의 자동 일일 백업 14일 보존을
+충족하지 않는다. 무과금 보완 경로로
+[ADR-0009](../decisions/ADR-0009-encrypted-logical-backups.md)에 따라 암호화된
+GitHub Actions artifact를 선택하고 합성 복원을 통과했지만, 실제 read-only
+역할·암호화 키·운영 archive의 14일 보존과 격리 복원을 검증하기 전에는 공개
+운영 백업이 준비됐다고 판단하지 않는다. 공급자 연결 절차는
 [운영 PostgreSQL 준비](PRODUCTION_DATABASE.md)를 따른다.
 
 ## 3. 백업 계층
