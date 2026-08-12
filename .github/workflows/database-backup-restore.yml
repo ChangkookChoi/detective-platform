@@ -143,6 +143,12 @@ jobs:
           DATABASE_URL: ${{ env.RESTORE_DATABASE_URL }}
         run: npm --prefix apps/web run db:verify
 
+      - name: Verify restored production snapshot
+        env:
+          DATABASE_URL: ${{ env.RESTORE_DATABASE_URL }}
+          MINIMUM_PUBLISHED_OFFICES: "30"
+        run: npm --prefix apps/web run db:verify-restored-backup
+
       - name: Record restore summary
         shell: bash
         run: |
@@ -151,5 +157,5 @@ jobs:
             echo "- Source workflow run: \`${{ inputs.backup_run_id }}\`"
             echo "- Recovery point: within 24 hours"
             echo "- Target: empty isolated PostgreSQL 17"
-            echo "- Schema, migrations, constraints, and seed: verified"
+            echo "- Schema, migrations, constraints, seed, and at least 30 published offices: verified"
           } >>"$GITHUB_STEP_SUMMARY"
