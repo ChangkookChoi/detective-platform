@@ -131,8 +131,9 @@ URL인지 확인하고, 소유자 URL이 웹 런타임에 남지 않게 한다. 
 - `analytics_events`: `DELETE`
 
 `regions`, `service_categories` seed 변경과 schema DDL은 migration 역할만 수행한다.
-백업 역할은 모든 현재 테이블·sequence의 `SELECT`만 가지며 DML·DDL 권한을
-갖지 않는다.
+백업 역할은 `public`의 모든 현재 테이블·sequence와
+`drizzle.__drizzle_migrations`에 대한 `SELECT`만 가지며 DML·DDL 권한을 갖지
+않는다. 공급자 관리 스키마는 백업 범위와 권한에서 제외한다.
 수집기는 [로컬 최소 권한 계약](LOCAL_DATABASE.md)의 운영 버전을 별도 역할로
 적용하며 웹 역할이나 migration 역할을 공유하지 않는다.
 
@@ -191,7 +192,8 @@ migration URL이 임시 E2E의 명시적 `DATABASE_URL`을 덮어쓰지 못한�
 - 런타임 role의 superuser·role/database/schema 생성 권한 부재
 - migration role의 schema 생성 권한
 - 현재 테이블의 런타임 최소 DML 권한
-- backup 역할의 모든 현재 테이블 read-only 권한과 DML·DDL 부재
+- backup 역할의 모든 현재 `public` 테이블과 Drizzle migration 이력에 대한
+  read-only 권한 및 DML·DDL 부재
 
 2026-08-12 실제 Neon direct·pooled 연결에서 client TLS 암호화, 인증서 승인과
 peer 인증서를 확인했다. Neon의 모든 client 연결이 Proxy를 통과한다는 공급자
