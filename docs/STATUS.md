@@ -1,6 +1,6 @@
 # 프로젝트 상태
 
-- 기준일: 2026-08-11
+- 기준일: 2026-08-12
 - 단계: 핵심 MVP 기능 구현·출시 준비
 - 배포 상태: 미배포
 - 데이터 상태: 실제 파일럿 결함 후보 `rejected` 1건·교정 `approved` 1건·
@@ -72,9 +72,11 @@ Next.js와 ESLint 설정을 16.3.0으로 올리고 전체 회귀 검증을 통�
 검증 명령을 준비했습니다. Vercel `sin1` 설정, runtime·read-only backup 역할
 구성과 `age` 암호화 일일 GitHub Actions artifact·수동 격리 복원 자동화를
 추가하고 합성 암호화 복원을 통과했습니다. Vercel Hobby 프로젝트와 Neon Free
-Singapore 리소스를 생성해 실제 migration·seed를 적용했으며, 공개 30곳과 공개
-근거만 빈 운영 DB로 원자적으로 옮기는 초기 승격 명령도 격리 DB에서 검증했습니다.
-최소 권한 역할·비밀 저장, 실제 데이터 승격과 운영 백업·배포는 아직 완료 전입니다.
+Singapore 리소스를 생성해 실제 migration·seed를 적용했습니다. 최소 권한
+runtime·read-only backup 역할을 분리해 권한과 TLS를 검증하고 공개 30곳과 공개
+근거만 빈 Neon DB로 원자적으로 승격했습니다. Vercel Production과 GitHub
+Actions에 역할별 연결 정보를 저장하고 임시 owner 연결을 제거했습니다.
+암호화 백업 키·첫 artifact 복원과 실제 웹 배포는 아직 완료 전입니다.
 
 ## 완료
 
@@ -447,18 +449,33 @@ Singapore 리소스를 생성해 실제 migration·seed를 적용했으며, 공�
   필드 근거 185건·업무 분야 연결 95건을 한 트랜잭션으로 복사
 - 격리 PostgreSQL에서 공개 데이터 승격 성공, 검수·수집·분석·광고 데이터
   0건 유지, 두 번째 실행 거부와 테스트 DB 정리를 확인
+- PostgreSQL 17 비수퍼유저 `CREATEROLE`의 멱등 비밀번호 회전에서 수퍼유저
+  전용 속성을 재지정하지 않도록 역할 구성기를 교정하고, runtime·backup 역할의
+  superuser·role/database 생성·replication·RLS 우회 권한 부재를 실제 Neon에서 확인
+- Neon Proxy가 client TLS를 종료해 backend `pg_stat_ssl`에 암호화 상태가
+  표시되지 않는 경우를 지원하도록 TLS 검증을 client socket까지 확장. 실제
+  direct·pooled 연결에서 암호화, 인증서 승인과 peer 인증서를 확인
+- `detective_runtime` pooled URL과 인스턴스당 풀 상한 5를 Vercel Production
+  sensitive 변수로 저장하고 `detective_backup` direct URL을 GitHub Actions
+  `PRODUCTION_DATABASE_BACKUP_URL` secret으로 저장
+- 실제 빈 Neon DB에 공개 업체 30건·출처 30건·필드 근거 185건·업무 분야 연결
+  95건을 원자적으로 승격하고 검수·수집·분석·광고 테이블 0건 유지 확인
+- 최종 runtime 역할로 PostgreSQL 17, 공개 업체 30건, 최소 권한과 인증서 TLS를
+  재확인하고 활성 compute 기준 연결·조회 590ms 측정
+- Vercel Development의 `NEON_OWNER_*` 18개와 Marketplace 프로젝트 연결을
+  제거하고, Neon Free 리소스 자체는 `Available`로 보존. owner/runtime 임시
+  환경 파일과 일회성 검증 스크립트 삭제 확인
 
 ## 다음 작업 후보
 
-1. 사용자 재승인 후 임시 Neon 소유자 연결로 최소 권한 runtime·read-only
-   backup 역할을 생성·검증하고 Vercel Production·GitHub Actions에 각각 비밀을
-   저장한다. 완료 즉시 Development의 임시 소유자 연결과 로컬 임시 파일 제거
-2. 실제 운영 DB가 비어 있음을 다시 확인한 뒤 공개 30곳만 초기 승격하고,
-   runtime TLS·지연·scale-to-zero 첫 요청과 공개 조회 건수를 실제 측정
-3. 기본 branch에 백업 workflow가 반영된 뒤 repository variable·secret과
-   Actions 0원 초과 사용 중지 예산을 설정해 실제 Neon 첫
+1. `age` recipient·identity를 새로 생성해 GitHub repository variable·secret에
+   분리 저장하고, 기본 branch에 백업 workflow가 반영된 뒤 실제 Neon 첫
    암호화 artifact를 생성한다. 24시간 이내 artifact를 격리 복원해 RPO·RTO를
    측정하고 최초 artifact의 14일 만료를 추적
+2. Neon compute가 5분 이상 비활성인 조건에서 scale-to-zero cold 첫 요청과
+   이어지는 warm 요청을 분리 측정
+3. Actions 0원 초과 사용 중지 예산과 월별 사용량 담당자를 설정하고 첫 14일간
+   artifact 수·총 용량을 추적
 4. 실제 배포 대상과 canonical origin, Clerk production 환경을 정하고 배포 후
    보안 헤더·robots·sitemap·JSON-LD·로그인·공개/관리자 핵심 흐름을 smoke 검증
 5. 개인정보 처리방침의 운영 주체·문의 채널·보유 기간·위탁/국외 이전 여부를
@@ -505,7 +522,10 @@ Singapore 리소스를 생성해 실제 migration·seed를 적용했으며, 공�
 
 ## 현재 검증 제한
 
-- 초기 migration과 seed는 PostgreSQL 17.10 임시 클러스터와 지속형 로컬 개발 클러스터에서 검증했지만 운영 DB 공급자·연결 풀링·백업 방식은 아직 결정하지 않았다. 지속형 로컬 DB는 Git 제외 개발 데이터이며 백업 대상이 아니다.
+- migration과 seed는 PostgreSQL 17.10 임시·지속형 로컬 클러스터와 Neon Free
+  Singapore에서 검증했다. runtime pooled·migration direct 연결과 독립 암호화
+  백업 방식을 결정했지만 실제 첫 artifact 복원과 14일 만료는 아직 검증 전이다.
+  지속형 로컬 DB는 Git 제외 개발 데이터이며 백업 대상이 아니다.
 - Clerk Hobby Development 키와 실제 관리자 역할 설정, Google 로그인 세션,
   관리자 대기열·상세 접근과 보류 감사 처리는 확인했다. Clerk Hobby는
   애플리케이션 수준 MFA를 제공하지 않으므로 관리자 Google 계정의 2단계
@@ -550,19 +570,18 @@ Singapore 리소스를 생성해 실제 migration·seed를 적용했으며, 공�
 - 논리 백업·복구 리허설은 PostgreSQL 17 임시 클러스터와 합성 데이터에서
   통과했지만 운영 공급자의 자동 백업·시점 복구·암호화 키·네트워크 통제와
   실제 데이터 규모의 RPO·RTO는 아직 검증하지 않았다.
-- Vercel Hobby 프로젝트와 Neon Free Singapore 리소스는 생성했고 실제
-  migration·seed를 통과했다. 다만 자동 승인 심사기의 실행 전 차단으로
-  runtime·backup 역할과 Vercel/GitHub 비밀 저장은 아직 수행하지 못했다.
-  임시 Development 소유자 연결은 후속 설정 완료 즉시 제거해야 한다.
-- 공개 30곳 승격 명령은 격리 DB에서 공개 필드·근거만 복사하고 내부 데이터를
-  제외하는 것을 통과했지만 실제 Neon에는 아직 실행하지 않았다. 원격 쓰기 전
-  대상이 비어 있는지 재확인하고 별도 사용자 승인을 적용한다.
+- Vercel Hobby와 Neon Free Singapore에서 migration·seed, 최소 권한
+  runtime·backup 역할, 인증서 TLS, Production/GitHub 비밀 저장과 공개 30곳
+  승격을 확인했다. 590ms는 활성 compute의 단일 연결·조회 측정값이며 5분 이상
+  비활성 뒤 cold latency나 실제 Vercel Function 왕복 지연을 대신하지 않는다.
+- 실제 Neon에는 공개 필드와 근거만 승격했고 검수·감사·수집·분석 데이터는
+  복사하지 않았다. 따라서 배포 직후 관리자 검수 대기열은 비어 있으며 향후
+  수집기 운영 자격 증명과 Production 관리자 흐름은 별도로 준비해야 한다.
 - GitHub Actions 암호화 백업·복원 workflow와 역할 구성은 구현했고 합성
-  PostgreSQL 17 복원을 통과했다. 2026-08-11 GitHub CLI 인증은 복구했고 공개
-  저장소의 Actions variable·secret이 아직 비어 있음을 확인했다. 기본 branch에
-  workflow가 반영되기 전에는 repository variable·secret과 실제 Neon read-only
-  URL, 첫 artifact·격리 복원·14일 만료를 검증할 수 없으므로 운영 RPO·RTO
-  달성으로 보고하지 않는다.
+  PostgreSQL 17 복원을 통과했다. 실제 Neon read-only URL은 GitHub secret에
+  저장했지만 `age` recipient variable과 identity secret은 아직 만들지 않았다.
+  기본 branch에 workflow가 반영되고 첫 artifact·격리 복원·14일 만료를
+  검증하기 전에는 운영 RPO·RTO 달성으로 보고하지 않는다.
 - 공개 안내·SEO 기술 기반은 lint와 production build를 통과했지만 개인정보
   처리방침의 운영 주체·문의 채널·최종 보유 기간·위탁 및 국외 이전 여부는 운영
   인프라와 법무 검토 후 확정해야 한다. production canonical origin 설정과 실제
@@ -573,7 +592,7 @@ Singapore 리소스를 생성해 실제 migration·seed를 적용했으며, 공�
   검증한다. 관리자 테스트 토큰은 Clerk 세션·쿠키와
   애플리케이션 권한 경계를 검증하지만 Google 로그인 UI나 Google 계정의
   2단계 인증 수행 자체를 증명하지 않는다.
-- 2026-08-11 검증 환경에서 기본 Turbopack build는 CSS 처리 워커의 로컬 포트
+- 2026-08-12 검증 환경에서 기본 Turbopack build는 CSS 처리 워커의 로컬 포트
   바인딩 권한 제한으로 중단됐지만 같은 소스의 Next.js webpack production
   build·TypeScript·정적 페이지 생성과 모든 production E2E는 통과했다. 기본
   Turbopack build 자체는 CI 또는 제한 없는 배포 환경에서 다시 확인해야 한다.

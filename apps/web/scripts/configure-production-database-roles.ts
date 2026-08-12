@@ -1,5 +1,10 @@
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 
+import {
+  assertProductionTls,
+  inspectClientTls,
+} from "./postgres-tls";
+
 const selectTables = [
   "analytics_events",
   "collected_records",
@@ -133,22 +138,25 @@ async function upsertLoginRole(
     "select exists(select 1 from pg_roles where rolname = $1) as exists",
     [configuration.name],
   );
-  const attributes = [
+  const mutableAttributes = [
     "LOGIN",
     `PASSWORD ${password}`,
-    "NOSUPERUSER",
     "NOCREATEDB",
     "NOCREATEROLE",
     "NOINHERIT",
-    "NOREPLICATION",
-    "NOBYPASSRLS",
     `CONNECTION LIMIT ${configuration.connectionLimit}`,
   ].join(" ");
 
   if (result.rows[0]?.exists) {
-    await client.query(`ALTER ROLE ${roleIdentifier} WITH ${attributes}`);
+    await client.query(`ALTER ROLE ${roleIdentifier} WITH ${mutableAttributes}`);
   } else {
-    await client.query(`CREATE ROLE ${roleIdentifier} WITH ${attributes}`);
+    const creationAttributes = [
+      mutableAttributes,
+      "NOSUPERUSER",
+      "NOREPLICATION",
+      "NOBYPASSRLS",
+    ].join(" ");
+    await client.query(`CREATE ROLE ${roleIdentifier} WITH ${creationAttributes}`);
   }
 
   await client.query(
@@ -263,9 +271,10 @@ async function main() {
       throw new Error("PostgreSQL 17 or newer is required.");
     }
 
-    if (!details.tls) {
-      throw new Error("Role configuration connection must use TLS.");
-    }
+    assertProductionTls(
+      inspectClientTls(client, migrationUrl),
+      details.tls,
+    );
 
     await client.query("BEGIN");
     await upsertLoginRole(client, {

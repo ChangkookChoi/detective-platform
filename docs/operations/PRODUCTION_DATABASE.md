@@ -8,9 +8,10 @@ TLS·풀링·최소 권한, migration과 복구 검증 절차를 정의한다.
 2026-08-11 [ADR-0008](../decisions/ADR-0008-managed-postgres-prelaunch.md)에
 따라 비용 없는 Vercel Hobby 프로젝트와 Neon Free Singapore 리소스를 만들고
 GitHub 저장소를 연결했다. PostgreSQL 17 schema migration과 기준 seed는 실제
-direct 연결에서 통과했다. 최소 권한 runtime·backup 역할, 비밀 저장, 실제 공개
-데이터 승격과 백업 복원이 끝나지 않았고 무료 복원 이력도 14일 정책에 미달하므로
-아직 공개 운영 DB로 확정하지 않는다.
+direct 연결에서 통과했다. 최소 권한 runtime·backup 역할을 분리하고 공개 업체
+30건과 공개 근거만 승격했으며 Vercel Production·GitHub Actions에 역할별 URL을
+저장했다. 암호화 백업 키·실제 복원과 무료 14일 보존 증거가 아직 없으므로 공개
+운영 DB로 확정하지 않는다.
 
 ## 2. 공급자 비교
 
@@ -177,14 +178,33 @@ migration URL이 임시 E2E의 명시적 `DATABASE_URL`을 덮어쓰지 못한�
 공급자마다 pooled·direct host 표기 방식이 다르므로 endpoint mode 자체는
 공급자 Dashboard의 연결 상세와 실제 URL을 사람이 함께 확인한다.
 
-연결 검증은 실제 DB에서 다음을 읽기 전용으로 확인한다.
+연결 검증은 실제 DB와 클라이언트 transport에서 다음을 읽기 전용으로 확인한다.
 
-- PostgreSQL 17 이상과 TLS 세션
+- PostgreSQL 17 이상
+- `node-postgres` TLS 소켓의 암호화 상태. `verify-ca`·`verify-full`이면 인증서
+  승인과 peer 인증서도 함께 확인
+- 일반 PostgreSQL은 `pg_stat_ssl`도 함께 확인한다. Neon은 모든 direct·pooled
+  연결이 Neon Proxy를 통과해 proxy 앞단의 클라이언트 TLS가 backend
+  `pg_stat_ssl`에 표시되지 않을 수 있으므로 이 값을 단독 판정 근거로 사용하지 않음
+
 - migration 적용 이력
 - 런타임 role의 superuser·role/database/schema 생성 권한 부재
 - migration role의 schema 생성 권한
 - 현재 테이블의 런타임 최소 DML 권한
 - backup 역할의 모든 현재 테이블 read-only 권한과 DML·DDL 부재
+
+2026-08-12 실제 Neon direct·pooled 연결에서 client TLS 암호화, 인증서 승인과
+peer 인증서를 확인했다. Neon의 모든 client 연결이 Proxy를 통과한다는 공급자
+구조는 [Neon 보안 개요](https://neon.com/docs/security/security-overview)와
+[네트워크 전송 설명](https://neon.com/docs/introduction/network-transfer)을
+함께 참고한다.
+
+같은 리허설에서 runtime·migration·backup 역할 분리와 최소 권한을 통과하고,
+공개 업체 30건·출처 30건·필드 근거 185건·업무 분야 연결 95건만 승격했다.
+Vercel Production에는 sensitive `DATABASE_URL`과 `DATABASE_POOL_MAX=5`, GitHub
+Actions에는 `PRODUCTION_DATABASE_BACKUP_URL`만 저장했다. 임시 Development
+owner 연결과 로컬 임시 파일은 제거했다. 활성 compute에서 runtime 연결과 공개
+건수 조회는 590ms였으며 scale-to-zero cold 요청은 별도 측정 대상으로 남긴다.
 
 ## 8. 백업 출시 차단 조건
 

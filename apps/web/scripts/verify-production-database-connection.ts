@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 
 import { config } from "dotenv";
-import { Pool, type PoolConfig } from "pg";
+import { Pool, type PoolClient, type PoolConfig } from "pg";
+
+import {
+  assertProductionTls,
+  inspectClientTls,
+} from "./postgres-tls";
 
 config({ path: ".env.local", quiet: true });
 config({ quiet: true });
@@ -46,9 +51,11 @@ const runtimeUpdateTables = [
 const runtimeDeleteTables = ["analytics_events"] as const;
 
 type ConnectionInspection = {
+  canBypassRowSecurity: boolean;
   canCreateDatabase: boolean;
   canCreateRole: boolean;
   canCreateSchemaObjects: boolean;
+  canReplicate: boolean;
   databaseName: string;
   isSuperuser: boolean;
   roleName: string;
@@ -87,18 +94,26 @@ function createPool(connectionString: string, applicationName: string) {
   return pool;
 }
 
-async function inspectConnection(pool: Pool): Promise<ConnectionInspection> {
-  const result = await pool.query<{
-    can_create_database: boolean;
-    can_create_role: boolean;
-    can_create_schema_objects: boolean;
-    database_name: string;
-    is_superuser: boolean;
-    role_name: string;
-    server_version: string;
-    tls_enabled: boolean;
-  }>(
-    `select current_database() as database_name,
+async function inspectConnection(
+  pool: Pool,
+  connectionString: string,
+): Promise<ConnectionInspection> {
+  const client: PoolClient = await pool.connect();
+
+  try {
+    const result = await client.query<{
+      can_bypass_row_security: boolean;
+      can_create_database: boolean;
+      can_create_role: boolean;
+      can_create_schema_objects: boolean;
+      can_replicate: boolean;
+      database_name: string;
+      is_superuser: boolean;
+      role_name: string;
+      server_version: string;
+      tls_enabled: boolean;
+    }>(
+      `select current_database() as database_name,
             current_user as role_name,
             current_setting('server_version_num') as server_version,
             coalesce(
@@ -108,25 +123,34 @@ async function inspectConnection(pool: Pool): Promise<ConnectionInspection> {
             roles.rolsuper as is_superuser,
             roles.rolcreatedb as can_create_database,
             roles.rolcreaterole as can_create_role,
+            roles.rolreplication as can_replicate,
+            roles.rolbypassrls as can_bypass_row_security,
             has_schema_privilege(current_user, 'public', 'CREATE')
               as can_create_schema_objects
        from pg_roles as roles
       where roles.rolname = current_user`,
-  );
-  const row = result.rows[0];
+    );
+    const row = result.rows[0];
 
-  assert(row, "Database connection inspection returned no rows.");
+    assert(row, "Database connection inspection returned no rows.");
+    const tlsInspection = inspectClientTls(client, connectionString);
+    assertProductionTls(tlsInspection, row.tls_enabled);
 
-  return {
-    canCreateDatabase: row.can_create_database,
-    canCreateRole: row.can_create_role,
-    canCreateSchemaObjects: row.can_create_schema_objects,
-    databaseName: row.database_name,
-    isSuperuser: row.is_superuser,
-    roleName: row.role_name,
-    serverVersion: Number(row.server_version),
-    tlsEnabled: row.tls_enabled,
-  };
+    return {
+      canBypassRowSecurity: row.can_bypass_row_security,
+      canCreateDatabase: row.can_create_database,
+      canCreateRole: row.can_create_role,
+      canCreateSchemaObjects: row.can_create_schema_objects,
+      canReplicate: row.can_replicate,
+      databaseName: row.database_name,
+      isSuperuser: row.is_superuser,
+      roleName: row.role_name,
+      serverVersion: Number(row.server_version),
+      tlsEnabled: tlsInspection.clientEncrypted || row.tls_enabled,
+    };
+  } finally {
+    client.release();
+  }
 }
 
 async function verifyRuntimeTablePrivileges(pool: Pool) {
@@ -237,27 +261,33 @@ async function verifyBackupTablePrivileges(pool: Pool) {
 }
 
 async function main() {
+  const runtimeUrl = requireValue(process.env.DATABASE_URL, "DATABASE_URL");
+  const migrationUrl = requireValue(
+    process.env.DATABASE_MIGRATION_URL,
+    "DATABASE_MIGRATION_URL",
+  );
+  const backupUrl = requireValue(
+    process.env.DATABASE_BACKUP_URL,
+    "DATABASE_BACKUP_URL",
+  );
   const runtimePool = createPool(
-    requireValue(process.env.DATABASE_URL, "DATABASE_URL"),
+    runtimeUrl,
     "detective-platform-runtime-check",
   );
   const migrationPool = createPool(
-    requireValue(
-      process.env.DATABASE_MIGRATION_URL,
-      "DATABASE_MIGRATION_URL",
-    ),
+    migrationUrl,
     "detective-platform-migration-check",
   );
   const backupPool = createPool(
-    requireValue(process.env.DATABASE_BACKUP_URL, "DATABASE_BACKUP_URL"),
+    backupUrl,
     "detective-platform-backup-check",
   );
 
   try {
     const [runtime, migration, backup] = await Promise.all([
-      inspectConnection(runtimePool),
-      inspectConnection(migrationPool),
-      inspectConnection(backupPool),
+      inspectConnection(runtimePool, runtimeUrl),
+      inspectConnection(migrationPool, migrationUrl),
+      inspectConnection(backupPool, backupUrl),
     ]);
     const migrationCountResult = await migrationPool.query<{ count: string }>(
       "select count(*)::text as count from drizzle.__drizzle_migrations",
@@ -301,6 +331,8 @@ async function main() {
     assert(!runtime.isSuperuser, "Runtime role must not be a superuser.");
     assert(!runtime.canCreateRole, "Runtime role must not create roles.");
     assert(!runtime.canCreateDatabase, "Runtime role must not create databases.");
+    assert(!runtime.canReplicate, "Runtime role must not replicate.");
+    assert(!runtime.canBypassRowSecurity, "Runtime role must not bypass row security.");
     assert(
       !runtime.canCreateSchemaObjects,
       "Runtime role must not create objects in the public schema.",
@@ -312,6 +344,8 @@ async function main() {
     assert(!backup.isSuperuser, "Backup role must not be a superuser.");
     assert(!backup.canCreateRole, "Backup role must not create roles.");
     assert(!backup.canCreateDatabase, "Backup role must not create databases.");
+    assert(!backup.canReplicate, "Backup role must not replicate.");
+    assert(!backup.canBypassRowSecurity, "Backup role must not bypass row security.");
     assert(
       !backup.canCreateSchemaObjects,
       "Backup role must not create objects in the public schema.",

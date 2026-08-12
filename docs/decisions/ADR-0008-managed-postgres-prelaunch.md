@@ -92,5 +92,8 @@ Neon Free의 6시간 복원 이력은 장애 직후 복구 리허설에는 유�
 - 공개 출시 전 14일 보존 백업과 실제 복원 경로를 확정한다.
 
 2026-08-11 사용자가 Free 리소스 생성을 승인해 Vercel Hobby 프로젝트와
-Singapore Neon Free 리소스를 만들고 migration·seed를 적용했다. 나머지 조건은
-실제 최소 권한 역할·지연·scale-to-zero·암호화 백업 복원 검증으로 계속 추적한다.
+Singapore Neon Free 리소스를 만들고 migration·seed를 적용했다. 2026-08-12
+최소 권한 runtime·read-only backup 역할과 client 인증서 TLS를 검증하고 공개
+30곳만 승격했으며 역할별 연결 정보를 Vercel Production·GitHub Actions에
+분리 저장했다. 활성 compute의 runtime 연결·조회는 590ms였다. scale-to-zero
+cold 지연과 암호화 백업의 실제 복원·14일 만료는 계속 추적한다.
