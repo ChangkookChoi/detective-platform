@@ -91,3 +91,9 @@ Git 이력에 운영 데이터와 대용량 바이너리를 남기고 보존 삭
   측정한다.
 - 14일이 지난 첫 artifact가 정책대로 만료되는지 확인한다.
 - Actions 예산 초과 사용 중지와 월별 사용량 담당자를 지정한다.
+
+2026-08-12 repository가 public이고 Actions가 활성화됐으며 workflow run과
+artifact가 아직 0건임을 확인했다. 표준 `ubuntu-24.04` runner 실행 시간은
+public repository에서 무료이고 15MiB × 14개 상한은 500MB 공유 저장 한도
+안이다. 다만 workflow가 기본 branch에 아직 없고 계정 전체 0원 예산·포함 사용량
+알림도 확인 전이므로 최초 백업·복원과 비용 통제를 완료했다고 보지 않는다.

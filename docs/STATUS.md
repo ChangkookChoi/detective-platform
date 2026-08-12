@@ -79,6 +79,12 @@ Actions에 역할별 연결 정보를 저장하고 임시 owner 연결을 제거
 새 `age` 키쌍의 암·복호화 왕복을 검증하고 공개 recipient와 비공개 identity를
 GitHub repository variable·Actions secret에 분리 저장한 뒤 로컬 임시 키를
 폐기했습니다. 첫 실제 artifact 복원과 실제 웹 배포는 아직 완료 전입니다.
+최소 권한 runtime·backup 자격 증명을 다시 회전해 Vercel Production과 GitHub
+Actions secret을 갱신하고 역할·TLS·권한을 재검증했습니다. 5분 30초 DB 유휴 뒤
+Neon 첫 연결·조회 1,808.2ms와 즉시 후속 새 연결·조회 524.6ms를 측정했으며 둘 다
+공개 업체 30건을 반환했습니다. public GitHub repository의 Actions 정책과
+artifact 0건을 확인했지만 계정 전체 0원 예산과 최초 workflow 실행은 아직
+완료 전입니다.
 전체 작업 브랜치를 `main` 대상으로 한 PR #1에 올렸고 Vercel Preview의 기본
 Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 보호로
 공개 경로도 비로그인 요청에서 302 인증 이동을 반환합니다.
@@ -473,6 +479,16 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
   95건을 원자적으로 승격하고 검수·수집·분석·광고 테이블 0건 유지 확인
 - 최종 runtime 역할로 PostgreSQL 17, 공개 업체 30건, 최소 권한과 인증서 TLS를
   재확인하고 활성 compute 기준 연결·조회 590ms 측정
+- runtime·backup 비밀번호를 다시 회전하고 실제 Neon에서 역할 분리·TLS·최소
+  권한을 재검증한 뒤 Vercel Production과 GitHub Actions의 최소권한 secret 갱신.
+  Vercel Sensitive 값은 `env pull`에서 `[SENSITIVE]`로 비공개 처리된다는 운영
+  주의를 기록하고 임시 owner 연결을 다시 제거
+- DB 접근 5분 30초 중단 후 runtime pooled 첫 연결·공개 30건 조회 1,808.2ms,
+  즉시 후속 새 연결·동일 조회 524.6ms 측정. 활성 표본은 593.6ms였으며 실제
+  Vercel Function 왕복 지연과 구분
+- GitHub repository가 public이고 Actions 활성, 기존 run·artifact 0건임을 확인.
+  표준 `ubuntu-24.04` runner 실행 시간은 무료지만 artifact는 Actions·Packages
+  500MB 공유 한도를 사용하며 계정 전체 0원 예산·포함 사용량 알림은 미확인
 - Vercel Development의 `NEON_OWNER_*` 18개와 Marketplace 프로젝트 연결을
   제거하고, Neon Free 리소스 자체는 `Available`로 보존. owner/runtime 임시
   환경 파일과 일회성 검증 스크립트 삭제 확인
@@ -500,24 +516,22 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
 1. 기본 branch에 백업 workflow가 반영된 뒤 실제 Neon 첫 암호화 artifact를
    생성한다. 24시간 이내 artifact를 격리 복원해 RPO·RTO를 측정하고 최초
    artifact의 14일 만료를 추적
-2. Neon compute가 5분 이상 비활성인 조건에서 scale-to-zero cold 첫 요청과
-   이어지는 warm 요청을 분리 측정
-3. Actions 0원 초과 사용 중지 예산과 월별 사용량 담당자를 설정하고 첫 14일간
+2. Actions 0원 초과 사용 중지 예산과 월별 사용량 담당자를 설정하고 첫 14일간
    artifact 수·총 용량을 추적
-4. 소유한 custom domain을 준비해 Clerk Production 환경과 Google OAuth를
+3. 소유한 custom domain을 준비해 Clerk Production 환경과 Google OAuth를
    구성하고 live 키·Production 관리자 ID를 Vercel에 저장한다. 최신 수정의
    Production 배포 후 보안 헤더·robots·sitemap·JSON-LD·로그인·공개/관리자
    핵심 흐름을 smoke 검증
-5. 개인정보 처리방침의 운영 주체·문의 채널·보유 기간·위탁/국외 이전 여부를
+4. 개인정보 처리방침의 운영 주체·문의 채널·보유 기간·위탁/국외 이전 여부를
    실제 인프라와 법무 검토 결과에 맞춰 확정
-6. 초기 업체 약 100곳 확대는 출시 기반 작업 뒤 재개. 공식 운영 주체·한 개
+5. 초기 업체 약 100곳 확대는 출시 기반 작업 뒤 재개. 공식 운영 주체·한 개
    사무소·최소 사실 필드와 업무 분야를 모두 확인한 건은 같은 위임 작업 안에서
    등록→승인→공개 검증까지 완료하고 불확실한 건만 보류
-7. 고려 공식 사이트의 `a동 720`·`B동 720호` 주소 충돌이 정정되는지 나중에
+6. 고려 공식 사이트의 `a동 720`·`B동 720호` 주소 충돌이 정정되는지 나중에
    재확인하고, 하나의 공식 주소가 추가 근거와 일치할 때만 보류 후보 재검수
-8. 다해 화성 본사의 접속 복구와 명진 공식 주소 정합성을 나중에 재확인하고,
+7. 다해 화성 본사의 접속 복구와 명진 공식 주소 정합성을 나중에 재확인하고,
    복구·정정된 경우에만 최소 사실 필드를 처음부터 다시 검수
-9. 리앤장 DNS와 호시탐탐 홈페이지 복구 여부를 나중에 재확인하고, 복구된
+8. 리앤장 DNS와 호시탐탐 홈페이지 복구 여부를 나중에 재확인하고, 복구된
    경우에만 운영 주체·대표번호·사무소별 주소를 처음부터 다시 검수
 
 ## 확정된 초기 데이터 모델
@@ -602,8 +616,9 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
   실제 데이터 규모의 RPO·RTO는 아직 검증하지 않았다.
 - Vercel Hobby와 Neon Free Singapore에서 migration·seed, 최소 권한
   runtime·backup 역할, 인증서 TLS, Production/GitHub 비밀 저장과 공개 30곳
-  승격을 확인했다. 590ms는 활성 compute의 단일 연결·조회 측정값이며 5분 이상
-  비활성 뒤 cold latency나 실제 Vercel Function 왕복 지연을 대신하지 않는다.
+  승격을 확인했다. 로컬 개발 장비에서 활성 593.6ms, 5분 30초 유휴 뒤 첫 요청
+  1,808.2ms, 즉시 후속 요청 524.6ms를 측정했지만 실제 Vercel Function 왕복
+  지연과 다중 표본의 분포를 대신하지 않는다.
 - 실제 Neon에는 공개 필드와 근거만 승격했고 검수·감사·수집·분석 데이터는
   복사하지 않았다. 따라서 배포 직후 관리자 검수 대기열은 비어 있으며 향후
   수집기 운영 자격 증명과 Production 관리자 흐름은 별도로 준비해야 한다.

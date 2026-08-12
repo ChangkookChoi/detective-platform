@@ -110,6 +110,14 @@ GitHub에 값 노출 없이 저장했다. identity의 로컬 사본은 폐기했
 secret은 다시 읽을 수 없으므로 첫 실제 artifact의 격리 복원을 통과하기 전에는
 identity를 재회전하거나 secret을 덮어쓰지 않는다.
 
+같은 날 repository가 public이고 Actions가 활성화돼 있으며 기존 workflow run과
+artifact가 각각 0건임을 확인했다. 현재 작업 branch의 workflow는 기본 branch에
+없어 GitHub에 아직 등록되지 않았다. `ubuntu-24.04` 표준 runner 실행 시간은
+public repository에서 무료지만 artifact는 GitHub Free의 Actions·Packages 공유
+500MB 한도를 사용한다. 계정 전체 Actions 예산과 포함 사용량 알림은 다른
+repository에도 영향을 줄 수 있으므로 계정 소유자가 Billing 화면에서 0원 초과
+사용 중지와 90%·100% 알림을 확인하기 전에는 설정 완료로 기록하지 않는다.
+
 추가 운영 설정:
 
 1. Actions 사용 예산을 0원·한도 도달 시 사용 중지로 설정한다.
@@ -125,6 +133,11 @@ GitHub Free의 500MB는 Actions artifact와 Packages가 공유한다. 수동 재
 다른 artifact도 포함해 월별 사용량을 확인한다. archive가 상한에 가까워지면
 보존을 줄여 정책을 어기지 말고 R2 Standard 무료 구간 또는 유료 관리형 백업을
 비교한다.
+
+실제 Neon dump는 운영 데이터 반출이므로 개발 장비에 내려받아 대신 검증하지
+않는다. 최초 dump는 workflow가 기본 branch에 반영된 뒤 GitHub runner 임시
+디렉터리에서 만들고 평문이 cleanup 되는지와 암호화 artifact만 업로드되는지를
+run log로 확인한다.
 
 백업 생성과 수동 복원 명령은 각각
 `scripts/create-encrypted-postgres-backup.sh`,

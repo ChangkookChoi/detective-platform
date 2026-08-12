@@ -95,5 +95,8 @@ Neon Free의 6시간 복원 이력은 장애 직후 복구 리허설에는 유�
 Singapore Neon Free 리소스를 만들고 migration·seed를 적용했다. 2026-08-12
 최소 권한 runtime·read-only backup 역할과 client 인증서 TLS를 검증하고 공개
 30곳만 승격했으며 역할별 연결 정보를 Vercel Production·GitHub Actions에
-분리 저장했다. 활성 compute의 runtime 연결·조회는 590ms였다. scale-to-zero
-cold 지연과 암호화 백업의 실제 복원·14일 만료는 계속 추적한다.
+분리 저장했다. 최소 권한 자격 증명 회전 후 활성 compute의 runtime 연결·조회는
+593.6ms였다. DB 접근을 5분 30초 중단한 뒤 첫 연결·조회는 1,808.2ms, 즉시
+후속 새 연결·조회는 524.6ms였고 모두 공개 업체 30건을 반환했다. 이 로컬
+단일 표본은 scale-to-zero 재개 비용을 확인했지만 실제 Vercel Function 왕복
+지연을 대신하지 않는다. 암호화 백업의 실제 복원·14일 만료는 계속 추적한다.

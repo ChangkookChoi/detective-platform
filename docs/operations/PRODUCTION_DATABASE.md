@@ -204,8 +204,17 @@ peer 인증서를 확인했다. Neon의 모든 client 연결이 Proxy를 통과�
 Vercel Production에는 sensitive `DATABASE_URL`과 `DATABASE_POOL_MAX=5`, GitHub
 Actions에는 `PRODUCTION_DATABASE_BACKUP_URL`과 복호화 identity secret, 공개
 recipient variable을 저장했다. 임시 Development owner 연결과 로컬 임시 파일은
-제거했다. 활성 compute에서 runtime 연결과 공개 건수 조회는 590ms였으며
-scale-to-zero cold 요청은 별도 측정 대상으로 남긴다.
+제거했다. Vercel CLI의 `env pull`은 Sensitive 변수의 실제 값 대신
+`[SENSITIVE]`를 반환하므로 이 파일을 연결 시험에 사용하지 않는다. 연결 시험은
+동일 실행 중에만 존재하는 별도 보안 파일이나 process 환경으로 실제 값을
+주입하고 URL·비밀번호를 출력하지 않는다.
+
+2026-08-12 최소 권한 runtime 자격 증명을 회전한 뒤 역할 분리·TLS·권한과 공개
+업체 30건을 다시 확인했다. 활성 compute의 새 pooled 연결과 조회는 593.6ms였다.
+DB 접근을 5분 30초 중단한 뒤 같은 SQL로 측정한 scale-to-zero 첫 연결·조회는
+1,808.2ms, 즉시 새 연결로 반복한 후속 요청은 524.6ms였다. 이는 로컬 개발
+장비에서 Singapore Neon까지의 단일 표본이며 실제 Vercel Function 왕복 지연을
+대신하지 않는다.
 
 ## 8. 백업 출시 차단 조건
 
