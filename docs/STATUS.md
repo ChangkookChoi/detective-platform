@@ -1,8 +1,9 @@
 # 프로젝트 상태
 
-- 기준일: 2026-08-12
+- 기준일: 2026-08-13
 - 단계: 핵심 MVP 기능 구현·출시 준비
-- 배포 상태: Vercel Production 리허설·Preview `Ready`, 공개 출시 차단
+- 배포 상태: 최신 `main` Vercel Production `Ready`, custom domain·Clerk
+  Production·정책 확정 전 공개 출시 차단
 - 데이터 상태: 실제 파일럿 결함 후보 `rejected` 1건·교정 `approved` 1건·
   공식 출처 수동 후보 `approved` 28건·`approved_with_edits` 1건·`on_hold`
   1건·`pending` 0건, 공개 업체 30건
@@ -79,8 +80,9 @@ Actions에 역할별 연결 정보를 저장하고 임시 owner 연결을 제거
 새 `age` 키쌍의 암·복호화 왕복을 검증하고 공개 recipient와 비공개 identity를
 GitHub repository variable·Actions secret에 분리 저장한 뒤 로컬 임시 키를
 폐기했습니다. 실제 Neon 암호화 artifact를 빈 PostgreSQL 17에 복원해 공개 업체
-30건과 schema·migration·제약·seed·출처 무결성을 확인했습니다. 실제 웹 배포는
-아직 완료 전입니다.
+30건과 schema·migration·제약·seed·출처 무결성을 확인했습니다. 최신 `main`의
+Vercel Production 리허설도 `Ready`지만 custom domain과 Clerk Production이
+없어 아직 공개 출시 상태는 아닙니다.
 최소 권한 runtime·backup 자격 증명을 다시 회전해 Vercel Production과 GitHub
 Actions secret을 갱신하고 역할·TLS·권한을 재검증했습니다. 5분 30초 DB 유휴 뒤
 Neon 첫 연결·조회 1,808.2ms와 즉시 후속 새 연결·조회 524.6ms를 측정했으며 둘 다
@@ -106,12 +108,14 @@ branch protection을 적용했습니다.
 9초·웹 52초로 통과했습니다. Vercel Preview의 기본 Next.js production build와
 배포도 성공했습니다. Preview는 Vercel SSO 보호로 공개 경로도 비로그인
 요청에서 302 인증 이동을 반환합니다.
-사전검증 중 2026-08-12 11:22 KST에 작업 브랜치 `1f37e7c`로 만든 Production
-리허설 배포가 이미 존재함을 확인했습니다. 공개 alias는 Clerk publishable key
-누락으로 500을 반환하므로 출시된 서비스로 보지 않습니다. canonical과 Clerk
-로그인 경로는 Production 변수로 추가했으며, custom domain·live 키·Production
-관리자 ID는 아직 없습니다. Clerk 미설정 시 공개 경로만 통과시키고 관리자·
-로그인 경로를 503으로 닫는 수정은 검증 후 PR에 반영 중입니다.
+2026-08-12 사전검증에서 기존 Production 리허설 배포의 Clerk publishable key
+누락 500을 확인하고, Clerk 미설정 시 공개 경로는 유지하되 관리자·로그인
+경로만 503으로 닫는 fail-closed 경계를 반영했습니다. 2026-08-13 최신 `main`
+Production 배포 `dpl_Gj4oMEu2o2WE9zDvB9oNSSpeDZVa`가 `Ready`이며 Vercel 인증
+우회 smoke에서 홈 200, 관리자·로그인 503을 확인했습니다. custom domain은
+0개이고 live 키·Production 관리자 ID는 아직 없습니다. Production 인증
+사전검증은 이제 `*.vercel.app`을 거부하며, 도메인 연결부터 live 키 저장·
+재배포·smoke 검증까지의 출시 절차를 별도 runbook으로 고정했습니다.
 
 ## 완료
 
@@ -566,6 +570,17 @@ branch protection을 적용했습니다.
   수집기 13초·웹 46초 통과. `main` backup run `31609500182` 44초와 restore
   run `31609617458` 41초에서 recovery point 0.02시간·순수 복원 1초·공개 업체
   30건을 재확인하고 artifact 2개·총 121,930바이트 확인
+- 최신 `main`의 Vercel Production 배포
+  `dpl_Gj4oMEu2o2WE9zDvB9oNSSpeDZVa` `Ready`, Function `sin1`과 Node.js 24를
+  확인. Production 환경변수 이름을 값 노출 없이 점검해 DB·canonical·로그인
+  경로 5개는 존재하고 Clerk live 키·Production 역할 ID는 없음을 확인
+- Vercel 인증 우회 smoke에서 최신 Production 홈 HTTP 200, `/admin/reviews`와
+  `/sign-in` HTTP 503 확인. 연결된 custom domain 0개를 확인하고 외부 DNS나
+  공개 alias는 변경하지 않음
+- Production 인증 사전검증에 경로 없는 HTTPS 소유 custom domain 계약을
+  추가해 `*.vercel.app`을 거부하고 합성 live 키 성공·Vercel 도메인 실패를
+  self-test로 고정. 도메인·Clerk·환경변수·배포·smoke·롤백 순서를
+  `docs/operations/PRODUCTION_RELEASE.md`에 추가
 
 ## 다음 작업 후보
 
@@ -633,7 +648,8 @@ branch protection을 적용했습니다.
   로컬 개발 DB에 비공개 검수 후보를 적재했지만 사이트 운영자의 별도
   서면 허락은 받지 않았다. 최초 `jsonld-v1` 후보는 주소 지역명이 중복되어
   보류 후 반려했고 교정된 `jsonld-v2` 후보는 사람이 원문을 대조해 승인·공개했다.
-  운영 DB 자격 증명·네트워크 경계, 예약 실행과 알림은 아직 검증하지 않았다.
+  운영 DB 자격 증명·TLS·최소 권한은 검증했지만 예약 실행의 연속성과 알림
+  담당은 아직 검증하지 않았다.
 - 분석 Client Component의 상세 표시·전화 클릭 네트워크 요청과 PostgreSQL
   집계는 합성 공개 업체의 production Chrome E2E로 검증했다. 의도적으로 수집하지
   않는 통화 앱 실행 성공과 실제 통화 성립은 검증 범위가 아니다.
@@ -684,12 +700,12 @@ branch protection을 적용했습니다.
   시 새 키의 실제 복원을 다시 검증해야 한다. `main` 후속 백업·복원도 통과했지만
   예약 실행의 연속 성공과 첫 artifact의 실제 14일 만료를 확인하기 전에는 연속
   운영 보존 달성으로 보고하지 않는다.
-- 작업 브랜치 `1f37e7c`의 Vercel Production 리허설 배포는 `Ready`지만 Clerk
-  Production 설정 없이 생성돼 public alias가 500을 반환한다. Vercel 계정에
-  custom domain이 없고 Clerk는 `*.vercel.app`을 Production 도메인으로 허용하지
-  않으므로 live 키·Production 사용자 ID를 아직 만들 수 없다. 공개 경로 500을
-  방지하는 fail-closed 수정은 로컬에서 검증했지만 공개 출시로 이어지는
-  Production 재배포는 명시 승인과 도메인 준비 전까지 수행하지 않는다.
+- 최신 `main`의 Vercel Production 배포는 `Ready`이고 Vercel 인증 우회 요청에서
+  공개 홈 200, 관리자·로그인 경로 503을 반환해 fail-closed 수정이 실제 배포에
+  반영됐음을 확인했다. 다만 배포 보호가 유지되고 custom domain이 0개이며
+  Clerk live 키·Production 사용자 ID도 없어 공개 출시 상태는 아니다. 도메인
+  구매·DNS와 Clerk Production 설정 뒤 실제 custom domain에서 전체 smoke를
+  다시 통과해야 한다.
 - 공개 안내·SEO 기술 기반은 lint와 production build를 통과했지만 개인정보
   처리방침의 운영 주체·문의 채널·최종 보유 기간·위탁 및 국외 이전 여부는 운영
   인프라와 법무 검토 후 확정해야 한다. production canonical origin 설정과 실제

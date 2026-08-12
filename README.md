@@ -35,6 +35,8 @@ read-only backup 역할을 분리하고 공개 30곳만 빈 운영 DB로 원자�
 schema·migration·출처 무결성, RPO·RTO 목표를 확인했습니다.
 Vercel Production 리허설 배포는 만들었지만 Clerk Production 도메인·live 키가
 없어 아직 공개 출시 상태가 아닙니다.
+도메인 확보 뒤의 설정·검증 순서는
+[Production 출시 절차](docs/operations/PRODUCTION_RELEASE.md)를 따릅니다.
 최신 진행 상황은
 [docs/STATUS.md](docs/STATUS.md)를 기준으로 확인합니다.
 

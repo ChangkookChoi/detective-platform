@@ -12,6 +12,7 @@ type ClerkKeyMode = "test" | "live";
 
 type AdminAuthConfiguration = {
   databaseUrl?: string;
+  siteUrl?: string;
   publishableKey?: string;
   secretKey?: string;
   signInUrl?: string;
@@ -25,6 +26,39 @@ type AdminAuthValidation = {
   reviewerCount: number;
   adminCount: number;
 };
+
+function validateProductionSiteUrl(value: string | undefined) {
+  const rawUrl = requireValue(value, "NEXT_PUBLIC_SITE_URL");
+  let parsed: URL;
+
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new Error("NEXT_PUBLIC_SITE_URL must be a valid HTTPS origin.");
+  }
+
+  if (
+    parsed.protocol !== "https:" ||
+    !parsed.hostname ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    throw new Error(
+      "NEXT_PUBLIC_SITE_URL must be an HTTPS origin without a path, query, or fragment.",
+    );
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  if (hostname === "vercel.app" || hostname.endsWith(".vercel.app")) {
+    throw new Error(
+      "Clerk production requires an owned custom domain; *.vercel.app is not allowed.",
+    );
+  }
+}
 
 function requireValue(value: string | undefined, name: string) {
   const normalized = value?.trim();
@@ -122,6 +156,10 @@ function validateAdminAuthConfiguration(
     );
   }
 
+  if (environment === "production") {
+    validateProductionSiteUrl(configuration.siteUrl);
+  }
+
   if (
     requireValue(
       configuration.signInUrl,
@@ -180,6 +218,7 @@ function readDeploymentEnvironment(): DeploymentEnvironment {
 function readProcessConfiguration(): AdminAuthConfiguration {
   return {
     databaseUrl: process.env.DATABASE_URL,
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
     publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     secretKey: process.env.CLERK_SECRET_KEY,
     signInUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL,
@@ -199,6 +238,13 @@ function runSelfTest() {
     signInFallbackRedirectUrl: "/admin/reviews",
     reviewerUserIds: "user_reviewer",
     adminUserIds: "user_admin",
+  };
+
+  const validProductionConfiguration: AdminAuthConfiguration = {
+    ...validConfiguration,
+    siteUrl: "https://detective.example.com",
+    publishableKey: "pk_live_example",
+    secretKey: "sk_live_example",
   };
 
   assert.deepEqual(
@@ -228,6 +274,36 @@ function runSelfTest() {
   assert.throws(
     () => validateAdminAuthConfiguration(validConfiguration, "production"),
     /production requires Clerk live keys/,
+  );
+  assert.deepEqual(
+    validateAdminAuthConfiguration(validProductionConfiguration, "production"),
+    {
+      keyMode: "live",
+      reviewerCount: 1,
+      adminCount: 1,
+    },
+  );
+  assert.throws(
+    () =>
+      validateAdminAuthConfiguration(
+        {
+          ...validProductionConfiguration,
+          siteUrl: "https://detective-platform.vercel.app",
+        },
+        "production",
+      ),
+    /owned custom domain/,
+  );
+  assert.throws(
+    () =>
+      validateAdminAuthConfiguration(
+        {
+          ...validProductionConfiguration,
+          siteUrl: "https://detective.example.com/path",
+        },
+        "production",
+      ),
+    /HTTPS origin without a path/,
   );
   assert.throws(
     () =>
