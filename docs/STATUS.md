@@ -88,6 +88,8 @@ artifact 0건을 확인했지만 계정 전체 0원 예산과 최초 workflow �
 repository Actions는 GitHub 소유 action만 허용하고 전체 40자리 SHA 고정을
 필수화했습니다. 기본 token은 read-only·PR 승인 불가이고 artifact·log 기본
 보존은 정책과 같은 14일로 낮췄습니다.
+백업 client와 격리 복원 service의 Docker Official Image도 PostgreSQL 17 Alpine
+multi-arch digest로 고정했습니다.
 전체 작업 브랜치를 `main` 대상으로 한 PR #1에 올렸고 Vercel Preview의 기본
 Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 보호로
 공개 경로도 비로그인 요청에서 302 인증 이동을 반환합니다.
@@ -496,6 +498,11 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
   제한하고 전체 40자리 commit SHA 고정을 필수화. 현재 action 4개가 모두
   `actions/*`와 SHA 고정을 충족하고 기본 `GITHUB_TOKEN`은 read-only·PR 승인
   불가임을 확인. artifact·log repository 기본 보존은 90일에서 14일로 축소
+- 백업 client와 격리 복원 service의 Docker Official Image
+  `postgres:17-alpine`을 Linux amd64·arm64 포함 multi-arch OCI digest로 고정해
+  tag 이동에 따른 무검토 실행 변경 차단. workflow YAML·action SHA·image 참조
+  정적 검증과 로컬 PostgreSQL 17 합성 암호화 백업 44,870바이트→빈 DB 0초
+  복원·`db:verify`를 재통과했으며 실제 digest image 실행은 첫 workflow에서 추적
 - Vercel Development의 `NEON_OWNER_*` 18개와 Marketplace 프로젝트 연결을
   제거하고, Neon Free 리소스 자체는 `Available`로 보존. owner/runtime 임시
   환경 파일과 일회성 검증 스크립트 삭제 확인

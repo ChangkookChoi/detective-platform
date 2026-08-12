@@ -125,6 +125,15 @@ repository도 SHA 고정을 필수화한다. 기본 `GITHUB_TOKEN`은 read-only�
 권한은 없다. repository artifact·log 기본 보존은 90일에서 14일로 낮췄고 현재
 run·artifact·저장량은 모두 0이다.
 
+백업 client와 격리 복원 service는 Docker Official Image
+`postgres:17-alpine`의 multi-arch OCI digest까지 고정한다. 2026-08-12 기준
+digest는 `sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193`이며
+Linux amd64·arm64를 포함한다. 매월 공식 태그의 새 digest와 PostgreSQL 보안
+업데이트를 확인하고, 변경 시 합성 백업·복원 전체 검증 후 함께 갱신한다.
+registry manifest와 digest를 확인하고 로컬 PostgreSQL 17 client로 합성 암호화
+백업 44,870바이트와 빈 DB 복원·`db:verify`를 재통과했다. 고정 digest image의
+실제 pull과 실행은 기본 branch 반영 뒤 첫 GitHub workflow에서 확인한다.
+
 추가 운영 설정:
 
 1. Actions 사용 예산을 0원·한도 도달 시 사용 중지로 설정한다.

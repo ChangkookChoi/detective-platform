@@ -103,3 +103,8 @@ public repository에서 무료이고 15MiB × 14개 상한은 500MB 공유 저�
 기본 `GITHUB_TOKEN`은 read-only, PR 승인 불가로 확인했다. repository의
 artifact·log 기본 보존도 14일로 제한해 workflow별 보존 누락 시 90일 기본값이
 적용되지 않게 했다.
+
+PostgreSQL 17 백업 client와 격리 복원 service도 Docker Official Image
+`postgres:17-alpine`의 2026-08-12 multi-arch OCI digest로 고정했다. tag 이동에
+따른 무검토 실행 변경은 막되 보안 업데이트를 놓치지 않도록 월별 digest 검토와
+합성 복원 회귀 검증을 함께 수행한다.

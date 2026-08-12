@@ -23,7 +23,7 @@ jobs:
       BACKUP_ENCRYPTION_RECIPIENT: ${{ vars.DATABASE_BACKUP_AGE_RECIPIENT }}
       BACKUP_MAX_BYTES: "15728640"
       POSTGRES_CLIENT_MODE: docker
-      POSTGRES_CLIENT_IMAGE: postgres:17-alpine
+      POSTGRES_CLIENT_IMAGE: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
     steps:
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

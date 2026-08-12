@@ -84,6 +84,9 @@
   권한만 job 또는 workflow 수준에서 명시한다. PR 승인 권한은 부여하지 않는다.
 - Actions artifact와 log의 repository 기본 보존은 14일로 제한한다. 백업
   workflow의 개별 보존도 14일을 넘기지 않는다.
+- workflow와 운영 스크립트가 사용하는 Docker image는 공식 image와 immutable
+  multi-arch digest를 함께 명시하고, 정기 보안 업데이트 때 합성 검증 후 digest를
+  갱신한다.
 
 ## 10. 사고 대응
 
