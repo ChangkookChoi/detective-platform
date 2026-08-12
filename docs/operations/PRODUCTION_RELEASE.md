@@ -91,6 +91,21 @@ npx vercel curl / --deployment https://deployment.example.vercel.app
 npx vercel curl /admin/reviews --deployment https://deployment.example.vercel.app
 ```
 
+반복 가능한 사전검증은 저장소 스크립트로 실행한다. Clerk Production 설정
+전에는 공개·SEO 경로의 200과 관리자·로그인 경로의 503, `Retry-After`와
+`noindex` fail-closed 헤더를 함께 검사한다.
+
+```bash
+./scripts/verify-vercel-production-smoke.sh \
+  --deployment=https://deployment.example.vercel.app \
+  --auth-mode=unconfigured
+```
+
+Clerk live 키와 Production 관리자를 설정한 뒤에는 `--auth-mode=configured`로
+실행해 로그아웃 관리자 경로의 로그인 이동과 로그인 페이지 200을 검사한다.
+이 스크립트는 Vercel 배포 보호를 해제하지 않고 `vercel curl`의 임시 bypass를
+사용하며 외부 상태나 운영 데이터를 변경하지 않는다.
+
 그다음 실제 custom domain에서 다음을 확인한다.
 
 - 홈·업체 목록·업체 상세 표본이 HTTP 200이고 공개 업체 30건을 조회할 수 있음
