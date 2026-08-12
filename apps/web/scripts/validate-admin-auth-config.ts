@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 
 import { config } from "dotenv";
 
+import {
+  isClerkConfigured,
+  isClerkOnlyPath,
+} from "../src/modules/auth/clerk-configuration";
+
 type DeploymentEnvironment = "development" | "preview" | "production";
 type ClerkKeyMode = "test" | "live";
 
@@ -251,6 +256,33 @@ function runSelfTest() {
       ),
     /only Clerk user_ IDs/,
   );
+  assert.equal(
+    isClerkConfigured({
+      publishableKey: "pk_live_example",
+      secretKey: "sk_live_example",
+      deploymentEnvironment: "production",
+    }),
+    true,
+  );
+  assert.equal(
+    isClerkConfigured({
+      publishableKey: "pk_test_example",
+      secretKey: "sk_test_example",
+      deploymentEnvironment: "production",
+    }),
+    false,
+  );
+  assert.equal(
+    isClerkConfigured({
+      publishableKey: "pk_test_example",
+      secretKey: "sk_live_example",
+      deploymentEnvironment: "preview",
+    }),
+    false,
+  );
+  assert.equal(isClerkOnlyPath("/admin/reviews"), true);
+  assert.equal(isClerkOnlyPath("/sign-in"), true);
+  assert.equal(isClerkOnlyPath("/offices"), false);
 
   console.log("Admin authentication configuration self-test completed.");
 }

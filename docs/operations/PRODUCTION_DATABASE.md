@@ -10,8 +10,8 @@ TLS·풀링·최소 권한, migration과 복구 검증 절차를 정의한다.
 GitHub 저장소를 연결했다. PostgreSQL 17 schema migration과 기준 seed는 실제
 direct 연결에서 통과했다. 최소 권한 runtime·backup 역할을 분리하고 공개 업체
 30건과 공개 근거만 승격했으며 Vercel Production·GitHub Actions에 역할별 URL을
-저장했다. 암호화 백업 키·실제 복원과 무료 14일 보존 증거가 아직 없으므로 공개
-운영 DB로 확정하지 않는다.
+저장했다. 암호화 백업 키도 분리 저장했지만 실제 복원과 무료 14일 보존 증거가
+아직 없으므로 공개 운영 DB로 확정하지 않는다.
 
 ## 2. 공급자 비교
 
@@ -202,9 +202,10 @@ peer 인증서를 확인했다. Neon의 모든 client 연결이 Proxy를 통과�
 같은 리허설에서 runtime·migration·backup 역할 분리와 최소 권한을 통과하고,
 공개 업체 30건·출처 30건·필드 근거 185건·업무 분야 연결 95건만 승격했다.
 Vercel Production에는 sensitive `DATABASE_URL`과 `DATABASE_POOL_MAX=5`, GitHub
-Actions에는 `PRODUCTION_DATABASE_BACKUP_URL`만 저장했다. 임시 Development
-owner 연결과 로컬 임시 파일은 제거했다. 활성 compute에서 runtime 연결과 공개
-건수 조회는 590ms였으며 scale-to-zero cold 요청은 별도 측정 대상으로 남긴다.
+Actions에는 `PRODUCTION_DATABASE_BACKUP_URL`과 복호화 identity secret, 공개
+recipient variable을 저장했다. 임시 Development owner 연결과 로컬 임시 파일은
+제거했다. 활성 compute에서 runtime 연결과 공개 건수 조회는 590ms였으며
+scale-to-zero cold 요청은 별도 측정 대상으로 남긴다.
 
 ## 8. 백업 출시 차단 조건
 

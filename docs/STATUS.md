@@ -2,7 +2,7 @@
 
 - 기준일: 2026-08-12
 - 단계: 핵심 MVP 기능 구현·출시 준비
-- 배포 상태: Production 미배포, Vercel Preview `Ready`
+- 배포 상태: Vercel Production 리허설·Preview `Ready`, 공개 출시 차단
 - 데이터 상태: 실제 파일럿 결함 후보 `rejected` 1건·교정 `approved` 1건·
   공식 출처 수동 후보 `approved` 28건·`approved_with_edits` 1건·`on_hold`
   1건·`pending` 0건, 공개 업체 30건
@@ -82,6 +82,12 @@ GitHub repository variable·Actions secret에 분리 저장한 뒤 로컬 임시
 전체 작업 브랜치를 `main` 대상으로 한 PR #1에 올렸고 Vercel Preview의 기본
 Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 보호로
 공개 경로도 비로그인 요청에서 302 인증 이동을 반환합니다.
+사전검증 중 2026-08-12 11:22 KST에 작업 브랜치 `1f37e7c`로 만든 Production
+리허설 배포가 이미 존재함을 확인했습니다. 공개 alias는 Clerk publishable key
+누락으로 500을 반환하므로 출시된 서비스로 보지 않습니다. canonical과 Clerk
+로그인 경로는 Production 변수로 추가했으며, custom domain·live 키·Production
+관리자 ID는 아직 없습니다. Clerk 미설정 시 공개 경로만 통과시키고 관리자·
+로그인 경로를 503으로 닫는 수정은 검증 후 PR에 반영 중입니다.
 
 ## 완료
 
@@ -479,6 +485,15 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
   `MERGEABLE/CLEAN`과 Vercel Preview 배포 `Ready`를 확인. 제한 없는 Vercel
   빌드 환경에서 기본 Next.js production build를 통과했으며 Preview 경로는
   Vercel SSO 보호에 따라 비로그인 HTTP 요청에 302를 반환
+- Vercel 배포 기록을 재점검해 작업 브랜치 `1f37e7c`의 Production 리허설 배포
+  `Ready`와 public alias를 확인. 런타임 로그에서 전체 500 원인이 Clerk
+  publishable key 누락임을 특정하고 `NEXT_PUBLIC_SITE_URL`, 로그인 경로와
+  fallback 경로를 Production 비민감 변수로 추가
+- Clerk 키가 없거나 배포 환경에 맞는 test/live 쌍이 아니면 공개 경로는 계속
+  제공하고 `/admin`·`/sign-in`·`/__clerk`만 503으로 닫는 fail-closed proxy
+  경계 추가. Clerk 미설정 production build, 공개 홈·안내·robots HTTP 200,
+  관리자·로그인 503과 `no-store`·`Retry-After`·`noindex` 헤더를 확인하고 정상
+  Development test 키의 production E2E 14건도 재통과
 
 ## 다음 작업 후보
 
@@ -489,8 +504,10 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
    이어지는 warm 요청을 분리 측정
 3. Actions 0원 초과 사용 중지 예산과 월별 사용량 담당자를 설정하고 첫 14일간
    artifact 수·총 용량을 추적
-4. 실제 배포 대상과 canonical origin, Clerk production 환경을 정하고 배포 후
-   보안 헤더·robots·sitemap·JSON-LD·로그인·공개/관리자 핵심 흐름을 smoke 검증
+4. 소유한 custom domain을 준비해 Clerk Production 환경과 Google OAuth를
+   구성하고 live 키·Production 관리자 ID를 Vercel에 저장한다. 최신 수정의
+   Production 배포 후 보안 헤더·robots·sitemap·JSON-LD·로그인·공개/관리자
+   핵심 흐름을 smoke 검증
 5. 개인정보 처리방침의 운영 주체·문의 채널·보유 기간·위탁/국외 이전 여부를
    실제 인프라와 법무 검토 결과에 맞춰 확정
 6. 초기 업체 약 100곳 확대는 출시 기반 작업 뒤 재개. 공식 운영 주체·한 개
@@ -597,6 +614,12 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
   재회전하거나 secret을 덮어쓰지 않는다. 기본 branch에 workflow가 반영되고
   첫 artifact·격리 복원·14일 만료를 검증하기 전에는 운영 RPO·RTO 달성으로
   보고하지 않는다.
+- 작업 브랜치 `1f37e7c`의 Vercel Production 리허설 배포는 `Ready`지만 Clerk
+  Production 설정 없이 생성돼 public alias가 500을 반환한다. Vercel 계정에
+  custom domain이 없고 Clerk는 `*.vercel.app`을 Production 도메인으로 허용하지
+  않으므로 live 키·Production 사용자 ID를 아직 만들 수 없다. 공개 경로 500을
+  방지하는 fail-closed 수정은 로컬에서 검증했지만 공개 출시로 이어지는
+  Production 재배포는 명시 승인과 도메인 준비 전까지 수행하지 않는다.
 - 공개 안내·SEO 기술 기반은 lint와 production build를 통과했지만 개인정보
   처리방침의 운영 주체·문의 채널·최종 보유 기간·위탁 및 국외 이전 여부는 운영
   인프라와 법무 검토 후 확정해야 한다. production canonical origin 설정과 실제

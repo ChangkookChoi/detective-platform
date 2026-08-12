@@ -124,7 +124,16 @@ UI 메뉴 숨김이나 Layout 검사만으로 Server Action을 보호하지 않�
 
 - 서버 전용 역할 판정, 관리자 Page·Server Action 중복 권한 검사와 감사 처리자 저장은 합성 ID로 검증했다.
 - 환경 사전검증과 `.clerk` 비밀 제외 규칙을 준비했다.
+- Clerk 키가 없거나 배포 환경과 test/live 모드가 맞지 않으면 공개 경로는
+  통과시키고 `/admin`·`/sign-in`·`/__clerk`만 503으로 닫는 fail-closed proxy
+  경계를 추가했다. 미설정 Production 빌드와 공개 200·관리자 503 응답 헤더,
+  정상 Development 키의 기존 production E2E 14건을 확인했다.
 - Clerk Hobby Development의 실제 `test` 키 조합과 관리자 한 명의 역할 설정은 사전검증을 통과했다.
+- Vercel Production에는 canonical origin과 로그인 경로를 설정했지만 Clerk
+  live 키와 Production 인스턴스의 관리자 사용자 ID는 아직 없다. Clerk 공식
+  Production 배포에는 소유하고 DNS를 변경할 수 있는 custom domain이 필요하며
+  `*.vercel.app`은 사용할 수 없다. Development 사용자 ID는 별도 Production
+  사용자 풀에 재사용하지 않는다.
 - 실제 Google 로그인으로 관리자 대기열·상세에 접근하고 파일럿 후보를
   `on_hold`로 처리했다. 감사 이력의 처리자 ID가 로그인한 allowlist 관리자
   ID와 일치하고 운영 업체 0건을 유지함을 DB에서 확인했다.
