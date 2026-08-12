@@ -310,6 +310,53 @@ async function verifyBackupTablePrivileges(pool: Pool) {
   );
 
   await pool.query("select count(*) from drizzle.__drizzle_migrations");
+
+  const drizzleSequenceResult = await pool.query<{
+    sequence_name: string;
+    can_select: boolean;
+    can_use: boolean;
+    can_update: boolean;
+  }>(`
+    select
+      sequence_name,
+      has_sequence_privilege(
+        current_user,
+        format('drizzle.%I', sequence_name),
+        'SELECT'
+      ) as can_select,
+      has_sequence_privilege(
+        current_user,
+        format('drizzle.%I', sequence_name),
+        'USAGE'
+      ) as can_use,
+      has_sequence_privilege(
+        current_user,
+        format('drizzle.%I', sequence_name),
+        'UPDATE'
+      ) as can_update
+    from information_schema.sequences
+    where sequence_schema = 'drizzle'
+  `);
+
+  assert(
+    drizzleSequenceResult.rows.length >= 1,
+    "At least one Drizzle migration sequence is required.",
+  );
+
+  for (const row of drizzleSequenceResult.rows) {
+    assert(
+      row.can_select,
+      `Backup role requires SELECT on drizzle.${row.sequence_name}.`,
+    );
+    assert(
+      !row.can_use,
+      `Backup role must not have USAGE on drizzle.${row.sequence_name}.`,
+    );
+    assert(
+      !row.can_update,
+      `Backup role must not UPDATE drizzle.${row.sequence_name}.`,
+    );
+  }
 }
 
 async function main() {
