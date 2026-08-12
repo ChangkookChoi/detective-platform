@@ -110,12 +110,12 @@ branch protection을 적용했습니다.
 요청에서 302 인증 이동을 반환합니다.
 2026-08-12 사전검증에서 기존 Production 리허설 배포의 Clerk publishable key
 누락 500을 확인하고, Clerk 미설정 시 공개 경로는 유지하되 관리자·로그인
-경로만 503으로 닫는 fail-closed 경계를 반영했습니다. 2026-08-13 최신 `main`
-Production 배포 `dpl_Gj4oMEu2o2WE9zDvB9oNSSpeDZVa`가 `Ready`이며 Vercel 인증
-우회 smoke에서 홈 200, 관리자·로그인 503을 확인했습니다. custom domain은
-0개이고 live 키·Production 관리자 ID는 아직 없습니다. Production 인증
-사전검증은 이제 `*.vercel.app`을 거부하며, 도메인 연결부터 live 키 저장·
-재배포·smoke 검증까지의 출시 절차를 별도 runbook으로 고정했습니다.
+경로만 503으로 닫는 fail-closed 경계를 반영했습니다. 2026-08-13 PR #4 병합 후
+최신 `main` Production 배포가 `Ready`이며 Vercel 인증 우회 smoke에서 홈 200,
+관리자·로그인 503을 확인했습니다. custom domain은 0개이고 live 키·Production
+관리자 ID는 아직 없습니다. Production 인증 사전검증은 이제 `*.vercel.app`을
+거부하며, 도메인 연결부터 live 키 저장·재배포·smoke 검증까지의 출시 절차를
+별도 runbook으로 고정했습니다.
 
 ## 완료
 
@@ -570,8 +570,8 @@ Production 배포 `dpl_Gj4oMEu2o2WE9zDvB9oNSSpeDZVa`가 `Ready`이며 Vercel 인
   수집기 13초·웹 46초 통과. `main` backup run `31609500182` 44초와 restore
   run `31609617458` 41초에서 recovery point 0.02시간·순수 복원 1초·공개 업체
   30건을 재확인하고 artifact 2개·총 121,930바이트 확인
-- 최신 `main`의 Vercel Production 배포
-  `dpl_Gj4oMEu2o2WE9zDvB9oNSSpeDZVa` `Ready`, Function `sin1`과 Node.js 24를
+- PR #4를 `main`에 merge commit `5af0d43`으로 반영하고 병합 후 quality run
+  `31611761927` 성공과 Vercel Production `Ready`, Function `sin1`·Node.js 24를
   확인. Production 환경변수 이름을 값 노출 없이 점검해 DB·canonical·로그인
   경로 5개는 존재하고 Clerk live 키·Production 역할 ID는 없음을 확인
 - Vercel 인증 우회 smoke에서 최신 Production 홈 HTTP 200, `/admin/reviews`와
