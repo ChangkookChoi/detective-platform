@@ -77,6 +77,13 @@
 - 정기적으로 lint, build, 테스트, 의존성 취약점 점검을 실행한다.
 - `npm audit fix --force`처럼 호환성을 깨뜨릴 수 있는 자동 수정은 명시적 검토 없이 실행하지 않는다.
 - 심각도, 악용 가능성, 노출 범위를 기준으로 패치 우선순위를 정한다.
+- GitHub Actions는 repository 정책에서 GitHub 소유 action만 허용하고 외부 action은
+  전체 40자리 commit SHA로 고정해야 실행되게 한다. verified 제3자 action을
+  일괄 허용하지 않는다.
+- 기본 `GITHUB_TOKEN`은 contents read-only로 유지하고 workflow가 필요한 최소
+  권한만 job 또는 workflow 수준에서 명시한다. PR 승인 권한은 부여하지 않는다.
+- Actions artifact와 log의 repository 기본 보존은 14일로 제한한다. 백업
+  workflow의 개별 보존도 14일을 넘기지 않는다.
 
 ## 10. 사고 대응
 

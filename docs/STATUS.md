@@ -85,6 +85,9 @@ Neon 첫 연결·조회 1,808.2ms와 즉시 후속 새 연결·조회 524.6ms를
 공개 업체 30건을 반환했습니다. public GitHub repository의 Actions 정책과
 artifact 0건을 확인했지만 계정 전체 0원 예산과 최초 workflow 실행은 아직
 완료 전입니다.
+repository Actions는 GitHub 소유 action만 허용하고 전체 40자리 SHA 고정을
+필수화했습니다. 기본 token은 read-only·PR 승인 불가이고 artifact·log 기본
+보존은 정책과 같은 14일로 낮췄습니다.
 전체 작업 브랜치를 `main` 대상으로 한 PR #1에 올렸고 Vercel Preview의 기본
 Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 보호로
 공개 경로도 비로그인 요청에서 302 인증 이동을 반환합니다.
@@ -489,6 +492,10 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
 - GitHub repository가 public이고 Actions 활성, 기존 run·artifact 0건임을 확인.
   표준 `ubuntu-24.04` runner 실행 시간은 무료지만 artifact는 Actions·Packages
   500MB 공유 한도를 사용하며 계정 전체 0원 예산·포함 사용량 알림은 미확인
+- repository Actions를 GitHub 소유 action만 허용하는 `selected` 정책으로
+  제한하고 전체 40자리 commit SHA 고정을 필수화. 현재 action 4개가 모두
+  `actions/*`와 SHA 고정을 충족하고 기본 `GITHUB_TOKEN`은 read-only·PR 승인
+  불가임을 확인. artifact·log repository 기본 보존은 90일에서 14일로 축소
 - Vercel Development의 `NEON_OWNER_*` 18개와 Marketplace 프로젝트 연결을
   제거하고, Neon Free 리소스 자체는 `Available`로 보존. owner/runtime 임시
   환경 파일과 일회성 검증 스크립트 삭제 확인

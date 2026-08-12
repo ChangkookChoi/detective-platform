@@ -97,3 +97,9 @@ artifact가 아직 0건임을 확인했다. 표준 `ubuntu-24.04` runner 실행 
 public repository에서 무료이고 15MiB × 14개 상한은 500MB 공유 저장 한도
 안이다. 다만 workflow가 기본 branch에 아직 없고 계정 전체 0원 예산·포함 사용량
 알림도 확인 전이므로 최초 백업·복원과 비용 통제를 완료했다고 보지 않는다.
+
+같은 날 repository Actions 허용 범위를 GitHub 소유 action으로 제한하고 전체
+40자리 commit SHA 고정을 필수화했다. verified 제3자 action은 허용하지 않으며
+기본 `GITHUB_TOKEN`은 read-only, PR 승인 불가로 확인했다. repository의
+artifact·log 기본 보존도 14일로 제한해 workflow별 보존 누락 시 90일 기본값이
+적용되지 않게 했다.

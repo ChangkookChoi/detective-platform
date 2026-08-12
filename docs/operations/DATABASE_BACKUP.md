@@ -118,6 +118,13 @@ public repository에서 무료지만 artifact는 GitHub Free의 Actions·Package
 repository에도 영향을 줄 수 있으므로 계정 소유자가 Billing 화면에서 0원 초과
 사용 중지와 90%·100% 알림을 확인하기 전에는 설정 완료로 기록하지 않는다.
 
+repository Actions 정책은 `selected`로 제한하고 GitHub 소유 action만 허용했다.
+두 workflow의 `actions/checkout`, `actions/upload-artifact`,
+`actions/download-artifact`는 모두 전체 40자리 commit SHA로 고정돼 있으며,
+repository도 SHA 고정을 필수화한다. 기본 `GITHUB_TOKEN`은 read-only이고 PR 승인
+권한은 없다. repository artifact·log 기본 보존은 90일에서 14일로 낮췄고 현재
+run·artifact·저장량은 모두 0이다.
+
 추가 운영 설정:
 
 1. Actions 사용 예산을 0원·한도 도달 시 사용 중지로 설정한다.
