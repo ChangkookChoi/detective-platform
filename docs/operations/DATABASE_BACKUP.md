@@ -106,17 +106,15 @@ branch에 파일이 존재하는 것만으로 백업이 활성화되지는 않�
 | Repository secret | `DATABASE_BACKUP_AGE_IDENTITY` | recipient에 대응하는 복호화 identity |
 
 2026-08-12 새 X25519 키쌍의 로컬 암·복호화 왕복을 확인하고 위 세 설정을
-GitHub에 값 노출 없이 저장했다. identity의 로컬 사본은 폐기했으며 GitHub
-secret은 다시 읽을 수 없으므로 첫 실제 artifact의 격리 복원을 통과하기 전에는
-identity를 재회전하거나 secret을 덮어쓰지 않는다.
+GitHub에 값 노출 없이 저장했다. identity의 로컬 사본은 폐기했다. 같은 날 실제
+artifact의 격리 복원을 통과했으며, 향후 회전은 새 recipient·identity의 왕복과
+실제 복원을 같은 절차로 확인한 뒤 수행한다.
 
-같은 날 repository가 public이고 Actions가 활성화돼 있으며 기존 workflow run과
-artifact가 각각 0건임을 확인했다. 현재 작업 branch의 workflow는 기본 branch에
-없어 GitHub에 아직 등록되지 않았다. `ubuntu-24.04` 표준 runner 실행 시간은
-public repository에서 무료지만 artifact는 GitHub Free의 Actions·Packages 공유
-500MB 한도를 사용한다. 계정 전체 Actions 예산과 포함 사용량 알림은 다른
-repository에도 영향을 줄 수 있으므로 계정 소유자가 Billing 화면에서 0원 초과
-사용 중지와 90%·100% 알림을 확인하기 전에는 설정 완료로 기록하지 않는다.
+같은 날 repository가 public이고 Actions가 활성화돼 있음을 확인했다.
+`ubuntu-24.04` 표준 runner 실행 시간은 public repository에서 무료지만
+artifact는 GitHub Free의 Actions·Packages 공유 500MB 한도를 사용한다. 계정
+소유자가 Billing 화면에서 Actions 0원 초과 사용 중지와 포함 사용량 알림 `On`,
+현재 billable usage 0원을 확인했다.
 
 repository Actions 정책은 `selected`로 제한하고 GitHub 소유 action만 허용했다.
 두 workflow의 `actions/checkout`, `actions/upload-artifact`,
@@ -131,8 +129,20 @@ digest는 `sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b722521
 Linux amd64·arm64를 포함한다. 매월 공식 태그의 새 digest와 PostgreSQL 보안
 업데이트를 확인하고, 변경 시 합성 백업·복원 전체 검증 후 함께 갱신한다.
 registry manifest와 digest를 확인하고 로컬 PostgreSQL 17 client로 합성 암호화
-백업 44,870바이트와 빈 DB 복원·`db:verify`를 재통과했다. 고정 digest image의
-실제 pull과 실행은 기본 branch 반영 뒤 첫 GitHub workflow에서 확인한다.
+백업 44,870바이트와 빈 DB 복원·`db:verify`를 재통과했다. 실제 GitHub runner도
+고정 digest image를 pull해 백업과 격리 복원에 사용했다.
+
+최초 실제 실행에서는 컨테이너 시스템 CA, 공급자 관리 schema 제외와 Drizzle
+migration table·sequence의 read-only 권한 누락을 차례로 확인했다. 백업은
+`PGSSLROOTCERT=system`을 사용하고 `public`·`drizzle` schema만 포함하며, backup
+역할은 Drizzle table·sequence의 `SELECT`만 갖도록 교정했다. Vercel Development에
+잠시 연결한 owner 변수와 임시 파일은 권한 적용 직후 모두 제거했다.
+
+backup run `31608256000`은 60,965바이트 암호화 artifact를 생성했고 만료 시각은
+2026-08-26 14:42 UTC다. restore run `31608856556`은 recovery point 0.11시간,
+순수 restore 2초와 전체 workflow 1분 6초를 기록했다. 빈 PostgreSQL 17에서
+schema·migration·제약·seed와 공개 업체 30건, 각 업체의 대표 출처·필드 근거·
+업무 분야 연결을 검증해 RPO 24시간·RTO 4시간 목표를 충족했다.
 
 추가 운영 설정:
 
@@ -140,7 +150,8 @@ registry manifest와 digest를 확인하고 로컬 PostgreSQL 17 client로 합�
 2. 매일 02:23 KST 예약과 최근 성공 알림 담당자를 확인한다.
 3. 최초 백업 workflow run ID로 수동 복원 workflow를 실행한다.
 4. 복원 workflow가 24시간 이내 archive, SHA-256, 복호화, 빈 PostgreSQL 17
-   복원과 `db:verify`를 통과하는지 확인한다.
+   복원, `db:verify`와 공개 snapshot 최소 30건·출처 무결성을 통과하는지
+   확인한다.
 5. 첫 14일 동안 artifact 수·총 용량을 매일 확인하고, 이후 최초 artifact가
    만료되는지 확인한다.
 
