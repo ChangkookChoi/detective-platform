@@ -76,7 +76,9 @@ Singapore 리소스를 생성해 실제 migration·seed를 적용했습니다. �
 runtime·read-only backup 역할을 분리해 권한과 TLS를 검증하고 공개 30곳과 공개
 근거만 빈 Neon DB로 원자적으로 승격했습니다. Vercel Production과 GitHub
 Actions에 역할별 연결 정보를 저장하고 임시 owner 연결을 제거했습니다.
-암호화 백업 키·첫 artifact 복원과 실제 웹 배포는 아직 완료 전입니다.
+새 `age` 키쌍의 암·복호화 왕복을 검증하고 공개 recipient와 비공개 identity를
+GitHub repository variable·Actions secret에 분리 저장한 뒤 로컬 임시 키를
+폐기했습니다. 첫 실제 artifact 복원과 실제 웹 배포는 아직 완료 전입니다.
 
 ## 완료
 
@@ -465,13 +467,17 @@ Actions에 역할별 연결 정보를 저장하고 임시 owner 연결을 제거
 - Vercel Development의 `NEON_OWNER_*` 18개와 Marketplace 프로젝트 연결을
   제거하고, Neon Free 리소스 자체는 `Available`로 보존. owner/runtime 임시
   환경 파일과 일회성 검증 스크립트 삭제 확인
+- 공식 `age` v1.3.1 macOS ARM64 archive의 SHA-256을 다시 대조하고 새 X25519
+  키쌍의 암·복호화 왕복과 identity 파일 권한 `0600`을 확인. 공개 recipient는
+  GitHub variable `DATABASE_BACKUP_AGE_RECIPIENT`, 비공개 identity는 Actions
+  secret `DATABASE_BACKUP_AGE_IDENTITY`에 값 노출 없이 저장하고 로컬 임시
+  바이너리·키·평문·암호문을 모두 폐기
 
 ## 다음 작업 후보
 
-1. `age` recipient·identity를 새로 생성해 GitHub repository variable·secret에
-   분리 저장하고, 기본 branch에 백업 workflow가 반영된 뒤 실제 Neon 첫
-   암호화 artifact를 생성한다. 24시간 이내 artifact를 격리 복원해 RPO·RTO를
-   측정하고 최초 artifact의 14일 만료를 추적
+1. 기본 branch에 백업 workflow가 반영된 뒤 실제 Neon 첫 암호화 artifact를
+   생성한다. 24시간 이내 artifact를 격리 복원해 RPO·RTO를 측정하고 최초
+   artifact의 14일 만료를 추적
 2. Neon compute가 5분 이상 비활성인 조건에서 scale-to-zero cold 첫 요청과
    이어지는 warm 요청을 분리 측정
 3. Actions 0원 초과 사용 중지 예산과 월별 사용량 담당자를 설정하고 첫 14일간
@@ -578,10 +584,12 @@ Actions에 역할별 연결 정보를 저장하고 임시 owner 연결을 제거
   복사하지 않았다. 따라서 배포 직후 관리자 검수 대기열은 비어 있으며 향후
   수집기 운영 자격 증명과 Production 관리자 흐름은 별도로 준비해야 한다.
 - GitHub Actions 암호화 백업·복원 workflow와 역할 구성은 구현했고 합성
-  PostgreSQL 17 복원을 통과했다. 실제 Neon read-only URL은 GitHub secret에
-  저장했지만 `age` recipient variable과 identity secret은 아직 만들지 않았다.
-  기본 branch에 workflow가 반영되고 첫 artifact·격리 복원·14일 만료를
-  검증하기 전에는 운영 RPO·RTO 달성으로 보고하지 않는다.
+  PostgreSQL 17 복원을 통과했다. 실제 Neon read-only URL, `age` recipient와
+  identity를 GitHub secret·variable에 역할별로 저장했다. identity는 GitHub
+  Actions에서만 사용할 수 있고 로컬 사본은 보존하지 않으므로 첫 복원 성공 전
+  재회전하거나 secret을 덮어쓰지 않는다. 기본 branch에 workflow가 반영되고
+  첫 artifact·격리 복원·14일 만료를 검증하기 전에는 운영 RPO·RTO 달성으로
+  보고하지 않는다.
 - 공개 안내·SEO 기술 기반은 lint와 production build를 통과했지만 개인정보
   처리방침의 운영 주체·문의 채널·최종 보유 기간·위탁 및 국외 이전 여부는 운영
   인프라와 법무 검토 후 확정해야 한다. production canonical origin 설정과 실제

@@ -24,10 +24,10 @@ PostgreSQL 운영 데이터의 손실 범위를 제한하고 실제 복구 가�
 적용했다. 무료 6시간 복원 이력은 이 문서의 자동 일일 백업 14일 보존을
 충족하지 않는다. 무과금 보완 경로로
 [ADR-0009](../decisions/ADR-0009-encrypted-logical-backups.md)에 따라 암호화된
-GitHub Actions artifact를 선택하고 합성 복원을 통과했지만, 실제 read-only
-역할·암호화 키·운영 archive의 14일 보존과 격리 복원을 검증하기 전에는 공개
-운영 백업이 준비됐다고 판단하지 않는다. 공급자 연결 절차는
-[운영 PostgreSQL 준비](PRODUCTION_DATABASE.md)를 따른다.
+GitHub Actions artifact를 선택하고 합성 복원을 통과했으며 실제 read-only
+역할과 암호화 키를 분리 설정했다. 실제 운영 archive의 14일 보존과 격리
+복원을 검증하기 전에는 공개 운영 백업이 준비됐다고 판단하지 않는다. 공급자
+연결 절차는 [운영 PostgreSQL 준비](PRODUCTION_DATABASE.md)를 따른다.
 
 ## 3. 백업 계층
 
@@ -104,6 +104,11 @@ branch에 파일이 존재하는 것만으로 백업이 활성화되지는 않�
 | Actions variable | `DATABASE_BACKUP_AGE_RECIPIENT` | `age1...` 공개 recipient |
 | Repository secret | `PRODUCTION_DATABASE_BACKUP_URL` | direct TLS, read-only backup 역할 |
 | Repository secret | `DATABASE_BACKUP_AGE_IDENTITY` | recipient에 대응하는 복호화 identity |
+
+2026-08-12 새 X25519 키쌍의 로컬 암·복호화 왕복을 확인하고 위 세 설정을
+GitHub에 값 노출 없이 저장했다. identity의 로컬 사본은 폐기했으며 GitHub
+secret은 다시 읽을 수 없으므로 첫 실제 artifact의 격리 복원을 통과하기 전에는
+identity를 재회전하거나 secret을 덮어쓰지 않는다.
 
 추가 운영 설정:
 

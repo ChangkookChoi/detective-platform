@@ -30,7 +30,8 @@ Development의 실제 Google 로그인·관리자 검수와 감사 처리자 기
 출시 리허설 DB를 만들고 migration·seed를 적용했습니다. 최소 권한 runtime과
 read-only backup 역할을 분리하고 공개 30곳만 빈 운영 DB로 원자적으로
 승격했으며 Vercel Production·GitHub Actions에 역할별 연결 정보를 저장했습니다.
-암호화 백업 키·첫 복원 리허설과 실제 웹 배포는 아직 완료 전입니다.
+암호화 백업 recipient·identity도 GitHub variable·secret에 분리 저장했습니다.
+첫 실제 artifact 복원 리허설과 실제 웹 배포는 아직 완료 전입니다.
 최신 진행 상황은
 [docs/STATUS.md](docs/STATUS.md)를 기준으로 확인합니다.
 
