@@ -31,9 +31,10 @@ Development의 실제 Google 로그인·관리자 검수와 감사 처리자 기
 read-only backup 역할을 분리하고 공개 30곳만 빈 운영 DB로 원자적으로
 승격했으며 Vercel Production·GitHub Actions에 역할별 연결 정보를 저장했습니다.
 암호화 백업 recipient·identity도 GitHub variable·secret에 분리 저장했습니다.
+실제 Neon 암호화 artifact를 빈 PostgreSQL 17에 복원해 공개 업체 30곳과
+schema·migration·출처 무결성, RPO·RTO 목표를 확인했습니다.
 Vercel Production 리허설 배포는 만들었지만 Clerk Production 도메인·live 키가
-없어 아직 공개 출시 상태가 아닙니다. 첫 실제 artifact 복원 리허설도 완료
-전입니다.
+없어 아직 공개 출시 상태가 아닙니다.
 최신 진행 상황은
 [docs/STATUS.md](docs/STATUS.md)를 기준으로 확인합니다.
 

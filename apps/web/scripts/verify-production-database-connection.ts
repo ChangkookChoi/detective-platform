@@ -258,6 +258,105 @@ async function verifyBackupTablePrivileges(pool: Pool) {
     assert(!row.can_delete, `Backup role must not DELETE from ${row.table_name}.`);
     assert(!row.can_truncate, `Backup role must not TRUNCATE ${row.table_name}.`);
   }
+
+  const drizzleResult = await pool.query<{
+    can_use_schema: boolean;
+    can_create_in_schema: boolean;
+    can_select: boolean;
+    can_insert: boolean;
+    can_update: boolean;
+    can_delete: boolean;
+    can_truncate: boolean;
+  }>(`
+    select
+      has_schema_privilege(current_user, 'drizzle', 'USAGE') as can_use_schema,
+      has_schema_privilege(current_user, 'drizzle', 'CREATE') as can_create_in_schema,
+      has_table_privilege(current_user, 'drizzle.__drizzle_migrations', 'SELECT') as can_select,
+      has_table_privilege(current_user, 'drizzle.__drizzle_migrations', 'INSERT') as can_insert,
+      has_table_privilege(current_user, 'drizzle.__drizzle_migrations', 'UPDATE') as can_update,
+      has_table_privilege(current_user, 'drizzle.__drizzle_migrations', 'DELETE') as can_delete,
+      has_table_privilege(current_user, 'drizzle.__drizzle_migrations', 'TRUNCATE') as can_truncate
+  `);
+  const drizzlePrivileges = drizzleResult.rows[0];
+
+  assert(drizzlePrivileges, "Could not inspect backup Drizzle privileges.");
+  assert(
+    drizzlePrivileges.can_use_schema,
+    "Backup role requires USAGE on the drizzle schema.",
+  );
+  assert(
+    !drizzlePrivileges.can_create_in_schema,
+    "Backup role must not CREATE in the drizzle schema.",
+  );
+  assert(
+    drizzlePrivileges.can_select,
+    "Backup role requires SELECT on drizzle.__drizzle_migrations.",
+  );
+  assert(
+    !drizzlePrivileges.can_insert,
+    "Backup role must not INSERT into drizzle.__drizzle_migrations.",
+  );
+  assert(
+    !drizzlePrivileges.can_update,
+    "Backup role must not UPDATE drizzle.__drizzle_migrations.",
+  );
+  assert(
+    !drizzlePrivileges.can_delete,
+    "Backup role must not DELETE from drizzle.__drizzle_migrations.",
+  );
+  assert(
+    !drizzlePrivileges.can_truncate,
+    "Backup role must not TRUNCATE drizzle.__drizzle_migrations.",
+  );
+
+  await pool.query("select count(*) from drizzle.__drizzle_migrations");
+
+  const drizzleSequenceResult = await pool.query<{
+    sequence_name: string;
+    can_select: boolean;
+    can_use: boolean;
+    can_update: boolean;
+  }>(`
+    select
+      sequence_name,
+      has_sequence_privilege(
+        current_user,
+        format('drizzle.%I', sequence_name),
+        'SELECT'
+      ) as can_select,
+      has_sequence_privilege(
+        current_user,
+        format('drizzle.%I', sequence_name),
+        'USAGE'
+      ) as can_use,
+      has_sequence_privilege(
+        current_user,
+        format('drizzle.%I', sequence_name),
+        'UPDATE'
+      ) as can_update
+    from information_schema.sequences
+    where sequence_schema = 'drizzle'
+  `);
+
+  assert(
+    drizzleSequenceResult.rows.length >= 1,
+    "At least one Drizzle migration sequence is required.",
+  );
+
+  for (const row of drizzleSequenceResult.rows) {
+    assert(
+      row.can_select,
+      `Backup role requires SELECT on drizzle.${row.sequence_name}.`,
+    );
+    assert(
+      !row.can_use,
+      `Backup role must not have USAGE on drizzle.${row.sequence_name}.`,
+    );
+    assert(
+      !row.can_update,
+      `Backup role must not UPDATE drizzle.${row.sequence_name}.`,
+    );
+  }
 }
 
 async function main() {

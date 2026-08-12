@@ -92,11 +92,10 @@ Git 이력에 운영 데이터와 대용량 바이너리를 남기고 보존 삭
 - 14일이 지난 첫 artifact가 정책대로 만료되는지 확인한다.
 - Actions 예산 초과 사용 중지와 월별 사용량 담당자를 지정한다.
 
-2026-08-12 repository가 public이고 Actions가 활성화됐으며 workflow run과
-artifact가 아직 0건임을 확인했다. 표준 `ubuntu-24.04` runner 실행 시간은
-public repository에서 무료이고 15MiB × 14개 상한은 500MB 공유 저장 한도
-안이다. 다만 workflow가 기본 branch에 아직 없고 계정 전체 0원 예산·포함 사용량
-알림도 확인 전이므로 최초 백업·복원과 비용 통제를 완료했다고 보지 않는다.
+2026-08-12 repository가 public이고 Actions가 활성화됐으며, 계정 Billing에서
+Actions 0원 초과 사용 중지·포함 사용량 알림 `On`과 billable usage 0원을
+확인했다. 표준 `ubuntu-24.04` runner 실행 시간은 public repository에서 무료이고
+15MiB × 14개 상한은 500MB 공유 저장 한도 안이다.
 
 같은 날 repository Actions 허용 범위를 GitHub 소유 action으로 제한하고 전체
 40자리 commit SHA 고정을 필수화했다. verified 제3자 action은 허용하지 않으며
@@ -108,3 +107,9 @@ PostgreSQL 17 백업 client와 격리 복원 service도 Docker Official Image
 `postgres:17-alpine`의 2026-08-12 multi-arch OCI digest로 고정했다. tag 이동에
 따른 무검토 실행 변경은 막되 보안 업데이트를 놓치지 않도록 월별 digest 검토와
 합성 복원 회귀 검증을 함께 수행한다.
+
+같은 날 실제 Neon backup run `31608256000`에서 60,965바이트 암호화 artifact를
+14일 만료로 생성했다. restore run `31608856556`은 recovery point 0.11시간,
+순수 restore 2초·전체 1분 6초로 빈 PostgreSQL 17에 복원하고 공개 업체 30건과
+schema·migration·제약·seed·출처 무결성을 확인했다. 최초 artifact의 실제 14일
+만료 여부는 2026-08-26 이후 확인한다.

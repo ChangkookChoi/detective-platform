@@ -78,13 +78,16 @@ runtime·read-only backup 역할을 분리해 권한과 TLS를 검증하고 공�
 Actions에 역할별 연결 정보를 저장하고 임시 owner 연결을 제거했습니다.
 새 `age` 키쌍의 암·복호화 왕복을 검증하고 공개 recipient와 비공개 identity를
 GitHub repository variable·Actions secret에 분리 저장한 뒤 로컬 임시 키를
-폐기했습니다. 첫 실제 artifact 복원과 실제 웹 배포는 아직 완료 전입니다.
+폐기했습니다. 실제 Neon 암호화 artifact를 빈 PostgreSQL 17에 복원해 공개 업체
+30건과 schema·migration·제약·seed·출처 무결성을 확인했습니다. 실제 웹 배포는
+아직 완료 전입니다.
 최소 권한 runtime·backup 자격 증명을 다시 회전해 Vercel Production과 GitHub
 Actions secret을 갱신하고 역할·TLS·권한을 재검증했습니다. 5분 30초 DB 유휴 뒤
 Neon 첫 연결·조회 1,808.2ms와 즉시 후속 새 연결·조회 524.6ms를 측정했으며 둘 다
 공개 업체 30건을 반환했습니다. public GitHub repository의 Actions 정책과
-artifact 0건을 확인했지만 계정 전체 0원 예산과 최초 workflow 실행은 아직
-완료 전입니다.
+계정 전체 Actions 0원 초과 사용 중지·포함 사용량 알림을 확인했습니다. 실제
+Neon 백업 artifact는 60,965바이트, 14일 보존으로 생성했고 복구 지점 0.11시간,
+순수 복원 2초와 전체 검증 1분 6초를 기록했습니다.
 repository Actions는 GitHub 소유 action만 허용하고 전체 40자리 SHA 고정을
 필수화했습니다. 기본 token은 read-only·PR 승인 불가이고 artifact·log 기본
 보존은 정책과 같은 14일로 낮췄습니다.
@@ -97,9 +100,10 @@ Node.js 24 웹 self-test·lint·webpack build와 Python 3.13 수집기 compileal
 첫 GitHub PR 실행에서 수집기 job 11초·웹 job 59초로 모두 통과했습니다. `main`은
 PR과 최신 base 기준 두 job 성공·대화 해결을 요구하고 force-push·삭제를 막는
 branch protection을 적용했습니다.
-전체 작업 브랜치를 `main` 대상으로 한 PR #1에 올렸고 Vercel Preview의 기본
-Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 보호로
-공개 경로도 비로그인 요청에서 302 인증 이동을 반환합니다.
+전체 작업 브랜치의 PR #1을 `main`에 병합했고 새 `main` quality job도 수집기
+9초·웹 52초로 통과했습니다. Vercel Preview의 기본 Next.js production build와
+배포도 성공했습니다. Preview는 Vercel SSO 보호로 공개 경로도 비로그인
+요청에서 302 인증 이동을 반환합니다.
 사전검증 중 2026-08-12 11:22 KST에 작업 브랜치 `1f37e7c`로 만든 Production
 리허설 배포가 이미 존재함을 확인했습니다. 공개 alias는 Clerk publishable key
 누락으로 500을 반환하므로 출시된 서비스로 보지 않습니다. canonical과 Clerk
@@ -498,9 +502,10 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
 - DB 접근 5분 30초 중단 후 runtime pooled 첫 연결·공개 30건 조회 1,808.2ms,
   즉시 후속 새 연결·동일 조회 524.6ms 측정. 활성 표본은 593.6ms였으며 실제
   Vercel Function 왕복 지연과 구분
-- GitHub repository가 public이고 Actions 활성, 기존 run·artifact 0건임을 확인.
-  표준 `ubuntu-24.04` runner 실행 시간은 무료지만 artifact는 Actions·Packages
-  500MB 공유 한도를 사용하며 계정 전체 0원 예산·포함 사용량 알림은 미확인
+- GitHub repository가 public이고 Actions 활성임을 확인. 표준
+  `ubuntu-24.04` runner 실행 시간은 무료지만 artifact는 Actions·Packages
+  500MB 공유 한도를 사용하므로 계정 Actions 예산을 0원 초과 사용 중지로
+  설정하고 포함 사용량 알림 `On`·billable usage 0원을 확인
 - repository Actions를 GitHub 소유 action만 허용하는 `selected` 정책으로
   제한하고 전체 40자리 commit SHA 고정을 필수화. 현재 action 4개가 모두
   `actions/*`와 SHA 고정을 충족하고 기본 `GITHUB_TOKEN`은 read-only·PR 승인
@@ -509,7 +514,8 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
   `postgres:17-alpine`을 Linux amd64·arm64 포함 multi-arch OCI digest로 고정해
   tag 이동에 따른 무검토 실행 변경 차단. workflow YAML·action SHA·image 참조
   정적 검증과 로컬 PostgreSQL 17 합성 암호화 백업 44,870바이트→빈 DB 0초
-  복원·`db:verify`를 재통과했으며 실제 digest image 실행은 첫 workflow에서 추적
+  복원·`db:verify`를 재통과했으며 실제 GitHub backup·restore에서도 고정 digest
+  image pull과 실행을 확인
 - PR과 `main` push용 비밀 없는 quality workflow 추가. Node.js 24 lockfile 설치,
   인증·Production DB 설정 self-test, lint, webpack production build와 Python
   3.13 `uv` lockfile 설치·compileall·단위 테스트 16건을 별도 standard runner
@@ -543,28 +549,37 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
   경계 추가. Clerk 미설정 production build, 공개 홈·안내·robots HTTP 200,
   관리자·로그인 503과 `no-store`·`Retry-After`·`noindex` 헤더를 확인하고 정상
   Development test 키의 production E2E 14건도 재통과
+- PR #1을 merge commit `a3bc11b`로 `main`에 병합하고 push 기반 quality
+  workflow의 수집기 9초·웹 52초 성공 확인
+- 최초 실제 Neon backup 과정에서 PostgreSQL 17 컨테이너의 시스템 CA 누락,
+  공급자 관리 `neon_auth` 포함과 Drizzle migration table·sequence 최소 권한
+  누락을 확인해 시스템 CA 사용, `public`·`drizzle` schema 한정과 read-only
+  권한 계약으로 교정. 임시 Neon owner 연결과 파일은 권한 적용 직후 제거
+- 실제 backup run `31608256000`에서 60,965바이트 `age` 암호화 artifact를
+  생성하고 2026-08-26 만료를 확인. restore run `31608856556`에서 복구 지점
+  0.11시간, 순수 복원 2초·전체 workflow 1분 6초로 빈 PostgreSQL 17 복원,
+  schema·migration·제약·seed와 공개 업체 30건의 대표 출처·필드 근거·업무
+  분야 연결 무결성을 통과
 
 ## 다음 작업 후보
 
-1. 기본 branch에 백업 workflow가 반영된 뒤 실제 Neon 첫 암호화 artifact를
-   생성한다. 24시간 이내 artifact를 격리 복원해 RPO·RTO를 측정하고 최초
-   artifact의 14일 만료를 추적
-2. Actions 0원 초과 사용 중지 예산과 월별 사용량 담당자를 설정하고 첫 14일간
-   artifact 수·총 용량을 추적
-3. 소유한 custom domain을 준비해 Clerk Production 환경과 Google OAuth를
+1. 백업 수정 PR을 기본 branch에 반영하고 다음 예약·수동 백업도 성공하는지
+   확인한다. 첫 artifact의 2026-08-26 만료와 첫 14일간 artifact 수·총 용량을
+   추적한다.
+2. 소유한 custom domain을 준비해 Clerk Production 환경과 Google OAuth를
    구성하고 live 키·Production 관리자 ID를 Vercel에 저장한다. 최신 수정의
    Production 배포 후 보안 헤더·robots·sitemap·JSON-LD·로그인·공개/관리자
    핵심 흐름을 smoke 검증
-4. 개인정보 처리방침의 운영 주체·문의 채널·보유 기간·위탁/국외 이전 여부를
+3. 개인정보 처리방침의 운영 주체·문의 채널·보유 기간·위탁/국외 이전 여부를
    실제 인프라와 법무 검토 결과에 맞춰 확정
-5. 초기 업체 약 100곳 확대는 출시 기반 작업 뒤 재개. 공식 운영 주체·한 개
+4. 초기 업체 약 100곳 확대는 출시 기반 작업 뒤 재개. 공식 운영 주체·한 개
    사무소·최소 사실 필드와 업무 분야를 모두 확인한 건은 같은 위임 작업 안에서
    등록→승인→공개 검증까지 완료하고 불확실한 건만 보류
-6. 고려 공식 사이트의 `a동 720`·`B동 720호` 주소 충돌이 정정되는지 나중에
+5. 고려 공식 사이트의 `a동 720`·`B동 720호` 주소 충돌이 정정되는지 나중에
    재확인하고, 하나의 공식 주소가 추가 근거와 일치할 때만 보류 후보 재검수
-7. 다해 화성 본사의 접속 복구와 명진 공식 주소 정합성을 나중에 재확인하고,
+6. 다해 화성 본사의 접속 복구와 명진 공식 주소 정합성을 나중에 재확인하고,
    복구·정정된 경우에만 최소 사실 필드를 처음부터 다시 검수
-8. 리앤장 DNS와 호시탐탐 홈페이지 복구 여부를 나중에 재확인하고, 복구된
+7. 리앤장 DNS와 호시탐탐 홈페이지 복구 여부를 나중에 재확인하고, 복구된
    경우에만 운영 주체·대표번호·사무소별 주소를 처음부터 다시 검수
 
 ## 확정된 초기 데이터 모델
@@ -601,8 +616,9 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
 
 - migration과 seed는 PostgreSQL 17.10 임시·지속형 로컬 클러스터와 Neon Free
   Singapore에서 검증했다. runtime pooled·migration direct 연결과 독립 암호화
-  백업 방식을 결정했지만 실제 첫 artifact 복원과 14일 만료는 아직 검증 전이다.
-  지속형 로컬 DB는 Git 제외 개발 데이터이며 백업 대상이 아니다.
+  백업 방식을 적용해 실제 첫 artifact 복원까지 검증했다. 첫 artifact의 실제
+  14일 만료와 연속 예약 실행은 아직 검증 전이다. 지속형 로컬 DB는 Git 제외
+  개발 데이터이며 백업 대상이 아니다.
 - Clerk Hobby Development 키와 실제 관리자 역할 설정, Google 로그인 세션,
   관리자 대기열·상세 접근과 보류 감사 처리는 확인했다. Clerk Hobby는
   애플리케이션 수준 MFA를 제공하지 않으므로 관리자 Google 계정의 2단계
@@ -658,9 +674,10 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
 - GitHub Actions 암호화 백업·복원 workflow와 역할 구성은 구현했고 합성
   PostgreSQL 17 복원을 통과했다. 실제 Neon read-only URL, `age` recipient와
   identity를 GitHub secret·variable에 역할별로 저장했다. identity는 GitHub
-  Actions에서만 사용할 수 있고 로컬 사본은 보존하지 않으므로 첫 복원 성공 전
-  재회전하거나 secret을 덮어쓰지 않는다. 기본 branch에 workflow가 반영되고
-  첫 artifact·격리 복원·14일 만료를 검증하기 전에는 운영 RPO·RTO 달성으로
+  Actions에서만 사용할 수 있고 로컬 사본은 보존하지 않는다. 실제 artifact의
+  복구 지점 0.11시간·순수 복원 2초로 현재 RPO·RTO 목표는 통과했지만, 키 회전
+  시 새 키의 실제 복원을 다시 검증해야 한다. 기본 branch 후속 실행과 첫
+  artifact의 실제 14일 만료를 확인하기 전에는 연속 운영 보존 달성으로
   보고하지 않는다.
 - 작업 브랜치 `1f37e7c`의 Vercel Production 리허설 배포는 `Ready`지만 Clerk
   Production 설정 없이 생성돼 public alias가 500을 반환한다. Vercel 계정에

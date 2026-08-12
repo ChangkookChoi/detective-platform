@@ -115,6 +115,7 @@ run_docker() {
     --rm
     --user "$user_id:$group_id"
     --env DATABASE_BACKUP_URL
+    --env PGSSLROOTCERT=system
     --volume "$BACKUP_TEMP_ROOT:/backup"
   )
 
@@ -143,6 +144,8 @@ create_dump() {
       --format=custom \
       --no-owner \
       --no-privileges \
+      --schema=drizzle \
+      --schema=public \
       --file="$dump_file"
     pg_restore --list "$dump_file" >/dev/null
     return
@@ -155,6 +158,8 @@ create_dump() {
       --format=custom \
       --no-owner \
       --no-privileges \
+      --schema=drizzle \
+      --schema=public \
       --file=/backup/database.dump
     pg_restore --list /backup/database.dump >/dev/null
   '

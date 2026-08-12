@@ -220,6 +220,22 @@ async function configureRolePrivileges(
   await client.query(
     `GRANT SELECT ON ALL SEQUENCES IN SCHEMA "public" TO ${backupIdentifier}`,
   );
+  await client.query(
+    `REVOKE ALL PRIVILEGES ON SCHEMA "drizzle" FROM ${backupIdentifier}`,
+  );
+  await client.query(`GRANT USAGE ON SCHEMA "drizzle" TO ${backupIdentifier}`);
+  await client.query(
+    `REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA "drizzle" FROM ${backupIdentifier}`,
+  );
+  await client.query(
+    `REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA "drizzle" FROM ${backupIdentifier}`,
+  );
+  await client.query(
+    `GRANT SELECT ON ALL TABLES IN SCHEMA "drizzle" TO ${backupIdentifier}`,
+  );
+  await client.query(
+    `GRANT SELECT ON ALL SEQUENCES IN SCHEMA "drizzle" TO ${backupIdentifier}`,
+  );
 }
 
 async function main() {

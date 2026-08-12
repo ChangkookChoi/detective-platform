@@ -130,7 +130,9 @@ assert_empty_and_restore() {
 
     pg_restore \
       --dbname="$RESTORE_DATABASE_URL" \
+      --clean \
       --exit-on-error \
+      --if-exists \
       --no-owner \
       --no-privileges \
       "$dump_file"
@@ -149,7 +151,9 @@ assert_empty_and_restore() {
 
   run_docker pg_restore \
     --dbname="$RESTORE_DATABASE_URL" \
+    --clean \
     --exit-on-error \
+    --if-exists \
     --no-owner \
     --no-privileges \
     /restore/database.dump
