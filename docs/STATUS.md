@@ -115,7 +115,10 @@ branch protection을 적용했습니다.
 관리자·로그인 503을 확인했습니다. custom domain은 0개이고 live 키·Production
 관리자 ID는 아직 없습니다. Production 인증 사전검증은 이제 `*.vercel.app`을
 거부하며, 도메인 연결부터 live 키 저장·재배포·smoke 검증까지의 출시 절차를
-별도 runbook으로 고정했습니다.
+별도 runbook으로 고정했습니다. 공개 정정 요청은 정상 접수에 더해 민감정보
+확인 누락·위험 URL·동일 요청 중복·업체별 24시간 10건 한도 화면과 DB 불변을
+임시 PostgreSQL·Production Chrome에서 자동 검증합니다. 보호된 Vercel 배포의
+공개·SEO·인증 경로 상태와 fail-closed 헤더도 한 명령으로 점검합니다.
 
 ## 완료
 
@@ -581,6 +584,16 @@ branch protection을 적용했습니다.
   추가해 `*.vercel.app`을 거부하고 합성 live 키 성공·Vercel 도메인 실패를
   self-test로 고정. 도메인·Clerk·환경변수·배포·smoke·롤백 순서를
   `docs/operations/PRODUCTION_RELEASE.md`에 추가
+- 정정 요청 DB E2E를 정상 접수, 민감정보 확인 누락·위험 URL 서버 검증, 동일
+  요청 중복, 업체별 24시간 10건 제한 4개 Production Chrome 시나리오로 확대.
+  오류 시 추가 검수 후보 0건, 중복 1건 유지, 한도 초과 10건 유지와 브라우저
+  오류 0건을 확인하고 실패 후 worker 재시작에도 합성 fixture가 멱등하도록 교정
+- DB E2E 실행기의 `npm --prefix ... exec` 작업 디렉터리 오인을 CI와 같은
+  `npm run build -- --webpack`으로 교정해 migration·seed·Production build·
+  Chrome 4건을 한 번에 재통과
+- `verify-vercel-production-smoke.sh`를 추가해 배포 보호를 유지한 채 실제 최신
+  Production의 홈·목록·robots·sitemap HTTP 200, 관리자·로그인 HTTP 503과
+  `Retry-After: 3600`·`X-Robots-Tag: noindex, nofollow`를 자동 검증
 
 ## 다음 작업 후보
 
@@ -653,9 +666,10 @@ branch protection을 적용했습니다.
 - 분석 Client Component의 상세 표시·전화 클릭 네트워크 요청과 PostgreSQL
   집계는 합성 공개 업체의 production Chrome E2E로 검증했다. 의도적으로 수집하지
   않는 통화 앱 실행 성공과 실제 통화 성립은 검증 범위가 아니다.
-- 공개 정정 폼의 정상 제출·성공 화면·검수 후보 저장과 승인 전 운영값 불변은
-  production Chrome E2E로 검증했다. 오류·중복·속도 제한 화면과 로그인 관리자의
-  확인 출처 입력·승인 화면은 아직 자동 브라우저 검증 범위가 아니다.
+- 공개 정정 폼의 정상 제출·성공 화면·검수 후보 저장과 승인 전 운영값 불변,
+  민감정보 확인 누락·위험 URL·중복·속도 제한 화면은 production Chrome E2E로
+  검증했다. 로그인 관리자의 확인 출처 입력·정정 승인 화면은 아직 자동
+  브라우저 검증 범위가 아니다.
 - 공식 출처 수동 후보 등록·중복 안내·반려 결정은 실제 allowlist 관리자 테스트
   세션과 production Chrome·임시 PostgreSQL에서 통과했다. 지속형 개발 DB의 실제
   수동 후보 30건은 testing token과 일회성 sign-in token으로 지역 2단계 선택·

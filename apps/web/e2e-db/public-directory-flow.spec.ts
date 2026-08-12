@@ -34,6 +34,37 @@ function collectBrowserErrors(page: Page) {
   return errors;
 }
 
+async function fillCorrectionForm(
+  page: Page,
+  input: {
+    field: "address" | "name" | "phone" | "summary";
+    suggestedValue: string;
+    evidenceUrl?: string;
+    confirmSensitiveContent?: boolean;
+  },
+) {
+  await page.getByLabel("수정할 항목").selectOption(input.field);
+  await page.getByLabel("올바른 공개 정보").fill(input.suggestedValue);
+
+  if (input.evidenceUrl !== undefined) {
+    await page.getByLabel("공개 근거 URL (선택)").fill(input.evidenceUrl);
+  }
+
+  await page.getByLabel("요청자 관계").selectOption("public_user");
+
+  if (input.confirmSensitiveContent !== false) {
+    await page
+      .getByLabel(/민감정보를 포함하지 않았음을 확인합니다/)
+      .check();
+  }
+}
+
+async function disableNativeFormValidation(page: Page) {
+  await page.locator("form").evaluate((element) => {
+    (element as HTMLFormElement).noValidate = true;
+  });
+}
+
 test.beforeAll(async () => {
   const connectionString = process.env.DATABASE_URL;
 
@@ -46,6 +77,29 @@ test.beforeAll(async () => {
   await database.query("begin");
 
   try {
+    await database.query("delete from review_items where office_id = $1", [
+      officeId,
+    ]);
+    await database.query("delete from analytics_events where office_id = $1", [
+      officeId,
+    ]);
+    await database.query(
+      "delete from office_daily_metrics where office_id = $1",
+      [officeId],
+    );
+    await database.query(
+      "delete from office_source_evidence where office_source_id = $1",
+      [officeSourceId],
+    );
+    await database.query("delete from office_sources where office_id = $1", [
+      officeId,
+    ]);
+    await database.query(
+      "delete from office_service_categories where office_id = $1",
+      [officeId],
+    );
+    await database.query("delete from offices where id = $1", [officeId]);
+
     const region = await database.query<{ id: string }>(
       "select id from regions where slug = $1 and is_active = true",
       ["seoul-gangnam"],
@@ -260,5 +314,172 @@ test("필터 탐색부터 분석 집계와 정정 검수 후보 저장까지 이
     [officeId],
   );
   expect(unchangedOffice.rows[0]?.address_text).toBe(currentAddress);
+  expect(browserErrors).toEqual([]);
+});
+
+test("정정 요청은 민감정보 확인과 공개 URL을 서버에서도 검증한다", async ({
+  page,
+}) => {
+  const browserErrors = collectBrowserErrors(page);
+  const correctionPath = `/offices/${officeSlug}/correction`;
+
+  await page.goto(correctionPath);
+  await fillCorrectionForm(page, {
+    field: "name",
+    suggestedValue: "민감정보 확인 검증 사무소",
+    confirmSensitiveContent: false,
+  });
+  await disableNativeFormValidation(page);
+  await page.getByRole("button", { name: "수정 요청 접수" }).click();
+
+  await expect(page).toHaveURL(
+    new RegExp(`${correctionPath}\\?error=sensitive_confirmation_required$`),
+  );
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "민감정보를 포함하지 않았다는 확인이 필요합니다." }),
+  ).toBeVisible();
+
+  await page.goto(correctionPath);
+  await fillCorrectionForm(page, {
+    field: "name",
+    suggestedValue: "공개 URL 검증 사무소",
+    evidenceUrl: "javascript:alert(1)",
+  });
+  await disableNativeFormValidation(page);
+  await page.getByRole("button", { name: "수정 요청 접수" }).click();
+
+  await expect(page).toHaveURL(
+    new RegExp(`${correctionPath}\\?error=invalid_input$`),
+  );
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({
+        hasText: "입력한 항목과 공개 근거 URL의 형식을 확인해 주세요.",
+      }),
+  ).toBeVisible();
+
+  const reviewCount = await getDatabase().query<{ count: number }>(
+    `select count(*)::integer as count
+     from review_items where office_id = $1 and type = 'correction_request'`,
+    [officeId],
+  );
+
+  expect(reviewCount.rows[0]?.count).toBe(0);
+  expect(browserErrors).toEqual([]);
+});
+
+test("같은 정정 요청은 한 건만 저장하고 중복 안내를 표시한다", async ({
+  page,
+}) => {
+  const browserErrors = collectBrowserErrors(page);
+  const correctionPath = `/offices/${officeSlug}/correction`;
+  const suggestion = "서울특별시 강남구 테헤란로 300";
+
+  await page.goto(correctionPath);
+  await fillCorrectionForm(page, {
+    field: "address",
+    suggestedValue: suggestion,
+    evidenceUrl,
+  });
+  await page.getByRole("button", { name: "수정 요청 접수" }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`${correctionPath}\\?result=submitted$`),
+  );
+
+  await page.goto(correctionPath);
+  await fillCorrectionForm(page, {
+    field: "address",
+    suggestedValue: suggestion,
+    evidenceUrl,
+  });
+  await page.getByRole("button", { name: "수정 요청 접수" }).click();
+
+  await expect(page).toHaveURL(
+    new RegExp(`${correctionPath}\\?error=duplicate$`),
+  );
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "같은 내용의 요청이 이미 접수되어 검토 중입니다." }),
+  ).toBeVisible();
+
+  const reviews = await getDatabase().query<{
+    count: number;
+    proposed_values: Record<string, string>;
+  }>(
+    `select count(*)::integer as count,
+            max(proposed_values::text)::jsonb as proposed_values
+     from review_items where office_id = $1 and type = 'correction_request'`,
+    [officeId],
+  );
+
+  expect(reviews.rows[0]).toEqual({
+    count: 1,
+    proposed_values: {
+      addressText: suggestion,
+      requestedField: "address",
+      requesterRole: "public_user",
+      evidenceUrl,
+    },
+  });
+  expect(browserErrors).toEqual([]);
+});
+
+test("업체별 정정 요청 한도를 넘으면 추가 저장 없이 안내한다", async ({
+  page,
+}) => {
+  const browserErrors = collectBrowserErrors(page);
+  const db = getDatabase();
+  const correctionPath = `/offices/${officeSlug}/correction`;
+
+  for (let index = 0; index < 10; index += 1) {
+    await db.query(
+      `insert into review_items (
+         office_id, type, risk, status, previous_values, proposed_values,
+         cause, created_at, updated_at
+       ) values (
+         $1, 'correction_request', 'medium', 'pending', $2::jsonb, $3::jsonb,
+         'public_correction_request', now(), now()
+       )`,
+      [
+        officeId,
+        JSON.stringify({ summary: "공개 사용자 흐름을 검증하기 위한 합성 업체입니다." }),
+        JSON.stringify({
+          summary: `속도 제한 준비 요청 ${index}`,
+          requestedField: "summary",
+          requesterRole: "public_user",
+        }),
+      ],
+    );
+  }
+
+  await page.goto(correctionPath);
+  await fillCorrectionForm(page, {
+    field: "summary",
+    suggestedValue: "속도 제한을 넘어선 추가 정정 요청",
+  });
+  await page.getByRole("button", { name: "수정 요청 접수" }).click();
+
+  await expect(page).toHaveURL(
+    new RegExp(`${correctionPath}\\?error=rate_limited$`),
+  );
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({
+        hasText: "이 업체에 대한 요청이 짧은 시간에 많이 접수되었습니다.",
+      }),
+  ).toBeVisible();
+
+  const reviewCount = await db.query<{ count: number }>(
+    `select count(*)::integer as count
+     from review_items where office_id = $1 and type = 'correction_request'`,
+    [officeId],
+  );
+
+  expect(reviewCount.rows[0]?.count).toBe(10);
   expect(browserErrors).toEqual([]);
 });

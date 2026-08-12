@@ -125,6 +125,16 @@ PostgreSQL 17 이상이 설치된 환경에서는 저장소 루트에서 임시 
 ./scripts/verify-postgres-backup.sh
 ```
 
+Vercel 배포 보호를 해제하지 않고 Production 공개·SEO·인증 경계를 확인할 때는
+[Production 출시 절차](docs/operations/PRODUCTION_RELEASE.md)의 smoke 스크립트를
+사용합니다.
+
+```bash
+./scripts/verify-vercel-production-smoke.sh \
+  --deployment=https://deployment.example.vercel.app \
+  --auth-mode=unconfigured
+```
+
 실행 사이에 데이터를 유지하는 로컬 개발 DB는 별도 스크립트로 준비하고 제어합니다.
 
 ```bash
