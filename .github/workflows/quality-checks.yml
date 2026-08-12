@@ -1,0 +1,92 @@
+name: Quality checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web lint, self-tests, and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Verify GitHub Actions policy
+        run: node scripts/validate-github-actions-policy.mjs
+
+      - name: Install web dependencies from lockfile
+        run: npm --prefix apps/web ci
+
+      - name: Verify authentication configuration rules
+        run: npm --prefix apps/web run auth:validate-config:self-test
+
+      - name: Verify production database configuration rules
+        run: npm --prefix apps/web run db:validate-production-config:self-test
+
+      - name: Lint web application
+        run: npm --prefix apps/web run lint
+
+      - name: Build without Production secrets
+        env:
+          CLERK_ADMIN_USER_IDS: ""
+          CLERK_REVIEWER_USER_IDS: ""
+          CLERK_SECRET_KEY: ""
+          DATABASE_URL: ""
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ""
+          VERCEL_ENV: production
+        run: npm --prefix apps/web run build -- --webpack
+
+  collector:
+    name: Collector unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CI: "true"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install pinned uv
+        run: "python -m pip install --only-binary=:all: uv==0.11.30"
+
+      - name: Install collector dependencies from lockfile
+        run: uv --directory services/collector sync --locked
+
+      - name: Compile collector
+        run: uv --directory services/collector run python -m compileall -q collector main.py tests
+
+      - name: Run collector unit tests
+        run: uv --directory services/collector run python -m unittest discover -s tests -p 'test_*.py'

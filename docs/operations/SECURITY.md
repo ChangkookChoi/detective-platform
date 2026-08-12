@@ -87,6 +87,12 @@
 - workflow와 운영 스크립트가 사용하는 Docker image는 공식 image와 immutable
   multi-arch digest를 함께 명시하고, 정기 보안 업데이트 때 합성 검증 후 digest를
   갱신한다.
+- PR과 `main`의 기본 quality workflow는 Production secret을 참조하지 않고 웹
+  self-test·lint·build와 Python 수집기 단위 테스트만 수행한다. 실제 운영 DB와
+  Clerk 자격 증명이 필요한 검증은 별도 승인된 경계에서 실행한다.
+- repository 정책과 workflow의 차이를 막기 위해 CI 자체가 GitHub 소유 action,
+  전체 commit SHA, 표준 `ubuntu-24.04` runner, 명시적 최소 권한, PostgreSQL
+  image digest와 `pull_request_target` 금지를 검사한다.
 
 ## 10. 사고 대응
 

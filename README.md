@@ -104,6 +104,12 @@ cd apps/web
 npm run auth:validate-config -- --environment=development
 ```
 
+PR과 `main` push에서는 [Quality checks](.github/workflows/quality-checks.yml)가
+Production 비밀 없이 Node.js 24 웹 인증·DB 설정 self-test, lint와 webpack
+production build를 실행합니다. 별도 Python 3.13 job은 lockfile로 수집기 의존성을
+설치하고 compileall과 단위 테스트를 실행합니다. 실제 Clerk·Neon·브라우저 E2E와
+Production 배포는 이 기본 CI에 포함하지 않습니다.
+
 PostgreSQL 17 이상이 설치된 환경에서는 저장소 루트에서 임시 DB 통합 검증을 실행할 수 있습니다.
 
 ```bash

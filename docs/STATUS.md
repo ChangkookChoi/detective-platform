@@ -90,6 +90,10 @@ repository Actions는 GitHub 소유 action만 허용하고 전체 40자리 SHA �
 보존은 정책과 같은 14일로 낮췄습니다.
 백업 client와 격리 복원 service의 Docker Official Image도 PostgreSQL 17 Alpine
 multi-arch digest로 고정했습니다.
+PR과 `main`에 Production 비밀 없이 실행되는 기본 quality workflow를 추가해
+Node.js 24 웹 self-test·lint·webpack build와 Python 3.13 수집기 compileall·
+단위 테스트를 분리 실행합니다. GitHub action·runner·권한·container digest
+정책도 저장소 스크립트로 회귀 검사합니다.
 전체 작업 브랜치를 `main` 대상으로 한 PR #1에 올렸고 Vercel Preview의 기본
 Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 보호로
 공개 경로도 비로그인 요청에서 302 인증 이동을 반환합니다.
@@ -503,6 +507,13 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
   tag 이동에 따른 무검토 실행 변경 차단. workflow YAML·action SHA·image 참조
   정적 검증과 로컬 PostgreSQL 17 합성 암호화 백업 44,870바이트→빈 DB 0초
   복원·`db:verify`를 재통과했으며 실제 digest image 실행은 첫 workflow에서 추적
+- PR과 `main` push용 비밀 없는 quality workflow 추가. Node.js 24 lockfile 설치,
+  인증·Production DB 설정 self-test, lint, webpack production build와 Python
+  3.13 `uv` lockfile 설치·compileall·단위 테스트 16건을 별도 standard runner
+  job으로 구성하고 로컬 동일 명령 통과
+- GitHub Actions 정책 회귀 스크립트를 추가해 모든 workflow의 명시적 권한,
+  `actions/*` 전체 SHA 고정, `ubuntu-24.04` standard runner, PostgreSQL image
+  digest와 `pull_request_target` 금지를 검사. checkout credential 저장도 비활성화
 - Vercel Development의 `NEON_OWNER_*` 18개와 Marketplace 프로젝트 연결을
   제거하고, Neon Free 리소스 자체는 `Available`로 보존. owner/runtime 임시
   환경 파일과 일회성 검증 스크립트 삭제 확인
@@ -659,6 +670,9 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
   검증한다. 관리자 테스트 토큰은 Clerk 세션·쿠키와
   애플리케이션 권한 경계를 검증하지만 Google 로그인 UI나 Google 계정의
   2단계 인증 수행 자체를 증명하지 않는다.
+- 기본 quality workflow는 비밀 없는 정적·단위·build 게이트이며 실제
+  PostgreSQL·Clerk 세션·Chrome 사용자 흐름이나 Production 배포를 대신하지
+  않는다. 이 통합 검증은 기존 로컬 리허설과 출시 smoke 절차로 분리한다.
 - 2026-08-12 로컬 검증 환경에서 기본 Turbopack build는 CSS 처리 워커의 로컬
   포트 바인딩 권한 제한으로 중단됐지만 같은 소스의 webpack production build·
   TypeScript·정적 페이지 생성과 모든 production E2E는 통과했다. 이후 제한
