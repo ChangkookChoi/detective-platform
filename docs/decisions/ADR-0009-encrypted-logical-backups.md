@@ -113,3 +113,7 @@ PostgreSQL 17 백업 client와 격리 복원 service도 Docker Official Image
 순수 restore 2초·전체 1분 6초로 빈 PostgreSQL 17에 복원하고 공개 업체 30건과
 schema·migration·제약·seed·출처 무결성을 확인했다. 최초 artifact의 실제 14일
 만료 여부는 2026-08-26 이후 확인한다.
+
+수정 PR #2 병합 후 `main` backup run `31609500182`와 restore run
+`31609617458`도 각각 44초·41초에 성공했다. 두 번째 recovery point는 0.02시간,
+순수 restore는 1초였고 현재 artifact 2개의 총 크기는 121,930바이트다.

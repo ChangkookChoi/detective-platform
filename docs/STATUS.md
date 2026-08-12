@@ -88,6 +88,8 @@ Neon 첫 연결·조회 1,808.2ms와 즉시 후속 새 연결·조회 524.6ms를
 계정 전체 Actions 0원 초과 사용 중지·포함 사용량 알림을 확인했습니다. 실제
 Neon 백업 artifact는 60,965바이트, 14일 보존으로 생성했고 복구 지점 0.11시간,
 순수 복원 2초와 전체 검증 1분 6초를 기록했습니다.
+수정 PR #2를 병합한 뒤 `main`에서도 60,965바이트 백업과 공개 업체 30건 복원을
+재통과했으며, 현재 artifact는 2개·총 121,930바이트입니다.
 repository Actions는 GitHub 소유 action만 허용하고 전체 40자리 SHA 고정을
 필수화했습니다. 기본 token은 read-only·PR 승인 불가이고 artifact·log 기본
 보존은 정책과 같은 14일로 낮췄습니다.
@@ -560,12 +562,15 @@ branch protection을 적용했습니다.
   0.11시간, 순수 복원 2초·전체 workflow 1분 6초로 빈 PostgreSQL 17 복원,
   schema·migration·제약·seed와 공개 업체 30건의 대표 출처·필드 근거·업무
   분야 연결 무결성을 통과
+- 수정 PR #2를 `main`에 merge commit `9419059`로 반영하고 병합 후 quality
+  수집기 13초·웹 46초 통과. `main` backup run `31609500182` 44초와 restore
+  run `31609617458` 41초에서 recovery point 0.02시간·순수 복원 1초·공개 업체
+  30건을 재확인하고 artifact 2개·총 121,930바이트 확인
 
 ## 다음 작업 후보
 
-1. 백업 수정 PR을 기본 branch에 반영하고 다음 예약·수동 백업도 성공하는지
-   확인한다. 첫 artifact의 2026-08-26 만료와 첫 14일간 artifact 수·총 용량을
-   추적한다.
+1. 다음 02:23 KST 예약 백업의 연속 성공을 확인한다. 첫 artifact의
+   2026-08-26 만료와 첫 14일간 artifact 수·총 용량을 추적한다.
 2. 소유한 custom domain을 준비해 Clerk Production 환경과 Google OAuth를
    구성하고 live 키·Production 관리자 ID를 Vercel에 저장한다. 최신 수정의
    Production 배포 후 보안 헤더·robots·sitemap·JSON-LD·로그인·공개/관리자
@@ -676,9 +681,9 @@ branch protection을 적용했습니다.
   identity를 GitHub secret·variable에 역할별로 저장했다. identity는 GitHub
   Actions에서만 사용할 수 있고 로컬 사본은 보존하지 않는다. 실제 artifact의
   복구 지점 0.11시간·순수 복원 2초로 현재 RPO·RTO 목표는 통과했지만, 키 회전
-  시 새 키의 실제 복원을 다시 검증해야 한다. 기본 branch 후속 실행과 첫
-  artifact의 실제 14일 만료를 확인하기 전에는 연속 운영 보존 달성으로
-  보고하지 않는다.
+  시 새 키의 실제 복원을 다시 검증해야 한다. `main` 후속 백업·복원도 통과했지만
+  예약 실행의 연속 성공과 첫 artifact의 실제 14일 만료를 확인하기 전에는 연속
+  운영 보존 달성으로 보고하지 않는다.
 - 작업 브랜치 `1f37e7c`의 Vercel Production 리허설 배포는 `Ready`지만 Clerk
   Production 설정 없이 생성돼 public alias가 500을 반환한다. Vercel 계정에
   custom domain이 없고 Clerk는 `*.vercel.app`을 Production 도메인으로 허용하지
