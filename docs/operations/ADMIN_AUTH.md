@@ -83,6 +83,8 @@ ID로 Clerk Backend에서 실행 중에만 조회하며 저장하거나 출력�
 - PostgreSQL DB를 가리키는 `DATABASE_URL`
 - Clerk 공개·비밀 키 존재와 `test`/`live` 모드 일치
 - 운영은 `live`, 개발·미리보기는 `test` 키 사용
+- 운영 `NEXT_PUBLIC_SITE_URL`은 경로 없는 HTTPS custom domain이며
+  `*.vercel.app`은 허용하지 않음
 - 로그인 경로 `/sign-in`, 로그인 후 경로 `/admin/reviews`
 - 올바른 `user_` 형식과 중복 없는 역할 ID
 - 최소 한 명의 `admin`
@@ -134,6 +136,8 @@ UI 메뉴 숨김이나 Layout 검사만으로 Server Action을 보호하지 않�
   Production 배포에는 소유하고 DNS를 변경할 수 있는 custom domain이 필요하며
   `*.vercel.app`은 사용할 수 없다. Development 사용자 ID는 별도 Production
   사용자 풀에 재사용하지 않는다.
+- 도메인 연결부터 live 키 저장, 재배포와 실제 smoke 검증까지의 순서는
+  [Production 출시 절차](PRODUCTION_RELEASE.md)를 따른다.
 - 실제 Google 로그인으로 관리자 대기열·상세에 접근하고 파일럿 후보를
   `on_hold`로 처리했다. 감사 이력의 처리자 ID가 로그인한 allowlist 관리자
   ID와 일치하고 운영 업체 0건을 유지함을 DB에서 확인했다.
