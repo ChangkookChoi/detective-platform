@@ -115,6 +115,7 @@ run_docker() {
     --rm
     --user "$user_id:$group_id"
     --env DATABASE_BACKUP_URL
+    --env PGSSLROOTCERT=system
     --volume "$BACKUP_TEMP_ROOT:/backup"
   )
 
