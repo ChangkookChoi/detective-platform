@@ -93,6 +93,10 @@
 - repository 정책과 workflow의 차이를 막기 위해 CI 자체가 GitHub 소유 action,
   전체 commit SHA, 표준 `ubuntu-24.04` runner, 명시적 최소 권한, PostgreSQL
   image digest와 `pull_request_target` 금지를 검사한다.
+- `main`은 PR 경유, 최신 base 기준 웹·수집기 quality job 성공과 대화 해결을
+  요구한다. force-push와 branch 삭제는 차단한다. 현재 1인 운영 단계에서는
+  승인 인원 0명과 관리자 비상 우회를 유지하되 협업자가 생기면 최소 1명 승인과
+  관리자 적용을 재검토한다.
 
 ## 10. 사고 대응
 

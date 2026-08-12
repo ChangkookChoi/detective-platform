@@ -94,6 +94,9 @@ PR과 `main`에 Production 비밀 없이 실행되는 기본 quality workflow를
 Node.js 24 웹 self-test·lint·webpack build와 Python 3.13 수집기 compileall·
 단위 테스트를 분리 실행합니다. GitHub action·runner·권한·container digest
 정책도 저장소 스크립트로 회귀 검사합니다.
+첫 GitHub PR 실행에서 수집기 job 11초·웹 job 59초로 모두 통과했습니다. `main`은
+PR과 최신 base 기준 두 job 성공·대화 해결을 요구하고 force-push·삭제를 막는
+branch protection을 적용했습니다.
 전체 작업 브랜치를 `main` 대상으로 한 PR #1에 올렸고 Vercel Preview의 기본
 Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 보호로
 공개 경로도 비로그인 요청에서 302 인증 이동을 반환합니다.
@@ -514,6 +517,11 @@ Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 
 - GitHub Actions 정책 회귀 스크립트를 추가해 모든 workflow의 명시적 권한,
   `actions/*` 전체 SHA 고정, `ubuntu-24.04` standard runner, PostgreSQL image
   digest와 `pull_request_target` 금지를 검사. checkout credential 저장도 비활성화
+- PR #1 커밋 `e7681b3`의 첫 `Quality checks`에서 collector unit tests 11초,
+  web self-test·lint·build 59초로 실제 GitHub standard runner 통과
+- `main` branch protection에 PR 경유, 최신 base 기준 GitHub Actions 앱의
+  `Web lint, self-tests, and build`·`Collector unit tests`, 대화 해결을 필수화하고
+  force-push·branch 삭제 차단. 현재 1인 운영에 맞춰 승인 0명·관리자 우회 허용
 - Vercel Development의 `NEON_OWNER_*` 18개와 Marketplace 프로젝트 연결을
   제거하고, Neon Free 리소스 자체는 `Available`로 보존. owner/runtime 임시
   환경 파일과 일회성 검증 스크립트 삭제 확인

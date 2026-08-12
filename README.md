@@ -109,6 +109,9 @@ Production 비밀 없이 Node.js 24 웹 인증·DB 설정 self-test, lint와 web
 production build를 실행합니다. 별도 Python 3.13 job은 lockfile로 수집기 의존성을
 설치하고 compileall과 단위 테스트를 실행합니다. 실제 Clerk·Neon·브라우저 E2E와
 Production 배포는 이 기본 CI에 포함하지 않습니다.
+`main`은 PR 경유와 두 quality job 성공·대화 해결을 요구하며 force-push와 branch
+삭제를 허용하지 않습니다. 1인 개발을 막지 않도록 승인 인원은 0명이고 repository
+관리자는 장애 대응 시 규칙을 우회할 수 있습니다.
 
 PostgreSQL 17 이상이 설치된 환경에서는 저장소 루트에서 임시 DB 통합 검증을 실행할 수 있습니다.
 
