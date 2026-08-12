@@ -144,6 +144,12 @@ backup run `31608256000`은 60,965바이트 암호화 artifact를 생성했고 �
 schema·migration·제약·seed와 공개 업체 30건, 각 업체의 대표 출처·필드 근거·
 업무 분야 연결을 검증해 RPO 24시간·RTO 4시간 목표를 충족했다.
 
+수정 PR #2를 기본 branch에 병합한 뒤 `main` backup run `31609500182`도 44초에
+같은 크기의 artifact를 생성했다. `main` restore run `31609617458`은 recovery
+point 0.02시간, 순수 restore 1초·전체 41초로 같은 공개 snapshot 검증을
+재통과했다. 현재 artifact는 2개·총 121,930바이트이며 둘 다 2026-08-26에
+만료된다.
+
 추가 운영 설정:
 
 1. Actions 사용 예산을 0원·한도 도달 시 사용 중지로 설정한다.
