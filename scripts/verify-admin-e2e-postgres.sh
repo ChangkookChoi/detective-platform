@@ -93,7 +93,7 @@ export DATABASE_URL="postgresql://$(id -un)@127.0.0.1:$PG_ADMIN_E2E_PORT/$PG_DAT
 npm --prefix "$WEB_DIR" run auth:validate-config -- --environment=development
 npm --prefix "$WEB_DIR" run db:migrate
 npm --prefix "$WEB_DIR" run db:seed
-npm --prefix "$WEB_DIR" exec -- next build --webpack
+npm --prefix "$WEB_DIR" run build -- --webpack
 npm --prefix "$WEB_DIR" run test:e2e:admin:browser
 npm --prefix "$WEB_DIR" run test:e2e:reviewer:browser
 
