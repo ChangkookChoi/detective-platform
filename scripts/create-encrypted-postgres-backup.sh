@@ -144,6 +144,8 @@ create_dump() {
       --format=custom \
       --no-owner \
       --no-privileges \
+      --schema=drizzle \
+      --schema=public \
       --file="$dump_file"
     pg_restore --list "$dump_file" >/dev/null
     return
@@ -156,6 +158,8 @@ create_dump() {
       --format=custom \
       --no-owner \
       --no-privileges \
+      --schema=drizzle \
+      --schema=public \
       --file=/backup/database.dump
     pg_restore --list /backup/database.dump >/dev/null
   '
