@@ -1,0 +1,81 @@
+name: Production database backup
+
+on:
+  schedule:
+    - cron: "23 2 * * *"
+      timezone: Asia/Seoul
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Encrypted PostgreSQL backup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DATABASE_BACKUP_URL: ${{ secrets.PRODUCTION_DATABASE_BACKUP_URL }}
+      BACKUP_ENCRYPTION_RECIPIENT: ${{ vars.DATABASE_BACKUP_AGE_RECIPIENT }}
+      BACKUP_MAX_BYTES: "15728640"
+      POSTGRES_CLIENT_MODE: docker
+      POSTGRES_CLIENT_IMAGE: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify backup configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$DATABASE_BACKUP_URL" ]] || {
+            echo "PRODUCTION_DATABASE_BACKUP_URL is not configured." >&2
+            exit 1
+          }
+          [[ -n "$BACKUP_ENCRYPTION_RECIPIENT" ]] || {
+            echo "DATABASE_BACKUP_AGE_RECIPIENT is not configured." >&2
+            exit 1
+          }
+
+      - name: Install age
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends age
+
+      - name: Create encrypted PostgreSQL backup
+        id: backup
+        shell: bash
+        env:
+          BACKUP_BASENAME: detective-platform-${{ github.run_id }}-${{ github.run_attempt }}
+          BACKUP_OUTPUT_DIR: ${{ runner.temp }}/database-backup
+        run: ./scripts/create-encrypted-postgres-backup.sh
+
+      - name: Upload encrypted backup for 14 days
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: detective-platform-postgres-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/database-backup/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Record backup summary
+        shell: bash
+        env:
+          ARCHIVE_NAME: ${{ steps.backup.outputs.archive_name }}
+          ARCHIVE_BYTES: ${{ steps.backup.outputs.archive_bytes }}
+        run: |
+          {
+            echo "## PostgreSQL backup"
+            echo "- Archive: \`$ARCHIVE_NAME\`"
+            echo "- Encrypted bytes: $ARCHIVE_BYTES"
+            echo "- Retention: 14 days"
+          } >>"$GITHUB_STEP_SUMMARY"

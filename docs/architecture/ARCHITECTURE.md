@@ -1,0 +1,128 @@
+# 시스템 아키텍처
+
+## 1. 목표와 제약
+
+초기 시스템은 작은 팀이 약 100개 업체의 공개 정보, 관리자 검수, 수집 작업을 빠르게 운영할 수 있어야 한다. 복잡한 분산 시스템보다 명확한 모듈 경계, 추적 가능한 데이터 승인, 안전한 변경을 우선한다.
+
+## 2. 전체 구성
+
+```text
+공개 사용자 / 관리자
+        |
+        v
+Next.js App Router (apps/web)
+  - 공개 웹
+  - 관리자 화면
+  - Route Handlers / 서버 액션
+  - 도메인·애플리케이션 모듈
+        |
+        v
+PostgreSQL
+  - 승인된 운영 데이터
+  - 수집 후보와 검수 이력
+  - 최소 분석 이벤트/집계
+        ^
+        |
+Python collector (services/collector)
+  - 출처별 어댑터
+  - 정규화
+  - 변경 감지
+  - 후보 적재
+```
+
+## 3. 배포 단위
+
+- `apps/web`: 공개 페이지, 관리자 화면, 초기 API를 포함하는 하나의 Next.js 배포 단위
+- `services/collector`: 예약 또는 수동 작업으로 실행되는 독립 Python 프로세스
+- PostgreSQL: 두 애플리케이션의 영속 저장소
+
+웹과 수집기는 같은 저장소와 데이터 계약을 공유하지만 실행 수명과 배포 방식은 분리한다. 수집기는 공개 데이터를 직접 갱신하지 않고 후보만 생성한다.
+관리형 PostgreSQL의 출시 후보, 런타임 pooled 연결·migration direct 연결과
+환경별 자격 증명 계약은 [운영 PostgreSQL 준비](../operations/PRODUCTION_DATABASE.md)를
+따른다.
+
+## 4. 웹 모듈 경계
+
+구현 시 프레임워크 폴더와 도메인 로직을 분리한다.
+
+- `directory`: 업체, 지역, 업무 분야, 공개 조회
+- `moderation`: 후보 비교, 승인·보류·반려, 감사 이력
+- `collection`: 출처, 수집 실행, 추출 결과와 변경 후보 계약
+- `corrections`: 공개 정정 요청 검증, 중복·속도 제한과 검수 후보 생성
+- `analytics`: 상세 조회, 전화·광고 클릭의 최소 이벤트와 집계
+- `monetization`: 광고/강화 상품의 노출 조건과 표시
+- `shared`: DB, 인증, 검증, 로깅처럼 제한적으로 공유되는 기반 기능
+
+Route Handler와 Server Action은 인증, 입력 검증, 유스케이스 호출, 응답 변환만 담당한다. 도메인 규칙은 UI나 라우트 파일에 묻지 않는다.
+
+초기 구현 위치:
+
+- `src/modules/directory/public-office-repository.ts`: 공개 상태 목록·상세와 지역/업무 분야 필터
+- `src/modules/moderation/approve-review.ts`: 신규 업체 생성, 허용 필드 수정, 출처·근거·감사 이력과 공개 전환 트랜잭션
+- `src/modules/moderation/review-repository.ts`: 검수 대기열·상세와 출처·감사 이력 조회
+- `src/modules/moderation/resolve-review.ts`: 보류·반려 결정과 감사 이력 트랜잭션
+- `src/modules/moderation/create-manual-office-candidate.ts`: 공식 출처 수동
+  후보의 입력 정규화, 중복 방지, 제출자 감사 정보와 비공개 후보 적재
+- `src/modules/corrections/create-correction-request.ts`: 공개 업체 재확인, 정정 입력 정규화, 중복·속도 제한과 검수 후보 적재
+- `src/modules/auth`: Clerk 사용자 ID의 서버 역할 판정과 리소스별 권한 검사
+- `src/modules/analytics/record-public-event.ts`: 공개 업체 확인, 중복·속도 제한과 일별 집계 트랜잭션
+- `src/modules/analytics/office-engagement.tsx`: 상세 표시와 전화 클릭을 기록하는 작은 Client Component
+- `src/app/offices/page.tsx`: 공개 업체 목록, 사무소 소재 지역·업무 분야 필터
+- `src/app/offices/[slug]/page.tsx`: 공개 업체 상세, 전화 연결과 검증 출처 표시
+- `src/app/offices/[slug]/correction`: 공개 정정 안내·입력 화면과 최소 Server Action
+- `src/app/admin/reviews`: 인증된 검수자의 대기열·비교·결정 화면과 Server Action
+- `src/app/api/analytics/events/route.ts`: 같은 출처의 최소 이벤트만 받는 공개 POST 경계
+
+수집기 초기 구현 위치:
+
+- `collector/config.py`: 출처별 승인 정책과 제한 검증
+- `collector/http_client.py`: URL·IP 안전성, timeout, redirect·응답 크기와 재시도 경계
+- `collector/adapters/jsonld.py`: 허용된 JSON-LD 타입과 최소 필드 추출
+- `collector/normalize.py`, `collector/change_detection.py`: 정규화 해시와 검수 후보 비교
+- `collector/repository.py`, `collector/pipeline.py`: 수집 실행, 레코드와 검수 후보의 트랜잭션 적재
+
+## 5. 렌더링과 클라이언트 경계
+
+- 공개 목록·상세의 핵심 정보는 React Server Component에서 렌더링한다.
+- 필터 상태는 공유 가능한 URL 검색 파라미터로 표현한다.
+- 클릭 추적, 브라우저 API, 즉시 상호작용이 필요한 작은 영역만 Client Component로 만든다.
+- 관리자 화면도 서버 권한 검사를 기본으로 하며 클라이언트 표시 여부만으로 보호하지 않는다.
+
+## 6. 데이터 공개 경계
+
+수집 데이터와 공개 운영 데이터를 논리적으로 분리한다.
+
+1. 수집기 또는 인증된 운영자의 수동 후보 등록이 원본 참조와 제한된 값을
+   저장한다.
+2. 변경 감지 또는 수동 등록 유스케이스가 검수 후보를 생성한다.
+3. 관리자가 후보를 판단한다.
+4. 승인된 값만 운영 데이터에 반영한다.
+5. 공개 쿼리는 운영 데이터와 공개 상태만 읽는다.
+
+이 경계는 애플리케이션 서비스와 DB 제약/트랜잭션으로 함께 보장한다.
+수동 후보도 제출만으로 운영 업체를 만들지 않는다. 수집 실패나 원본의
+일시적 삭제는 운영값 삭제로 전파하지 않는다.
+
+## 7. 검색과 캐시
+
+초기 검색은 PostgreSQL 인덱스와 구조화된 지역·업무 분야 필터로 처리한다. Elasticsearch/OpenSearch는 도입하지 않는다. 공개 페이지 캐시는 승인 변경 후 무효화할 수 있는 단위로 설계하며, 오래된 정보가 장기간 남지 않도록 확인일과 캐시 정책을 함께 관리한다.
+
+## 8. 인증과 권한
+
+- 공개 조회와 전화 링크는 인증 없이 접근한다.
+- 관리자 신원과 세션은 Clerk로 확인하고, 서버 전용 allowlist로 `reviewer`와 `admin` 최소 권한을 적용한다.
+- Proxy, Layout, Page와 Server Action 중 하나만 신뢰하지 않고 보호 데이터와 변경 동작 가까이에서 권한을 다시 확인한다.
+- 승인·비공개 전환 같은 쓰기는 서버에서 역할을 재검증하고 감사 로그를 남긴다.
+- 수집기 DB 자격 증명은 후보 적재에 필요한 권한으로 제한하고 공개 운영값 직접 수정 권한을 주지 않는 구성을 지향한다.
+
+## 9. 관측성과 장애 처리
+
+- 요청 ID 또는 작업 ID로 웹 요청, 수집 실행, 검수 변경을 추적한다.
+- 로그에 사건 내용, 전화 통화 정보, 비밀값을 남기지 않는다.
+- 수집기는 timeout, 제한된 재시도, 부분 실패 격리를 적용한다.
+- DB migration, 백업, 복구 검증을 배포 절차에 포함한다.
+- 외부 서비스 장애가 공개된 기존 업체 정보의 삭제로 이어지지 않게 한다.
+
+## 10. 확장 기준
+
+Spring Boot나 마이크로서비스는 팀 규모, 독립 배포 필요, 장애 격리, 부하 또는 규제 경계가 실제로 확인된 후 ADR을 통해 검토한다. 상담·견적 기능을 추가할 때는 민감 데이터의 별도 저장·권한·보존 정책을 먼저 설계한다.

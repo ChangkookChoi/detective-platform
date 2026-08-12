@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WEB_DIR="$ROOT_DIR/apps/web"
+PG_ADMIN_E2E_PORT="${PG_ADMIN_E2E_PORT:-55436}"
+PG_ADMIN_E2E_ROOT=""
+PG_BIN=""
+PG_DATABASE="detective_platform_admin_e2e"
+
+find_postgres() {
+  if command -v pg_config >/dev/null 2>&1; then
+    PG_BIN="$(pg_config --bindir)"
+    return
+  fi
+
+  if command -v brew >/dev/null 2>&1; then
+    local brew_prefix
+    brew_prefix="$(brew --prefix postgresql@17 2>/dev/null || true)"
+
+    if [[ -n "$brew_prefix" && -x "$brew_prefix/bin/pg_config" ]]; then
+      PG_BIN="$brew_prefix/bin"
+      return
+    fi
+  fi
+
+  echo "PostgreSQL 17+ is required. Install postgresql@17 or add pg_config to PATH." >&2
+  exit 1
+}
+
+cleanup() {
+  if [[ -n "$PG_ADMIN_E2E_ROOT" && -f "$PG_ADMIN_E2E_ROOT/data/postmaster.pid" ]]; then
+    "$PG_BIN/pg_ctl" -D "$PG_ADMIN_E2E_ROOT/data" -m fast -w stop >/dev/null
+  fi
+
+  case "$PG_ADMIN_E2E_ROOT" in
+    */detective-platform-admin-e2e-pg.*)
+      rm -r -- "$PG_ADMIN_E2E_ROOT"
+      ;;
+    "")
+      ;;
+    *)
+      echo "Refusing to remove unexpected temporary path: $PG_ADMIN_E2E_ROOT" >&2
+      exit 1
+      ;;
+  esac
+}
+
+find_postgres
+
+version_number="$($PG_BIN/pg_config --version | sed -E 's/.* ([0-9]+).*/\1/')"
+if (( version_number < 17 )); then
+  echo "PostgreSQL 17 or newer is required." >&2
+  exit 1
+fi
+
+if ! [[ "$PG_ADMIN_E2E_PORT" =~ ^[0-9]+$ ]] ||
+  (( PG_ADMIN_E2E_PORT < 1024 || PG_ADMIN_E2E_PORT > 65535 )); then
+  echo "PG_ADMIN_E2E_PORT must be an integer from 1024 through 65535." >&2
+  exit 1
+fi
+
+if "$PG_BIN/pg_isready" -h 127.0.0.1 -p "$PG_ADMIN_E2E_PORT" >/dev/null 2>&1; then
+  echo "Port $PG_ADMIN_E2E_PORT is already serving PostgreSQL." >&2
+  echo "Set PG_ADMIN_E2E_PORT to another port." >&2
+  exit 1
+fi
+
+PG_ADMIN_E2E_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/detective-platform-admin-e2e-pg.XXXXXX")"
+trap cleanup EXIT INT TERM
+
+"$PG_BIN/initdb" \
+  -D "$PG_ADMIN_E2E_ROOT/data" \
+  --encoding=UTF8 \
+  --locale=C \
+  --auth=trust \
+  --no-instructions >/dev/null
+
+"$PG_BIN/pg_ctl" \
+  -D "$PG_ADMIN_E2E_ROOT/data" \
+  -l "$PG_ADMIN_E2E_ROOT/postgres.log" \
+  -o "-h 127.0.0.1 -k $PG_ADMIN_E2E_ROOT -p $PG_ADMIN_E2E_PORT" \
+  -w start >/dev/null
+
+"$PG_BIN/createdb" \
+  -h 127.0.0.1 \
+  -p "$PG_ADMIN_E2E_PORT" \
+  "$PG_DATABASE"
+
+export DATABASE_URL="postgresql://$(id -un)@127.0.0.1:$PG_ADMIN_E2E_PORT/$PG_DATABASE"
+
+npm --prefix "$WEB_DIR" run auth:validate-config -- --environment=development
+npm --prefix "$WEB_DIR" run db:migrate
+npm --prefix "$WEB_DIR" run db:seed
+npm --prefix "$WEB_DIR" exec -- next build --webpack
+npm --prefix "$WEB_DIR" run test:e2e:admin:browser
+npm --prefix "$WEB_DIR" run test:e2e:reviewer:browser
+
+echo "Authenticated admin and reviewer E2E verification completed."
