@@ -2,7 +2,7 @@
 
 - 기준일: 2026-08-12
 - 단계: 핵심 MVP 기능 구현·출시 준비
-- 배포 상태: 미배포
+- 배포 상태: Production 미배포, Vercel Preview `Ready`
 - 데이터 상태: 실제 파일럿 결함 후보 `rejected` 1건·교정 `approved` 1건·
   공식 출처 수동 후보 `approved` 28건·`approved_with_edits` 1건·`on_hold`
   1건·`pending` 0건, 공개 업체 30건
@@ -79,6 +79,9 @@ Actions에 역할별 연결 정보를 저장하고 임시 owner 연결을 제거
 새 `age` 키쌍의 암·복호화 왕복을 검증하고 공개 recipient와 비공개 identity를
 GitHub repository variable·Actions secret에 분리 저장한 뒤 로컬 임시 키를
 폐기했습니다. 첫 실제 artifact 복원과 실제 웹 배포는 아직 완료 전입니다.
+전체 작업 브랜치를 `main` 대상으로 한 PR #1에 올렸고 Vercel Preview의 기본
+Next.js production build와 배포가 성공했습니다. Preview는 Vercel SSO 보호로
+공개 경로도 비로그인 요청에서 302 인증 이동을 반환합니다.
 
 ## 완료
 
@@ -472,6 +475,10 @@ GitHub repository variable·Actions secret에 분리 저장한 뒤 로컬 임시
   GitHub variable `DATABASE_BACKUP_AGE_RECIPIENT`, 비공개 identity는 Actions
   secret `DATABASE_BACKUP_AGE_IDENTITY`에 값 노출 없이 저장하고 로컬 임시
   바이너리·키·평문·암호문을 모두 폐기
+- 전체 작업 브랜치를 `main` 대상으로 한 GitHub PR #1로 만들고 병합 가능 상태
+  `MERGEABLE/CLEAN`과 Vercel Preview 배포 `Ready`를 확인. 제한 없는 Vercel
+  빌드 환경에서 기본 Next.js production build를 통과했으며 Preview 경로는
+  Vercel SSO 보호에 따라 비로그인 HTTP 요청에 302를 반환
 
 ## 다음 작업 후보
 
@@ -600,10 +607,12 @@ GitHub repository variable·Actions secret에 분리 저장한 뒤 로컬 임시
   검증한다. 관리자 테스트 토큰은 Clerk 세션·쿠키와
   애플리케이션 권한 경계를 검증하지만 Google 로그인 UI나 Google 계정의
   2단계 인증 수행 자체를 증명하지 않는다.
-- 2026-08-12 검증 환경에서 기본 Turbopack build는 CSS 처리 워커의 로컬 포트
-  바인딩 권한 제한으로 중단됐지만 같은 소스의 Next.js webpack production
-  build·TypeScript·정적 페이지 생성과 모든 production E2E는 통과했다. 기본
-  Turbopack build 자체는 CI 또는 제한 없는 배포 환경에서 다시 확인해야 한다.
+- 2026-08-12 로컬 검증 환경에서 기본 Turbopack build는 CSS 처리 워커의 로컬
+  포트 바인딩 권한 제한으로 중단됐지만 같은 소스의 webpack production build·
+  TypeScript·정적 페이지 생성과 모든 production E2E는 통과했다. 이후 제한
+  없는 Vercel Preview 환경의 기본 Next.js production build와 배포가 성공해
+  소스 결함이 아닌 로컬 샌드박스 제한임을 재확인했다. Preview의 화면·HTTP
+  smoke는 Vercel SSO 인증이 가능한 브라우저 세션에서 추가 확인해야 한다.
 - 2026-08-07 `npm audit` 기준 production 의존성은 0건이고 전체 의존성은
   중간 4건·높음 0건이다. 남은 중간 4건은 Drizzle Kit의 구형 `esbuild`
   개발 도구 경로이며 수정 제안이 호환되지 않는 0.18.1 하향이라 적용하지
