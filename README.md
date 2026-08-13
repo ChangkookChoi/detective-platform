@@ -24,7 +24,9 @@ Development의 실제 Google 로그인·관리자 검수와 감사 처리자 기
 공식 출처를 검수해 공개해 당시 공개 업체는 26곳이 됐습니다.
 다음 공식 출처 묶음의 PIS·전국명품탐정·루미노케이 서울본부·쌍용탐정사무소
 4곳도 최신 최소 사실 필드와 업무 분야를 확인하고 사용자 위임 승인으로
-공개했습니다. 현재 공개 업체는 총 30곳입니다.
+공개했습니다. 2026-08-13 럭스탐정사무소 서울 본사도 최신 공식 원문과 업무
+분야를 확인해 같은 관리자 경로로 승인했으며, 지속형 개발 DB의 공개 업체는
+총 31곳입니다. Production Neon은 증분 승격 전이라 30곳을 유지합니다.
 충남 소재 업체와 공식 도메인 내부 운영 주체가 충돌하는 업체는 등록하지
 않았습니다. 추가 비용 없는 Vercel Hobby 프로젝트와 Neon Free Singapore
 출시 리허설 DB를 만들고 migration·seed를 적용했습니다. 최소 권한 runtime과
@@ -123,6 +125,7 @@ PostgreSQL 17 이상이 설치된 환경에서는 저장소 루트에서 임시 
 ./scripts/verify-web-e2e-postgres.sh
 ./scripts/verify-admin-e2e-postgres.sh
 ./scripts/verify-postgres-backup.sh
+./scripts/verify-public-data-promotion-postgres.sh
 ```
 
 Vercel 배포 보호를 해제하지 않고 Production 공개·SEO·인증 경계를 확인할 때는

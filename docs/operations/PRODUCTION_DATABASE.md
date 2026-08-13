@@ -112,6 +112,52 @@ npm run db:bootstrap-public-data
 서로 다른 DB와 명시적 확인 문자열을 강제한다. 재실행이나 이미 운영 데이터가
 있는 DB로의 덮어쓰기는 지원하지 않는다.
 
+최초 승격 뒤 검수된 신규 공개 업체만 기존 운영 DB에 추가할 때는 증분 승격
+명령을 사용한다. 이 명령은 기존 대상 공개 업체의 상호·전화·주소·지역·시간값,
+업무 분야·출처·필드 근거 전체가 로컬 검수 DB와 정확히 일치해야 진행한다.
+대상에만 있는 공개 업체, 기존 공개 그래프 불일치, 신규 ID·slug 충돌, 예상
+수량 불일치가 하나라도 있으면 아무것도 반영하지 않고 중단한다. 기존 공개
+업체를 수정·삭제하지 않으며 검수·수집·분석·광고 데이터도 복사하지 않는다.
+
+먼저 `dry-run`을 실행해 같은 serializable 트랜잭션에서 전체 삽입 후 검증하고
+반드시 rollback한다. 대상과 신규 업체 예상 수량은 작업자가 읽기 전용 점검으로
+확인한 값과 정확히 일치해야 한다.
+
+```bash
+cd apps/web
+SOURCE_DATABASE_URL="postgresql://...localhost..." \
+TARGET_DATABASE_URL="postgresql://...direct...?sslmode=verify-full&channel_binding=require" \
+PROMOTE_PUBLIC_DATA_CONFIRM=PROMOTE_NEW_PUBLISHED_DATA_TO_EXISTING_TARGET \
+PROMOTE_PUBLIC_DATA_DRY_RUN=1 \
+PROMOTE_PUBLIC_DATA_EXPECT_TARGET_OFFICES=30 \
+PROMOTE_PUBLIC_DATA_EXPECT_NEW_OFFICES=1 \
+npm run db:promote-public-data
+```
+
+dry-run 결과와 최신 암호화 백업 성공을 확인한 뒤 같은 자격 증명과 예상 수량에서
+`PROMOTE_PUBLIC_DATA_DRY_RUN`만 제거해 실제 반영한다. 성공 직후 같은 명령을
+대상 31건·신규 0건 예상으로 다시 실행해 재실행 무변경과 전체 공개 그래프
+일치를 확인하고, runtime read-only 조회와 배포 상세 HTTP 200을 별도로 검증한다.
+
+```bash
+cd apps/web
+SOURCE_DATABASE_URL="postgresql://...localhost..." \
+TARGET_DATABASE_URL="postgresql://...direct...?sslmode=verify-full&channel_binding=require" \
+PROMOTE_PUBLIC_DATA_CONFIRM=PROMOTE_NEW_PUBLISHED_DATA_TO_EXISTING_TARGET \
+PROMOTE_PUBLIC_DATA_EXPECT_TARGET_OFFICES=30 \
+PROMOTE_PUBLIC_DATA_EXPECT_NEW_OFFICES=1 \
+npm run db:promote-public-data
+```
+
+증분 승격도 migration 소유자의 direct URL을 실행 시에만 주입한다. Vercel
+Production·Preview나 저장소 secret에 소유자 URL을 추가하지 않는다. 대상이 빈
+DB라면 증분 명령은 중단하며 위 최초 bootstrap 절차를 사용한다. 격리 PostgreSQL
+17 회귀 검증은 저장소 루트에서 다음 명령으로 실행한다.
+
+```bash
+./scripts/verify-public-data-promotion-postgres.sh
+```
+
 Marketplace 연결은 환경변수를 자동 추가할 수 있다. 연결 전에 어떤 역할의
 URL인지 확인하고, 소유자 URL이 웹 런타임에 남지 않게 한다. `vercel env pull`은
 대상 파일을 덮어쓸 수 있으므로 현재 `.env.local`을 직접 대상으로 사용하지 않는다.
@@ -217,6 +263,13 @@ DB 접근을 5분 30초 중단한 뒤 같은 SQL로 측정한 scale-to-zero 첫 
 1,808.2ms, 즉시 새 연결로 반복한 후속 요청은 524.6ms였다. 이는 로컬 개발
 장비에서 Singapore Neon까지의 단일 표본이며 실제 Vercel Function 왕복 지연을
 대신하지 않는다.
+
+2026-08-13 비어 있지 않은 운영 DB용 증분 공개 데이터 승격 명령을 추가했다.
+격리 PostgreSQL 17의 별도 원본·대상 DB에서 예상 수량 불일치 rollback, dry-run
+rollback, 신규 1건 원자적 추가, 재실행 0건, 기존 그래프 불일치, 대상 전용 공개
+업체, slug 충돌, 비공개 검수·수집 데이터 불변과 빈 대상 bootstrap 회귀를
+통과했다. 실제 Neon 30→31 승격은 migration owner direct 자격 증명을 새로
+주입하고 최신 백업을 확인하는 별도 운영 작업으로 남아 있다.
 
 ## 8. 백업 출시 차단 조건
 
