@@ -26,12 +26,15 @@ Development의 실제 Google 로그인·관리자 검수와 감사 처리자 기
 4곳도 최신 최소 사실 필드와 업무 분야를 확인하고 사용자 위임 승인으로
 공개했습니다. 2026-08-13 럭스탐정사무소 서울 본사도 최신 공식 원문과 업무
 분야를 확인해 같은 관리자 경로로 승인했으며, 지속형 개발 DB의 공개 업체는
-총 31곳입니다. Production Neon은 증분 승격 전이라 30곳을 유지합니다.
+총 31곳입니다. 같은 날 최신 암호화 백업 성공과 전체 공개 그래프 일치를
+확인한 뒤 Production Neon에도 31번째 업체를 증분 승격했습니다.
 충남 소재 업체와 공식 도메인 내부 운영 주체가 충돌하는 업체는 등록하지
 않았습니다. 추가 비용 없는 Vercel Hobby 프로젝트와 Neon Free Singapore
 출시 리허설 DB를 만들고 migration·seed를 적용했습니다. 최소 권한 runtime과
 read-only backup 역할을 분리하고 공개 30곳만 빈 운영 DB로 원자적으로
 승격했으며 Vercel Production·GitHub Actions에 역할별 연결 정보를 저장했습니다.
+이후 기존 30곳을 변경하지 않는 증분 명령의 dry-run과 원자 반영, 31곳 기준
+무변경 재실행을 통과하고 실제 Production 상세 HTTP 200을 확인했습니다.
 암호화 백업 recipient·identity도 GitHub variable·secret에 분리 저장했습니다.
 실제 Neon 암호화 artifact를 빈 PostgreSQL 17에 복원해 공개 업체 30곳과
 schema·migration·출처 무결성, RPO·RTO 목표를 확인했습니다.

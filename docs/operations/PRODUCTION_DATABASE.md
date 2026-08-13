@@ -9,9 +9,10 @@ TLS·풀링·최소 권한, migration과 복구 검증 절차를 정의한다.
 따라 비용 없는 Vercel Hobby 프로젝트와 Neon Free Singapore 리소스를 만들고
 GitHub 저장소를 연결했다. PostgreSQL 17 schema migration과 기준 seed는 실제
 direct 연결에서 통과했다. 최소 권한 runtime·backup 역할을 분리하고 공개 업체
-30건과 공개 근거만 승격했으며 Vercel Production·GitHub Actions에 역할별 URL을
-저장했다. 암호화 백업 키도 분리 저장했지만 실제 복원과 무료 14일 보존 증거가
-아직 없으므로 공개 운영 DB로 확정하지 않는다.
+30건과 공개 근거만 최초 승격한 뒤 검수된 신규 1건을 증분 승격해 총 31건을
+유지하며, Vercel Production·GitHub Actions에 역할별 URL을 저장했다. 암호화
+백업의 실제 격리 복원은 통과했지만 첫 artifact의 실제 14일 만료 증거가 아직
+없으므로 공개 운영 DB로 확정하지 않는다.
 
 ## 2. 공급자 비교
 
@@ -268,8 +269,13 @@ DB 접근을 5분 30초 중단한 뒤 같은 SQL로 측정한 scale-to-zero 첫 
 격리 PostgreSQL 17의 별도 원본·대상 DB에서 예상 수량 불일치 rollback, dry-run
 rollback, 신규 1건 원자적 추가, 재실행 0건, 기존 그래프 불일치, 대상 전용 공개
 업체, slug 충돌, 비공개 검수·수집 데이터 불변과 빈 대상 bootstrap 회귀를
-통과했다. 실제 Neon 30→31 승격은 migration owner direct 자격 증명을 새로
-주입하고 최신 백업을 확인하는 별도 운영 작업으로 남아 있다.
+통과했다. 최신 실제 Neon 암호화 backup run `31667893789`의 성공을 확인한 뒤
+migration owner direct 자격 증명을 실행 중에만 주입했다. dry-run에서 대상
+30건·신규 업체 1건·출처 1건·필드 근거 6건·업무 분야 연결 3건을 전체 삽입 후
+rollback하고, 같은 예상 수량의 실제 실행으로 31건을 원자 반영했다. 직후 대상
+31건·신규 0건 재실행에서 전체 공개 그래프 일치와 무변경을 확인했다. Vercel
+Production 럭스 상세는 배포 보호를 유지한 요청에서 HTTP 200과 서버 생성
+업체명·slug·정보 출처 포함, 서버 오류 표시 없음을 확인했다.
 
 ## 8. 백업 출시 차단 조건
 
