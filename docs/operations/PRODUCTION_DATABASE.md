@@ -9,8 +9,8 @@ TLS·풀링·최소 권한, migration과 복구 검증 절차를 정의한다.
 따라 비용 없는 Vercel Hobby 프로젝트와 Neon Free Singapore 리소스를 만들고
 GitHub 저장소를 연결했다. PostgreSQL 17 schema migration과 기준 seed는 실제
 direct 연결에서 통과했다. 최소 권한 runtime·backup 역할을 분리하고 공개 업체
-30건과 공개 근거만 최초 승격한 뒤 검수된 신규 1건을 증분 승격해 총 31건을
-유지하며, Vercel Production·GitHub Actions에 역할별 URL을 저장했다. 암호화
+30건과 공개 근거만 최초 승격한 뒤 검수된 신규 2건을 차례로 증분 승격해 총
+32건을 유지하며, Vercel Production·GitHub Actions에 역할별 URL을 저장했다. 암호화
 백업의 실제 격리 복원은 통과했지만 첫 artifact의 실제 14일 만료 증거가 아직
 없으므로 공개 운영 DB로 확정하지 않는다.
 
@@ -276,6 +276,14 @@ rollback하고, 같은 예상 수량의 실제 실행으로 31건을 원자 반�
 31건·신규 0건 재실행에서 전체 공개 그래프 일치와 무변경을 확인했다. Vercel
 Production 럭스 상세는 배포 보호를 유지한 요청에서 HTTP 200과 서버 생성
 업체명·slug·정보 출처 포함, 서버 오류 표시 없음을 확인했다.
+
+같은 날 해담 승격 직전 Production 공개 31건을 backup run `31675524560`에서
+`age` 암호화해 61,392바이트 artifact로 저장하고 14일 보존과 저장량 guard를
+확인했다. 대상 31건·신규 1건 dry-run에서 업체 1건·출처 1건·필드 근거 5건·
+업무 분야 연결 2건을 전체 삽입 후 rollback했다. 동일한 예상 수량으로 실제
+31→32 원자 반영을 완료하고 대상 32건·신규 0건 재실행에서 전체 공개 그래프
+일치와 무변경을 확인했다. Vercel Production 해담 상세는 배포 보호를 유지한
+요청에서 HTTP 200과 서버 생성 업체명·slug·공식 출처를 반환했다.
 
 ## 8. 백업 출시 차단 조건
 

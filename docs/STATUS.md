@@ -6,7 +6,7 @@
   Production·정책 확정 전 공개 출시 차단
 - 데이터 상태: 실제 파일럿 결함 후보 `rejected` 1건·교정 `approved` 1건·
   공식 출처 수동 후보 `approved` 30건·`approved_with_edits` 1건·`on_hold`
-  1건·`pending` 0건, 지속형 개발 DB 공개 업체 32건·Production Neon 31건
+  1건·`pending` 0건, 지속형 개발 DB·Production Neon 공개 업체 각각 32건
 
 ## 현재 요약
 
@@ -79,7 +79,7 @@ robots 404 때문에 자동 수집에는 추가하지 않은 채 실제 Clerk �
 등록·승인 경로로 공개했습니다. 가족 문제·증거·사실 확인만 보수적으로 연결하고
 유효한 제출자·승인 처리자, 대표 출처 1건·필드 근거 5건·업무 분야 2건과 공개
 상세 HTTP 200·브라우저 오류 0건을 확인했습니다. 지속형 개발 DB는 32곳,
-Production Neon은 다음 증분 승격 전까지 31곳입니다.
+Production Neon도 사전 암호화 백업 뒤 같은 공개 그래프 32곳으로 맞췄습니다.
 비어 있지 않은 운영 DB에는 기존 공개 그래프를 덮어쓰지 않고 신규 공개 레코드만
 추가하는 증분 승격 명령을 구현했습니다. 대상 30건·신규 1건 같은 명시적 예상
 수량, serializable 잠금, dry-run rollback, 기존 그래프 완전 일치와 ID·slug 충돌
@@ -92,6 +92,15 @@ Production Neon은 다음 증분 승격 전까지 31곳입니다.
 일치와 무변경을 확인했습니다. Vercel Production의 럭스 상세도 배포 보호를
 유지한 요청에서 HTTP 200, 서버 생성 업체명·slug·정보 출처 포함, 서버 오류
 표시 없음으로 확인했습니다.
+해담 승격 직전 실제 Neon 31곳 전체를 backup run `31675524560`에서 `age`로
+암호화해 61,392바이트 GitHub Actions artifact로 저장했습니다. 2026-08-27
+06:53 UTC까지 14일 보존되고 사후 저장량 guard가 활성 artifact 5개·총
+305,252바이트를 확인했습니다. 이어 owner direct 자격 증명을 실행 중에만
+주입해 dry-run에서 신규 업체 1건·출처 1건·필드 근거 5건·업무 분야 연결 2건을
+검증·rollback하고 실제 31→32 원자 반영을 완료했습니다. 대상 32건·신규 0건
+재실행에서 전체 공개 그래프 일치와 무변경을 확인했으며, Vercel Production의
+해담 상세도 배포 보호를 유지한 요청에서 HTTP 200과 서버 생성 업체명·slug·
+공식 출처를 확인했습니다.
 Next.js와 ESLint 설정을 16.3.0으로 올리고 전체 회귀 검증을 통과해 production
 의존성 보안 감사도 0건으로 정리했습니다. PostgreSQL 합성 논리 백업·복구
 리허설은 자동화했습니다. 추가 비용 없는 Neon Free를 출시 리허설 후보로
@@ -669,6 +678,13 @@ branch protection을 적용했습니다.
   공개 상세 HTTP 200·브라우저 오류 0건을 확인. 최종 수동 후보는 `approved`
   30건·`approved_with_edits` 1건·`on_hold` 1건·`pending` 0건, 지속형 개발 DB
   공개 업체는 32건이며 일회성 자동화는 제거
+- 실제 수동 backup run `31675524560`에서 Production 공개 업체 31건의
+  read-only dump를 `age` 암호화하고 61,392바이트 artifact를 14일 보존으로
+  업로드. 사후 guard는 활성 artifact 5개·총 305,252바이트와 2026-08-27
+  06:53 UTC 만료를 확인
+- 해담 1건의 증분 dry-run에서 출처 1건·필드 근거 5건·업무 분야 연결 2건을
+  검증·rollback한 뒤 Neon에 31→32로 원자 반영. 대상 32건·신규 0건 재실행과
+  Vercel Production 해담 상세 HTTP 200·서버 생성 콘텐츠를 확인
 
 ## 다음 작업 후보
 
