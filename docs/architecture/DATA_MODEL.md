@@ -159,6 +159,13 @@
 생성하지 않는다. 공식 페이지가 주소가 다른 복수 지점을 명확히 구분하면
 같은 URL을 출처로 공유하더라도 사무소별 검수 후보를 각각 저장할 수 있다.
 
+사전검증 manifest에서 일괄 등록한 후보는 `manual_admin_batch` 어댑터와
+`manual-batch-v1` 버전을 사용하고 `proposed_values`에 batch ID, 공개 slug,
+최하위 지역 slug, 업무 분야 slug, 출처 유형과 최소 검증 근거 메모를 함께
+보존한다. 일괄 승인은 별도 배치 상태 테이블을 만들지 않고 이 스냅샷으로 같은
+배치의 미처리 신규 후보만 조회한다. 승인 시에는 기존 단건 승인 트랜잭션을
+업체마다 독립 실행해 각 `review_items`와 `review_actions` 관계를 유지한다.
+
 `correction_request`는 공개 업체에만 연결한다. `proposed_values`에는 선택한 핵심 필드의 제안값과 `requestedField`, `requesterRole`, 선택적 `evidenceUrl`만 저장하며 요청자 연락처, 사건·상담 내용과 개인 정보는 저장하지 않는다. `requesterRole`은 권한 증명이 아니고 `evidenceUrl`도 검증된 출처가 아니다. 승인할 때 운영자가 별도로 확인한 URL을 `office_sources`에 기록하고 실제 변경 필드만 `office_source_evidence`에 연결한다.
 
 ### `review_actions`

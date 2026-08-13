@@ -171,6 +171,12 @@ uv run python main.py validate-config --config sources.toml
 
 실제 출처 등록과 실행은 [수집기 운영 절차](docs/operations/COLLECTOR_RUNBOOK.md)를 따릅니다. 비밀값은 커밋하지 않고 필요한 키는 `.env.example`에 이름과 설명만 추가합니다.
 
+사전검증된 여러 공식 후보는 관리자 `/admin/reviews/batch`에서 manifest와
+preflight를 한 번 제출하고 정상 건만 선택해 일괄 승인할 수 있습니다. 이
+경로도 업체별 검수 항목·감사 이력·출처 근거를 남기며 승인 전에는 공개하지
+않습니다. 상세 절차는 [업체 데이터 확대](docs/operations/OFFICE_DATA_EXPANSION.md)를
+따릅니다.
+
 ## 문서 안내
 
 - 제품: [PRD](docs/product/PRD.md), [MVP 범위](docs/product/MVP_SCOPE.md), [사용자 흐름](docs/product/USER_FLOWS.md)

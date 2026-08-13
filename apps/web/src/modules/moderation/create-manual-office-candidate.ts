@@ -39,6 +39,14 @@ type CreateManualOfficeCandidateInput = {
   addressText: string;
   officialSourceConfirmed: boolean;
   sensitiveContentConfirmed: boolean;
+  batch?: {
+    batchId: string;
+    slug: string;
+    regionSlug: string;
+    serviceCategorySlugs: string[];
+    sourceType: string;
+    evidenceNote: string;
+  };
   createdAt?: Date;
 };
 
@@ -126,6 +134,41 @@ export async function createManualOfficeCandidate(
     phoneDisplay: phone.display,
     phoneNormalized: phone.normalized,
     addressText,
+    ...(input.batch
+      ? {
+          batchId: normalizeRequiredText(
+            input.batch.batchId,
+            3,
+            100,
+            "invalid_source_url",
+          ),
+          slug: normalizeRequiredText(
+            input.batch.slug,
+            3,
+            80,
+            "invalid_source_url",
+          ),
+          regionSlug: normalizeRequiredText(
+            input.batch.regionSlug,
+            1,
+            100,
+            "invalid_source_url",
+          ),
+          serviceCategorySlugs: [...input.batch.serviceCategorySlugs],
+          sourceType: normalizeRequiredText(
+            input.batch.sourceType,
+            1,
+            100,
+            "invalid_source_url",
+          ),
+          evidenceNote: normalizeRequiredText(
+            input.batch.evidenceNote,
+            10,
+            1000,
+            "invalid_source_url",
+          ),
+        }
+      : {}),
   };
   const contentHash = createHash("sha256")
     .update(JSON.stringify({ sourceUrl, ...proposedValues }))
@@ -165,8 +208,8 @@ export async function createManualOfficeCandidate(
       .insert(collectionRuns)
       .values({
         sourceName: "manual-admin",
-        adapterName: "manual_admin",
-        extractorVersion: "manual-v1",
+        adapterName: input.batch ? "manual_admin_batch" : "manual_admin",
+        extractorVersion: input.batch ? "manual-batch-v1" : "manual-v1",
         status: "succeeded",
         startedAt: createdAt,
         finishedAt: createdAt,
@@ -205,7 +248,9 @@ export async function createManualOfficeCandidate(
         risk: "high",
         status: "pending",
         proposedValues,
-        cause: "manual_official_source_candidate",
+        cause: input.batch
+          ? "manual_official_source_batch"
+          : "manual_official_source_candidate",
         submittedByActorId: actorId,
         createdAt,
         updatedAt: createdAt,

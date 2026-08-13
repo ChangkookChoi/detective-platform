@@ -170,6 +170,19 @@ export default async function ReviewDetailPage({
       item.office?.addressText,
     ),
   };
+  const suggestedSlug = textValue(proposedRecord.slug, "");
+  const suggestedRegionSlug = textValue(proposedRecord.regionSlug, "");
+  const suggestedSourceType = textValue(
+    proposedRecord.sourceType,
+    "official_website",
+  );
+  const suggestedCategorySlugs = Array.isArray(
+    proposedRecord.serviceCategorySlugs,
+  )
+    ? proposedRecord.serviceCategorySlugs.filter(
+        (value): value is string => typeof value === "string",
+      )
+    : [];
   const isNewCandidate = item.office === null && item.type === "new_office";
   const suggestedEvidenceUrl =
     typeof proposedRecord.evidenceUrl === "string"
@@ -463,10 +476,14 @@ export default async function ReviewDetailPage({
                           maxLength={80}
                           pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
                           placeholder="sample-office"
+                          defaultValue={suggestedSlug}
                           className="rounded-lg border border-slate-300 p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                         />
                       </label>
-                      <RegionHierarchySelect groups={formOptions.regionGroups} />
+                      <RegionHierarchySelect
+                        groups={formOptions.regionGroups}
+                        defaultRegionSlug={suggestedRegionSlug}
+                      />
                       <fieldset className="rounded-lg border border-slate-300 p-4 md:col-span-2">
                         <legend className="px-2 text-sm font-bold">
                           대표 출처 유형
@@ -481,7 +498,9 @@ export default async function ReviewDetailPage({
                                 type="radio"
                                 name="sourceType"
                                 value={sourceType}
-                                defaultChecked={sourceType === "official_website"}
+                                defaultChecked={
+                                  sourceType === suggestedSourceType
+                                }
                                 required
                               />
                               {sourceTypeLabels[sourceType]}
@@ -503,6 +522,9 @@ export default async function ReviewDetailPage({
                                 type="checkbox"
                                 name="serviceCategorySlugs"
                                 value={category.slug}
+                                defaultChecked={suggestedCategorySlugs.includes(
+                                  category.slug,
+                                )}
                               />
                               {category.name}
                             </label>

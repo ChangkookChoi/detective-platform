@@ -37,6 +37,14 @@ type OfficeBatchPreflight = {
   results: PreflightResult[];
 };
 
+function requiredEnvironmentPath(name: string) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is required.`);
+  }
+  return resolve(value);
+}
+
 function readJson<T>(environmentName: string): T {
   const value = process.env[environmentName];
   if (!value) {
@@ -169,46 +177,48 @@ async function verifyPublicPage(page: Page, candidate: OfficeCandidate) {
   await expect(page.locator(`a[href="${candidate.sourceUrl}"]`)).toBeVisible();
 }
 
-async function registerAndApprove(page: Page, candidate: OfficeCandidate) {
-  await page.goto("/admin/reviews/new", { waitUntil: "domcontentloaded" });
-  await page.locator('input[name="sourceUrl"]').fill(candidate.sourceUrl);
-  await page.locator('input[name="name"]').fill(candidate.name);
-  await page.locator('input[name="phoneDisplay"]').fill(candidate.phoneDisplay);
-  await page.locator('textarea[name="addressText"]').fill(candidate.addressText);
+async function registerAndApproveBatch(page: Page) {
+  const unpublished = [];
+  for (const candidate of manifest.candidates) {
+    if (!(await findPublishedOffice(candidate))) {
+      unpublished.push(candidate);
+    }
+  }
+
+  await page.goto("/admin/reviews/batch", { waitUntil: "domcontentloaded" });
+  await page
+    .locator('input[name="manifest"]')
+    .setInputFiles(requiredEnvironmentPath("OFFICE_BATCH_MANIFEST"));
+  await page
+    .locator('input[name="preflight"]')
+    .setInputFiles(requiredEnvironmentPath("OFFICE_BATCH_PREFLIGHT"));
   await page.locator('input[name="officialSourceConfirmed"]').check();
   await page.locator('input[name="sensitiveContentConfirmed"]').check();
-  await page.getByRole("button", { name: "검수 후보로 등록" }).click();
+  await page.getByRole("button", { name: "검수 후보 일괄 등록" }).click();
   await expect(page).toHaveURL(
-    /\/admin\/reviews\/[0-9a-f-]+\?result=(created|duplicate)$/,
+    new RegExp(
+      `/admin/reviews/batch\\?batchId=${encodeURIComponent(manifest.batchId)}&result=created`,
+    ),
   );
 
-  await page.locator('input[name="slug"]').fill(candidate.slug);
-  await page
-    .getByRole("combobox", { name: "시·도", exact: true })
-    .selectOption(candidate.regionSlug.startsWith("seoul-") ? "seoul" : "gyeonggi");
-  await page
-    .getByRole("combobox", { name: "시·군·구", exact: true })
-    .selectOption(candidate.regionSlug);
-  await page
-    .locator(`input[name="sourceType"][value="${candidate.sourceType}"]`)
-    .check();
-  for (const categorySlug of candidate.serviceCategorySlugs) {
-    await page
-      .locator(
-        `input[name="serviceCategorySlugs"][value="${categorySlug}"]`,
-      )
-      .check();
+  if (unpublished.length === 0) {
+    await expect(page.getByText("승인 가능 0건")).toBeVisible();
+    return;
   }
+
+  for (const candidate of unpublished) {
+    await expect(
+      page.getByRole("checkbox", { name: `${candidate.name} 승인 선택` }),
+    ).toBeChecked();
+  }
+  await page.locator('input[name="reviewedValuesConfirmed"]').check();
   await page
-    .getByLabel("승인 사유")
-    .fill(
-      `${manifest.batchId} 사용자 위임 묶음 검수: 공식 원문의 최소 사실 필드와 업무 분야를 재확인했습니다.`,
-    );
-  await page
-    .getByRole("button", { name: "제안값 그대로 승인·공개" })
+    .getByRole("button", { name: "선택한 정상 후보 일괄 승인·공개" })
     .click();
   await expect(page).toHaveURL(
-    /\/admin\/reviews\?status=approved&result=approved$/,
+    new RegExp(
+      `/admin/reviews/batch\\?batchId=${encodeURIComponent(manifest.batchId)}&result=(approved|partial)`,
+    ),
   );
 }
 
@@ -280,12 +290,9 @@ test("검증된 공식 후보 묶음을 관리자 경계에서 등록·승인·�
   const browserErrors = collectBrowserErrors(page);
   await page.goto("/sign-in", { waitUntil: "domcontentloaded" });
   await clerk.signIn({ page, emailAddress: adminEmailAddress });
+  await registerAndApproveBatch(page);
 
   for (const candidate of manifest.candidates) {
-    const existing = await findPublishedOffice(candidate);
-    if (!existing) {
-      await registerAndApprove(page, candidate);
-    }
     const published = await findPublishedOffice(candidate);
     expectExactPublishedValues(published, candidate);
     await verifyAudit(candidate);
