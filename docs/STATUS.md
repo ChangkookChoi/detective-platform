@@ -607,11 +607,17 @@ branch protection을 적용했습니다.
   60,965바이트 artifact를 14일 보존으로 업로드. 현재 artifact는 3개·총
   182,895바이트이며 신규 artifact 만료는 2026-08-26 18:11 UTC
   (2026-08-27 03:11 KST)로 확인
+- 예약 백업에 read-only GitHub artifact API 저장량 guard를 추가. 실행 전 활성
+  백업 총량에 최대 16MiB 한 건을 예약해 400MiB repository 백업 상한을 넘으면
+  DB 접근 전에 중단하고, 업로드 후 현재 run·attempt artifact가 정확히 한 건인지,
+  양의 크기와 13~15일 보존인지 확인. 만료·무관 artifact 제외, 저장량 초과·
+  재실행·보존기간 오류 self-test를 기본 quality workflow에 추가
 
 ## 다음 작업 후보
 
-1. 후속 02:23 KST 예약 백업의 연속 성공과 실제 시작 지연을 추적한다. 첫
-   artifact의 2026-08-26 만료와 첫 14일간 artifact 수·총 용량을 확인한다.
+1. 저장량·보존 guard가 적용된 후속 02:23 KST 예약 백업의 연속 성공과 실제
+   시작 지연을 추적한다. 첫 artifact의 2026-08-26 만료와 첫 14일간 artifact
+   수·총 용량을 확인한다.
 2. 소유한 custom domain을 준비해 Clerk Production 환경과 Google OAuth를
    구성하고 live 키·Production 관리자 ID를 Vercel에 저장한다. 최신 수정의
    Production 배포 후 보안 헤더·robots·sitemap·JSON-LD·로그인·공개/관리자
@@ -727,6 +733,9 @@ branch protection을 적용했습니다.
   시 새 키의 실제 복원을 다시 검증해야 한다. `main` 후속 백업·복원과 첫 자동
   예약 백업도 통과했지만, 두 번 이상의 예약 실행과 첫 artifact의 실제 14일
   만료를 확인하기 전에는 연속 운영 보존 달성으로 보고하지 않는다.
+  repository 백업 artifact 400MiB guard는 Packages, 다른 repository와 GitHub
+  계정 전체 공유 사용량을 합산하지 않으므로 계정의 0원 초과 사용 중지와 포함
+  사용량 알림을 대체하지 않는다.
 - 최신 `main`의 Vercel Production 배포는 `Ready`이고 Vercel 인증 우회 요청에서
   공개 홈 200, 관리자·로그인 경로 503을 반환해 fail-closed 수정이 실제 배포에
   반영됐음을 확인했다. 다만 배포 보호가 유지되고 custom domain이 0개이며

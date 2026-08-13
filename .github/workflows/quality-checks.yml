@@ -40,6 +40,9 @@ jobs:
       - name: Verify GitHub Actions policy
         run: node scripts/validate-github-actions-policy.mjs
 
+      - name: Verify backup artifact guard
+        run: node scripts/verify-github-backup-artifacts.mjs --self-test
+
       - name: Install web dependencies from lockfile
         run: npm --prefix apps/web ci
 

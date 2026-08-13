@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -22,6 +23,8 @@ jobs:
       DATABASE_BACKUP_URL: ${{ secrets.PRODUCTION_DATABASE_BACKUP_URL }}
       BACKUP_ENCRYPTION_RECIPIENT: ${{ vars.DATABASE_BACKUP_AGE_RECIPIENT }}
       BACKUP_MAX_BYTES: "15728640"
+      BACKUP_ARTIFACT_BUDGET_BYTES: "419430400"
+      BACKUP_PROJECTED_ARTIFACT_BYTES: "16777216"
       POSTGRES_CLIENT_MODE: docker
       POSTGRES_CLIENT_IMAGE: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
     steps:
@@ -42,6 +45,11 @@ jobs:
             echo "DATABASE_BACKUP_AGE_RECIPIENT is not configured." >&2
             exit 1
           }
+
+      - name: Check backup artifact storage headroom
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/verify-github-backup-artifacts.mjs preflight
 
       - name: Install age
         shell: bash
@@ -67,15 +75,25 @@ jobs:
           retention-days: 14
           compression-level: 0
 
+      - name: Verify uploaded artifact retention and storage
+        id: artifact
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/verify-github-backup-artifacts.mjs post-upload
+
       - name: Record backup summary
         shell: bash
         env:
           ARCHIVE_NAME: ${{ steps.backup.outputs.archive_name }}
           ARCHIVE_BYTES: ${{ steps.backup.outputs.archive_bytes }}
+          ARTIFACT_BYTES: ${{ steps.artifact.outputs.artifact_bytes }}
+          ARTIFACT_EXPIRES_AT: ${{ steps.artifact.outputs.artifact_expires_at }}
         run: |
           {
             echo "## PostgreSQL backup"
             echo "- Archive: \`$ARCHIVE_NAME\`"
             echo "- Encrypted bytes: $ARCHIVE_BYTES"
+            echo "- Artifact bytes: $ARTIFACT_BYTES"
             echo "- Retention: 14 days"
+            echo "- Expires at: $ARTIFACT_EXPIRES_AT"
           } >>"$GITHUB_STEP_SUMMARY"

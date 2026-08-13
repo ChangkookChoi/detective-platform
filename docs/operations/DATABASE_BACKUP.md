@@ -159,6 +159,19 @@ point 0.02시간, 순수 restore 1초·전체 41초로 같은 공개 snapshot �
 성공은 자동 실행 활성화를 확인한 것이며, 두 번 이상의 연속 성공과 최초
 artifact의 실제 만료는 별도로 계속 추적한다.
 
+예약 workflow는 `actions: read`만 추가해 repository artifact 메타데이터를
+조회한다. 백업 전에 만료되지 않은 `detective-platform-postgres-` artifact의
+총량과 최대 16MiB 신규 한 건을 합산해 400MiB를 넘으면 DB에 접근하기 전에
+중단한다. 업로드 뒤에는 현재 workflow run과 재시도 번호에 대응하는 artifact가
+정확히 한 건이고 크기가 양수이며 생성·만료 간격이 13~15일인지 확인한다.
+GitHub API 반영 지연은 2초 간격으로 최대 네 번 재조회한다. 이 guard는 artifact를
+삭제하거나 보존 기간을 줄이지 않는다.
+
+400MiB 상한은 수동 재실행에 의한 repository 백업 artifact 누적에 여유를 두는
+운영 경계다. Packages, 다른 종류의 artifact와 다른 repository가 사용하는 계정
+공유 저장량은 이 API 집계에 포함되지 않으므로, 계정 Billing의 0원 초과 사용
+중지와 포함 사용량 알림을 계속 최종 과금 경계로 유지한다.
+
 추가 운영 설정:
 
 1. Actions 사용 예산을 0원·한도 도달 시 사용 중지로 설정한다.
