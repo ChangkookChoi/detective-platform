@@ -92,7 +92,8 @@ Neon 백업 artifact는 60,965바이트, 14일 보존으로 생성했고 복구 
 순수 복원 2초와 전체 검증 1분 6초를 기록했습니다.
 수정 PR #2를 병합한 뒤 `main`에서도 60,965바이트 백업과 공개 업체 30건 복원을
 재통과했습니다. 첫 자동 예약 백업도 모든 단계를 통과해 현재 artifact는
-3개·총 182,895바이트입니다.
+3개·총 182,895바이트가 됐습니다. 저장량·보존 guard를 적용한 실제 수동
+백업까지 통과해 현재 artifact는 4개·총 243,860바이트입니다.
 repository Actions는 GitHub 소유 action만 허용하고 전체 40자리 SHA 고정을
 필수화했습니다. 기본 token은 read-only·PR 승인 불가이고 artifact·log 기본
 보존은 정책과 같은 14일로 낮췄습니다.
@@ -612,6 +613,11 @@ branch protection을 적용했습니다.
   DB 접근 전에 중단하고, 업로드 후 현재 run·attempt artifact가 정확히 한 건인지,
   양의 크기와 13~15일 보존인지 확인. 만료·무관 artifact 제외, 저장량 초과·
   재실행·보존기간 오류 self-test를 기본 quality workflow에 추가
+- PR #9를 `main` merge commit `51dc014`로 반영하고 quality run
+  `31667874403` 성공 확인. 실제 수동 backup run `31667893789`에서 사전 guard가
+  기존 3개·182,895바이트를 확인한 뒤 read-only dump를 수행하고, 사후 guard가
+  신규 60,965바이트 artifact의 14일 보존과 전체 4개·243,860바이트를 확인.
+  신규 artifact는 2026-08-27 04:42 UTC(2026-08-27 13:42 KST) 만료 예정
 
 ## 다음 작업 후보
 
