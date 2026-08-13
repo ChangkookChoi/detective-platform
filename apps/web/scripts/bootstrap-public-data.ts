@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { pathToFileURL } from "node:url";
 
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 
@@ -58,7 +59,7 @@ type OfficeEvidenceRow = {
   updated_at: Date;
 };
 
-type PublicDataset = {
+export type PublicDataset = {
   offices: OfficeRow[];
   categories: OfficeCategoryRow[];
   sources: OfficeSourceRow[];
@@ -70,7 +71,7 @@ type TargetReferences = {
   categoryIdsBySlug: Map<string, string>;
 };
 
-function poolConfiguration(connectionString: string): PoolConfig {
+export function poolConfiguration(connectionString: string): PoolConfig {
   return {
     connectionString,
     connectionTimeoutMillis: 10_000,
@@ -79,7 +80,7 @@ function poolConfiguration(connectionString: string): PoolConfig {
   };
 }
 
-function parseDatabaseUrl(name: string, rawValue: string | undefined) {
+export function parseDatabaseUrl(name: string, rawValue: string | undefined) {
   const value = rawValue?.trim();
   if (!value) {
     throw new Error(`${name} is required.`);
@@ -96,12 +97,18 @@ function parseDatabaseUrl(name: string, rawValue: string | undefined) {
   return url;
 }
 
-function validateConnectionBoundary(sourceUrl: URL, targetUrl: URL) {
+export function validateConnectionBoundary(
+  sourceUrl: URL,
+  targetUrl: URL,
+  options: { allowLocalTarget?: boolean } = {},
+) {
   if (!localHosts.has(sourceUrl.hostname)) {
     throw new Error("SOURCE_DATABASE_URL must target the local reviewed database.");
   }
 
-  const allowLocalTarget = process.env.ALLOW_LOCAL_BOOTSTRAP_TARGET === "1";
+  const allowLocalTarget =
+    options.allowLocalTarget ??
+    process.env.ALLOW_LOCAL_BOOTSTRAP_TARGET === "1";
   if (!allowLocalTarget) {
     if (localHosts.has(targetUrl.hostname)) {
       throw new Error("TARGET_DATABASE_URL must not target a local database.");
@@ -129,77 +136,84 @@ function validateConnectionBoundary(sourceUrl: URL, targetUrl: URL) {
   }
 }
 
-async function readPublicDataset(client: PoolClient): Promise<PublicDataset> {
+export async function queryPublicDataset(
+  client: PoolClient,
+): Promise<PublicDataset> {
+  const offices = await client.query<OfficeRow>(`
+    select
+      offices.id, offices.slug, offices.name, offices.summary,
+      offices.phone_normalized, offices.phone_display, offices.address_text,
+      offices.region_id, regions.slug as region_slug, offices.status,
+      offices.published_at, offices.last_verified_at,
+      offices.created_at, offices.updated_at
+    from offices
+    inner join regions on regions.id = offices.region_id
+    where offices.status = 'published'
+    order by offices.id
+  `);
+
+  const officeIds = offices.rows.map((office) => office.id);
+  const categories = await client.query<OfficeCategoryRow>(
+    `select
+       links.office_id, links.service_category_id,
+       categories.slug as service_category_slug, links.created_at
+     from office_service_categories as links
+     inner join service_categories as categories
+       on categories.id = links.service_category_id
+     where links.office_id = any($1::uuid[])
+     order by links.office_id, links.service_category_id`,
+    [officeIds],
+  );
+  const sources = await client.query<OfficeSourceRow>(
+    `select
+       id, office_id, source_type, url, retrieved_at, verified_at,
+       is_primary, access_status, created_at, updated_at
+     from office_sources
+     where office_id = any($1::uuid[])
+     order by office_id, id`,
+    [officeIds],
+  );
+
+  const sourceIds = sources.rows.map((source) => source.id);
+  const evidence = await client.query<OfficeEvidenceRow>(
+    `select
+       evidence.id, evidence.office_source_id, evidence.field_name,
+       evidence.service_category_id,
+       categories.slug as service_category_slug,
+       evidence.verified_at, evidence.created_at, evidence.updated_at
+     from office_source_evidence as evidence
+     left join service_categories as categories
+       on categories.id = evidence.service_category_id
+     where evidence.office_source_id = any($1::uuid[])
+     order by evidence.office_source_id, evidence.id`,
+    [sourceIds],
+  );
+
+  return {
+    offices: offices.rows,
+    categories: categories.rows,
+    sources: sources.rows,
+    evidence: evidence.rows,
+  };
+}
+
+export async function readPublicDataset(
+  client: PoolClient,
+): Promise<PublicDataset> {
   await client.query("begin transaction isolation level repeatable read read only");
 
   try {
-    const offices = await client.query<OfficeRow>(`
-      select
-        offices.id, offices.slug, offices.name, offices.summary,
-        offices.phone_normalized, offices.phone_display, offices.address_text,
-        offices.region_id, regions.slug as region_slug, offices.status,
-        offices.published_at, offices.last_verified_at,
-        offices.created_at, offices.updated_at
-      from offices
-      inner join regions on regions.id = offices.region_id
-      where offices.status = 'published'
-      order by offices.id
-    `);
-    assert(offices.rowCount, "The source database has no published offices.");
-
-    const officeIds = offices.rows.map((office) => office.id);
-    const [categories, sources] = await Promise.all([
-      client.query<OfficeCategoryRow>(
-        `select
-           links.office_id, links.service_category_id,
-           categories.slug as service_category_slug, links.created_at
-         from office_service_categories as links
-         inner join service_categories as categories
-           on categories.id = links.service_category_id
-         where links.office_id = any($1::uuid[])
-         order by links.office_id, links.service_category_id`,
-        [officeIds],
-      ),
-      client.query<OfficeSourceRow>(
-        `select
-           id, office_id, source_type, url, retrieved_at, verified_at,
-           is_primary, access_status, created_at, updated_at
-         from office_sources
-         where office_id = any($1::uuid[])
-         order by office_id, id`,
-        [officeIds],
-      ),
-    ]);
-
-    const sourceIds = sources.rows.map((source) => source.id);
-    const evidence = await client.query<OfficeEvidenceRow>(
-      `select
-         evidence.id, evidence.office_source_id, evidence.field_name,
-         evidence.service_category_id,
-         categories.slug as service_category_slug,
-         evidence.verified_at, evidence.created_at, evidence.updated_at
-       from office_source_evidence as evidence
-       left join service_categories as categories
-         on categories.id = evidence.service_category_id
-       where evidence.office_source_id = any($1::uuid[])
-       order by evidence.office_source_id, evidence.id`,
-      [sourceIds],
-    );
-
+    const dataset = await queryPublicDataset(client);
+    assert(dataset.offices.length, "The source database has no published offices.");
     await client.query("commit");
-    return {
-      offices: offices.rows,
-      categories: categories.rows,
-      sources: sources.rows,
-      evidence: evidence.rows,
-    };
+    return dataset;
   } catch (error) {
     await client.query("rollback");
     throw error;
   }
 }
 
-function validateDataset(dataset: PublicDataset) {
+export function validateDataset(dataset: PublicDataset) {
   const officeIds = new Set(dataset.offices.map((office) => office.id));
   assert.equal(officeIds.size, dataset.offices.length, "Office IDs must be unique.");
 
@@ -289,7 +303,7 @@ async function assertEmptyTarget(client: PoolClient) {
   }
 }
 
-async function resolveTargetReferences(
+export async function resolveTargetReferences(
   client: PoolClient,
   dataset: PublicDataset,
 ): Promise<TargetReferences> {
@@ -297,16 +311,14 @@ async function resolveTargetReferences(
   const categorySlugs = [
     ...new Set(dataset.categories.map((category) => category.service_category_slug)),
   ];
-  const [regions, categories] = await Promise.all([
-    client.query<{ id: string; slug: string }>(
-      "select id, slug from regions where slug = any($1::text[])",
-      [regionSlugs],
-    ),
-    client.query<{ id: string; slug: string }>(
-      "select id, slug from service_categories where slug = any($1::text[])",
-      [categorySlugs],
-    ),
-  ]);
+  const regions = await client.query<{ id: string; slug: string }>(
+    "select id, slug from regions where slug = any($1::text[])",
+    [regionSlugs],
+  );
+  const categories = await client.query<{ id: string; slug: string }>(
+    "select id, slug from service_categories where slug = any($1::text[])",
+    [categorySlugs],
+  );
 
   assert.equal(
     regions.rowCount,
@@ -325,7 +337,7 @@ async function resolveTargetReferences(
   };
 }
 
-async function insertDataset(
+export async function insertDataset(
   client: PoolClient,
   dataset: PublicDataset,
   references: TargetReferences,
@@ -414,7 +426,7 @@ async function bootstrapTarget(client: PoolClient, dataset: PublicDataset) {
 
   try {
     await client.query(
-      "select pg_advisory_xact_lock(hashtextextended('detective-platform-public-bootstrap', 0))",
+      "select pg_advisory_xact_lock(hashtextextended('detective-platform-public-data-transfer', 0))",
     );
     await assertEmptyTarget(client);
     const references = await resolveTargetReferences(client, dataset);
@@ -446,7 +458,7 @@ async function bootstrapTarget(client: PoolClient, dataset: PublicDataset) {
   }
 }
 
-async function main() {
+export async function runBootstrapPublicData() {
   if (process.env.BOOTSTRAP_PUBLIC_DATA_CONFIRM !== confirmation) {
     throw new Error(`BOOTSTRAP_PUBLIC_DATA_CONFIRM must equal ${confirmation}.`);
   }
@@ -487,7 +499,15 @@ async function main() {
   }
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : "Public data bootstrap failed.");
-  process.exitCode = 1;
-});
+const entrypoint = process.argv[1]
+  ? pathToFileURL(process.argv[1]).href
+  : undefined;
+
+if (entrypoint === import.meta.url) {
+  runBootstrapPublicData().catch((error: unknown) => {
+    console.error(
+      error instanceof Error ? error.message : "Public data bootstrap failed.",
+    );
+    process.exitCode = 1;
+  });
+}
