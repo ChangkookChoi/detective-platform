@@ -91,7 +91,8 @@ Neon 첫 연결·조회 1,808.2ms와 즉시 후속 새 연결·조회 524.6ms를
 Neon 백업 artifact는 60,965바이트, 14일 보존으로 생성했고 복구 지점 0.11시간,
 순수 복원 2초와 전체 검증 1분 6초를 기록했습니다.
 수정 PR #2를 병합한 뒤 `main`에서도 60,965바이트 백업과 공개 업체 30건 복원을
-재통과했으며, 현재 artifact는 2개·총 121,930바이트입니다.
+재통과했습니다. 첫 자동 예약 백업도 모든 단계를 통과해 현재 artifact는
+3개·총 182,895바이트입니다.
 repository Actions는 GitHub 소유 action만 허용하고 전체 40자리 SHA 고정을
 필수화했습니다. 기본 token은 read-only·PR 승인 불가이고 artifact·log 기본
 보존은 정책과 같은 14일로 낮췄습니다.
@@ -600,11 +601,17 @@ branch protection을 적용했습니다.
   공개 상호 변경을 임시 PostgreSQL·Production Chrome에서 확인
 - 관리자 E2E 실행기도 잘못된 `npm --prefix ... exec` 빌드 경계를 CI와 같은
   `npm run build -- --webpack`으로 교정해 재현 가능한 작업 디렉터리를 사용
+- 첫 자동 예약 backup run `31626377060`이 2026-08-13 `main` commit
+  `c15ba10`에서 모든 단계를 통과. 02:23 KST 예약은 GitHub에서 03:11 KST에
+  시작해 약 1분 뒤 완료됐고, 60,101바이트 암호화 archive를 포함한
+  60,965바이트 artifact를 14일 보존으로 업로드. 현재 artifact는 3개·총
+  182,895바이트이며 신규 artifact 만료는 2026-08-26 18:11 UTC
+  (2026-08-27 03:11 KST)로 확인
 
 ## 다음 작업 후보
 
-1. 다음 02:23 KST 예약 백업의 연속 성공을 확인한다. 첫 artifact의
-   2026-08-26 만료와 첫 14일간 artifact 수·총 용량을 추적한다.
+1. 후속 02:23 KST 예약 백업의 연속 성공과 실제 시작 지연을 추적한다. 첫
+   artifact의 2026-08-26 만료와 첫 14일간 artifact 수·총 용량을 확인한다.
 2. 소유한 custom domain을 준비해 Clerk Production 환경과 Google OAuth를
    구성하고 live 키·Production 관리자 ID를 Vercel에 저장한다. 최신 수정의
    Production 배포 후 보안 헤더·robots·sitemap·JSON-LD·로그인·공개/관리자
@@ -655,9 +662,9 @@ branch protection을 적용했습니다.
 
 - migration과 seed는 PostgreSQL 17.10 임시·지속형 로컬 클러스터와 Neon Free
   Singapore에서 검증했다. runtime pooled·migration direct 연결과 독립 암호화
-  백업 방식을 적용해 실제 첫 artifact 복원까지 검증했다. 첫 artifact의 실제
-  14일 만료와 연속 예약 실행은 아직 검증 전이다. 지속형 로컬 DB는 Git 제외
-  개발 데이터이며 백업 대상이 아니다.
+  백업 방식을 적용해 실제 첫 artifact 복원과 첫 자동 예약 실행까지 검증했다.
+  첫 artifact의 실제 14일 만료와 두 번 이상의 연속 예약 실행은 아직 검증
+  전이다. 지속형 로컬 DB는 Git 제외 개발 데이터이며 백업 대상이 아니다.
 - Clerk Hobby Development 키와 실제 관리자 역할 설정, Google 로그인 세션,
   관리자 대기열·상세 접근과 보류 감사 처리는 확인했다. Clerk Hobby는
   애플리케이션 수준 MFA를 제공하지 않으므로 관리자 Google 계정의 2단계
@@ -667,8 +674,8 @@ branch protection을 적용했습니다.
   로컬 개발 DB에 비공개 검수 후보를 적재했지만 사이트 운영자의 별도
   서면 허락은 받지 않았다. 최초 `jsonld-v1` 후보는 주소 지역명이 중복되어
   보류 후 반려했고 교정된 `jsonld-v2` 후보는 사람이 원문을 대조해 승인·공개했다.
-  운영 DB 자격 증명·TLS·최소 권한은 검증했지만 예약 실행의 연속성과 알림
-  담당은 아직 검증하지 않았다.
+  운영 DB 자격 증명·TLS·최소 권한과 첫 예약 실행은 검증했지만 두 번 이상의
+  예약 실행 연속성과 알림 담당은 아직 검증하지 않았다.
 - 분석 Client Component의 상세 표시·전화 클릭 네트워크 요청과 PostgreSQL
   집계는 합성 공개 업체의 production Chrome E2E로 검증했다. 의도적으로 수집하지
   않는 통화 앱 실행 성공과 실제 통화 성립은 검증 범위가 아니다.
@@ -717,9 +724,9 @@ branch protection을 적용했습니다.
   identity를 GitHub secret·variable에 역할별로 저장했다. identity는 GitHub
   Actions에서만 사용할 수 있고 로컬 사본은 보존하지 않는다. 실제 artifact의
   복구 지점 0.11시간·순수 복원 2초로 현재 RPO·RTO 목표는 통과했지만, 키 회전
-  시 새 키의 실제 복원을 다시 검증해야 한다. `main` 후속 백업·복원도 통과했지만
-  예약 실행의 연속 성공과 첫 artifact의 실제 14일 만료를 확인하기 전에는 연속
-  운영 보존 달성으로 보고하지 않는다.
+  시 새 키의 실제 복원을 다시 검증해야 한다. `main` 후속 백업·복원과 첫 자동
+  예약 백업도 통과했지만, 두 번 이상의 예약 실행과 첫 artifact의 실제 14일
+  만료를 확인하기 전에는 연속 운영 보존 달성으로 보고하지 않는다.
 - 최신 `main`의 Vercel Production 배포는 `Ready`이고 Vercel 인증 우회 요청에서
   공개 홈 200, 관리자·로그인 경로 503을 반환해 fail-closed 수정이 실제 배포에
   반영됐음을 확인했다. 다만 배포 보호가 유지되고 custom domain이 0개이며

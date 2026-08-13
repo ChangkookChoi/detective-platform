@@ -117,3 +117,10 @@ schema·migration·제약·seed·출처 무결성을 확인했다. 최초 artifa
 수정 PR #2 병합 후 `main` backup run `31609500182`와 restore run
 `31609617458`도 각각 44초·41초에 성공했다. 두 번째 recovery point는 0.02시간,
 순수 restore는 1초였고 현재 artifact 2개의 총 크기는 121,930바이트다.
+
+첫 자동 예약 backup run `31626377060`도 2026-08-13 `main` commit `c15ba10`에서
+모든 단계를 통과했다. 02:23 KST 예약은 실제 03:11 KST에 시작해 약 1분 뒤
+완료됐고, 60,101바이트 암호화 archive를 포함한 60,965바이트 artifact를
+14일 보존으로 생성했다. 현재 artifact 3개의 총 크기는 182,895바이트다.
+자동 실행 활성화는 확인했지만 두 번 이상의 연속 실행과 첫 artifact의 실제
+만료는 운영 승인 조건으로 계속 추적한다.

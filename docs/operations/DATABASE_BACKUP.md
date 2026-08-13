@@ -121,7 +121,7 @@ repository Actions 정책은 `selected`로 제한하고 GitHub 소유 action만 
 `actions/download-artifact`는 모두 전체 40자리 commit SHA로 고정돼 있으며,
 repository도 SHA 고정을 필수화한다. 기본 `GITHUB_TOKEN`은 read-only이고 PR 승인
 권한은 없다. repository artifact·log 기본 보존은 90일에서 14일로 낮췄고 현재
-run·artifact·저장량은 모두 0이다.
+artifact 수와 저장량은 아래 실제 실행 기록으로 추적한다.
 
 백업 client와 격리 복원 service는 Docker Official Image
 `postgres:17-alpine`의 multi-arch OCI digest까지 고정한다. 2026-08-12 기준
@@ -150,10 +150,19 @@ point 0.02시간, 순수 restore 1초·전체 41초로 같은 공개 snapshot �
 재통과했다. 현재 artifact는 2개·총 121,930바이트이며 둘 다 2026-08-26에
 만료된다.
 
+첫 자동 예약 backup run `31626377060`은 2026-08-13 `main` commit `c15ba10`에서
+모든 단계를 통과했다. 02:23 KST 예약은 실제 03:11 KST에 시작해 03:12 KST에
+완료됐으므로 첫 실행에서 약 48분의 시작 지연을 관측했다. 평문을 올리지 않고
+60,101바이트 `age` archive와 manifest·비민감 메타데이터만 묶은
+60,965바이트 artifact를 업로드했으며, 만료 시각은 2026-08-26 18:11 UTC
+(2026-08-27 03:11 KST)다. 현재 artifact는 3개·총 182,895바이트다. 첫 예약
+성공은 자동 실행 활성화를 확인한 것이며, 두 번 이상의 연속 성공과 최초
+artifact의 실제 만료는 별도로 계속 추적한다.
+
 추가 운영 설정:
 
 1. Actions 사용 예산을 0원·한도 도달 시 사용 중지로 설정한다.
-2. 매일 02:23 KST 예약과 최근 성공 알림 담당자를 확인한다.
+2. 매일 02:23 KST 예약의 최근 성공·실제 시작 시각과 알림 담당자를 확인한다.
 3. 최초 백업 workflow run ID로 수동 복원 workflow를 실행한다.
 4. 복원 workflow가 24시간 이내 archive, SHA-256, 복호화, 빈 PostgreSQL 17
    복원, `db:verify`와 공개 snapshot 최소 30건·출처 무결성을 통과하는지
