@@ -5,8 +5,8 @@
 - 배포 상태: 최신 `main` Vercel Production `Ready`, custom domain·Clerk
   Production·정책 확정 전 공개 출시 차단
 - 데이터 상태: 실제 파일럿 결함 후보 `rejected` 1건·교정 `approved` 1건·
-  공식 출처 수동 후보 `approved` 34건·`approved_with_edits` 1건·`on_hold`
-  1건·`pending` 0건, 지속형 개발 DB 공개 업체 36건·Production Neon 32건
+  공식 출처 수동 후보 `approved` 39건·`approved_with_edits` 1건·`on_hold`
+  1건·`pending` 0건, 지속형 개발 DB 공개 업체 41건·Production Neon 32건
 
 ## 현재 요약
 
@@ -89,6 +89,16 @@ Production Neon도 사전 암호화 백업 뒤 같은 공개 그래프 32곳으�
 제출자·처리자, 대표 출처 각 1건, 필드 근거 6·6·6·5건, 업무 분야 3·3·3·2건과
 공개 상세 HTTP 200·브라우저 오류 0건을 확인했습니다. Production Neon은 사용자
 요청대로 32곳에서 변경하지 않았습니다.
+이후 반복 가능한 업체 확대 방식을 `AGENTS.md`와 전용 운영 절차에 고정하고,
+구조화 manifest·등록부/DB 중복·공개 IP·HTTPS·robots·동일 사이트 redirect·
+만료 화면·활성 최하위 지역을 한 번에 검사하는 `preflight-batch`와 Clerk 관리자
+배치 실행을 구현했습니다. 신규 도메인 20곳 이상을 발굴해 현재 원문을 직접
+확인하지 못한 DNS 실패 5곳, 호스팅 만료 1곳과 공식 페이지 값 충돌 1곳은
+제외했습니다. 청명·정보그룹 정탐·탐정수일·라이프온·고민해결 5곳은 실제
+관리자 화면과 Server Action으로 승인·공개해 개발 DB를 41곳으로 확대했습니다.
+공개값·최하위 지역·업무 분야·감사 처리자·대표 출처·필드 근거와 각 상세 HTTP
+200·전화/출처 링크·브라우저 오류 0건을 확인했고 무변경 재실행도 통과했습니다.
+Production Neon은 32곳에서 변경하지 않았습니다.
 비어 있지 않은 운영 DB에는 기존 공개 그래프를 덮어쓰지 않고 신규 공개 레코드만
 추가하는 증분 승격 명령을 구현했습니다. 대상 30건·신규 1건 같은 명시적 예상
 수량, serializable 잠금, dry-run rollback, 기존 그래프 완전 일치와 ID·slug 충돌
@@ -699,6 +709,12 @@ branch protection을 적용했습니다.
   Clerk 관리자 경로로 등록·사용자 위임 승인·공개. 대표 출처 각 1건, 근거
   6·6·6·5건, 업무 분야 3·3·3·2건과 공개 상세 HTTP 200·브라우저 오류 0건을
   확인해 개발 DB 공개 업체 36건·`pending` 0건으로 확대. Production은 미변경
+- 영구 업체 확대 절차를 `AGENTS.md`·운영 runbook·`preflight-batch`·Clerk
+  관리자 배치 도구로 고정. 신규 도메인 20곳 이상을 발굴하고 DNS 실패 5곳,
+  호스팅 만료 1곳, 공식 값 충돌 1곳을 제외한 청명·정보그룹 정탐·탐정수일·
+  라이프온·고민해결 5곳을 실제 관리자 경로로 승인·공개. 공개값·최하위 지역·
+  감사·출처·근거·공개 상세를 확인해 개발 DB 41건·`pending` 0건으로 확대하고
+  현재 원문을 포함한 무변경 재실행 통과. Production Neon은 32건으로 미변경
 
 ## 다음 작업 후보
 

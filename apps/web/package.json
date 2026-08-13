@@ -11,6 +11,7 @@
     "test:e2e:admin": "../../scripts/verify-admin-e2e-postgres.sh",
     "test:e2e:admin:browser": "playwright test --config=playwright.admin.config.ts",
     "test:e2e:reviewer:browser": "playwright test --config=playwright.reviewer.config.ts",
+    "ops:office-batch": "playwright test --config=playwright.office-batch.config.ts",
     "test:e2e:db": "../../scripts/verify-web-e2e-postgres.sh",
     "test:e2e:db:browser": "playwright test --config=playwright.db.config.ts",
     "test:e2e:report": "playwright show-report",

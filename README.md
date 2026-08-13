@@ -31,7 +31,9 @@ Development의 실제 Google 로그인·관리자 검수와 감사 처리자 기
 재확인해 서울 서초·업무 분야 2개로 승인했습니다. 지속형 개발 DB는 공개 업체
 32곳이 됐습니다. 이어 정암 공인탐정·민간조사 서현·베테랑·더PIA 네 곳의
 현재 공식 원문과 접근 정책을 확인하고 실제 관리자 경로로 승인해 지속형 개발
-DB는 공개 업체 36곳입니다. Production 31곳 전체의 최신 암호화 백업과 14일 보존을 확인한 뒤
+DB는 공개 업체 36곳이었고, 영구 배치 사전검증·Clerk 관리자 실행 절차로 청명·
+정보그룹 정탐·탐정수일·라이프온·고민해결 5곳을 추가해 현재 41곳입니다.
+Production 31곳 전체의 최신 암호화 백업과 14일 보존을 확인한 뒤
 해담 1곳을 같은 증분 승격 절차로 반영해 Production Neon도 32곳이며, 무변경
 재실행과 실제 Production 상세 HTTP 200을 확인했습니다. 신규 네 곳은 사용자
 요청에 따라 Production에 아직 승격하지 않았습니다.
@@ -173,7 +175,7 @@ uv run python main.py validate-config --config sources.toml
 
 - 제품: [PRD](docs/product/PRD.md), [MVP 범위](docs/product/MVP_SCOPE.md), [사용자 흐름](docs/product/USER_FLOWS.md)
 - 설계: [아키텍처](docs/architecture/ARCHITECTURE.md), [데이터 모델](docs/architecture/DATA_MODEL.md), [API 규칙](docs/architecture/API_CONVENTIONS.md)
-- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [출처 등록부](docs/operations/SOURCE_REGISTRY.md), [수집기 절차](docs/operations/COLLECTOR_RUNBOOK.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [관리자 인증](docs/operations/ADMIN_AUTH.md), [최소 분석](docs/operations/ANALYTICS.md), [지역 seed](docs/operations/REGION_SEED.md), [로컬 PostgreSQL](docs/operations/LOCAL_DATABASE.md), [운영 PostgreSQL 준비](docs/operations/PRODUCTION_DATABASE.md), [데이터베이스 백업·복구](docs/operations/DATABASE_BACKUP.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
+- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [출처 등록부](docs/operations/SOURCE_REGISTRY.md), [업체 데이터 확대](docs/operations/OFFICE_DATA_EXPANSION.md), [수집기 절차](docs/operations/COLLECTOR_RUNBOOK.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [관리자 인증](docs/operations/ADMIN_AUTH.md), [최소 분석](docs/operations/ANALYTICS.md), [지역 seed](docs/operations/REGION_SEED.md), [로컬 PostgreSQL](docs/operations/LOCAL_DATABASE.md), [운영 PostgreSQL 준비](docs/operations/PRODUCTION_DATABASE.md), [데이터베이스 백업·복구](docs/operations/DATABASE_BACKUP.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
 - 결정: [ADR-0001](docs/decisions/ADR-0001-monorepo.md), [ADR-0002](docs/decisions/ADR-0002-nextjs-monolith.md), [ADR-0003](docs/decisions/ADR-0003-postgresql.md), [ADR-0004](docs/decisions/ADR-0004-drizzle-orm.md), [ADR-0005](docs/decisions/ADR-0005-clerk-admin-auth.md), [ADR-0006](docs/decisions/ADR-0006-privacy-minimal-analytics.md), [ADR-0007](docs/decisions/ADR-0007-python-collector-foundation.md), [ADR-0008](docs/decisions/ADR-0008-managed-postgres-prelaunch.md), [ADR-0009](docs/decisions/ADR-0009-encrypted-logical-backups.md)
 
 ## 작업 원칙

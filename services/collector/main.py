@@ -8,6 +8,12 @@ from pathlib import Path
 import psycopg
 
 from collector.config import ConfigError, load_source_policies
+from collector.candidate_batch import (
+    CandidateBatchError,
+    load_candidate_batch,
+    load_source_registry,
+    run_candidate_preflight,
+)
 from collector.pipeline import CollectorPipeline
 from collector.repository import CollectorRepository
 
@@ -24,11 +30,54 @@ def _parser() -> argparse.ArgumentParser:
     run = subparsers.add_parser("run")
     run.add_argument("--config", type=Path, required=True)
     run.add_argument("--source", required=True)
+
+    preflight = subparsers.add_parser("preflight-batch")
+    preflight.add_argument("--manifest", type=Path, required=True)
+    preflight.add_argument("--registry", type=Path, required=True)
+    preflight.add_argument("--output", type=Path, required=True)
+    preflight.add_argument("--user-agent", required=True)
+    preflight.add_argument("--max-workers", type=int, default=4)
     return parser
 
 
 def main() -> int:
     args = _parser().parse_args()
+
+    if args.command == "preflight-batch":
+        try:
+            batch = load_candidate_batch(args.manifest)
+            registry = load_source_registry(args.registry)
+            report = run_candidate_preflight(
+                batch,
+                registry,
+                user_agent=args.user_agent,
+                database_url=os.environ.get("DATABASE_URL"),
+                max_workers=args.max_workers,
+            )
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(
+                json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True)
+                + "\n",
+                encoding="utf-8",
+            )
+        except (CandidateBatchError, json.JSONDecodeError, OSError) as exc:
+            print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
+            return 2
+        print(
+            json.dumps(
+                {
+                    "ok": report["ok"],
+                    "batchId": report["batchId"],
+                    "candidateCount": report["candidateCount"],
+                    "eligibleCount": report["eligibleCount"],
+                    "output": str(args.output),
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+        return 0 if report["ok"] else 1
+
     try:
         policies = load_source_policies(args.config)
     except (ConfigError, OSError) as exc:
