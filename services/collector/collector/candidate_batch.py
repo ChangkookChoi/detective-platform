@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 
@@ -60,6 +60,7 @@ class Candidate:
     source_type: str
     evidence_note: str
     manual_policy_reviewed: bool
+    distinct_branch_reviewed: bool
     recheck_reason: str | None
 
 
@@ -154,6 +155,15 @@ def _load_candidate(raw: Any, index: int) -> Candidate:
         raise CandidateBatchError(
             f"candidates[{index}].manualPolicyReviewed_must_be_boolean"
         )
+    distinct_branch_reviewed = raw.get("distinctBranchReviewed", False)
+    if not isinstance(distinct_branch_reviewed, bool):
+        raise CandidateBatchError(
+            f"candidates[{index}].distinctBranchReviewed_must_be_boolean"
+        )
+    if distinct_branch_reviewed and source_type != "official_website":
+        raise CandidateBatchError(
+            f"candidates[{index}].distinctBranchReviewed_requires_official_website"
+        )
     recheck_reason_raw = raw.get("recheckReason")
     recheck_reason = (
         _required_text(
@@ -199,6 +209,7 @@ def _load_candidate(raw: Any, index: int) -> Candidate:
             maximum=1_000,
         ),
         manual_policy_reviewed=manual_policy_reviewed,
+        distinct_branch_reviewed=distinct_branch_reviewed,
         recheck_reason=recheck_reason,
     )
 
@@ -221,14 +232,23 @@ def load_candidate_batch(path: Path) -> CandidateBatch:
         _load_candidate(candidate, index)
         for index, candidate in enumerate(candidates_raw)
     )
-    unique_sets: tuple[tuple[str, Iterable[str]], ...] = (
-        ("sourceUrl", (item.source_url for item in candidates)),
-        ("slug", (item.slug for item in candidates)),
-    )
-    for field, values in unique_sets:
-        materialized = list(values)
-        if len(materialized) != len(set(materialized)):
-            raise CandidateBatchError(f"duplicate_{field}_in_manifest")
+    slugs = [item.slug for item in candidates]
+    if len(slugs) != len(set(slugs)):
+        raise CandidateBatchError("duplicate_slug_in_manifest")
+    identities = [
+        (item.source_url, normalize_address_key(item.address_text))
+        for item in candidates
+    ]
+    if len(identities) != len(set(identities)):
+        raise CandidateBatchError("duplicate_source_address_in_manifest")
+    source_counts: dict[str, int] = {}
+    for item in candidates:
+        source_counts[item.source_url] = source_counts.get(item.source_url, 0) + 1
+    if any(
+        source_counts[item.source_url] > 1 and not item.distinct_branch_reviewed
+        for item in candidates
+    ):
+        raise CandidateBatchError("shared_source_requires_distinct_branch_review")
     return CandidateBatch(
         batch_id=batch_id, verified_at=verified_at, candidates=candidates
     )
@@ -562,6 +582,16 @@ def candidate_duplicate_reasons(
     return [key for key, value in comparisons.items() if value in duplicate_keys[key]]
 
 
+def candidate_has_blocking_duplicate(
+    candidate: Candidate, duplicate_reasons: list[str]
+) -> bool:
+    if not duplicate_reasons:
+        return False
+    if "slug" in duplicate_reasons or "address" in duplicate_reasons:
+        return True
+    return not candidate.distinct_branch_reviewed
+
+
 def run_candidate_preflight(
     batch: CandidateBatch,
     registry: dict[str, RegistryEntry],
@@ -591,12 +621,19 @@ def run_candidate_preflight(
             "manual_registered",
             "manual_on_hold",
         }
+        if (
+            candidate.distinct_branch_reviewed
+            and registry_entry
+            and registry_entry.status == "manual_approved"
+        ):
+            blocked_by_registry = False
         recheck_required = registry_entry is not None and registry_entry.status in {
             "deferred",
             "blocked",
         }
         base = {
             "sourceUrl": candidate.source_url,
+            "slug": candidate.slug,
             "name": candidate.name,
             "registryStatus": registry_entry.status if registry_entry else None,
             "duplicateReasons": duplicate_reasons,
@@ -604,41 +641,47 @@ def run_candidate_preflight(
         if candidate_matches_published(
             candidate, published_offices.get(candidate.slug)
         ):
-            preliminary[candidate.source_url] = {
+            preliminary[candidate.slug] = {
                 **base,
                 "resumeExactPublished": True,
             }
             network_candidates.append(candidate)
-        elif active_leaf_regions is not None and candidate.region_slug not in active_leaf_regions:
-            preliminary[candidate.source_url] = {
+        elif (
+            active_leaf_regions is not None
+            and candidate.region_slug not in active_leaf_regions
+        ):
+            preliminary[candidate.slug] = {
                 **base,
                 "status": "deferred",
                 "eligibleForManualIntake": False,
                 "reason": "region_slug_must_be_active_leaf",
             }
-        elif duplicate_reasons or blocked_by_registry:
-            preliminary[candidate.source_url] = {
+        elif (
+            candidate_has_blocking_duplicate(candidate, duplicate_reasons)
+            or blocked_by_registry
+        ):
+            preliminary[candidate.slug] = {
                 **base,
                 "status": "duplicate",
                 "eligibleForManualIntake": False,
                 "reason": "existing_registry_or_database_match",
             }
         elif recheck_required and not candidate.recheck_reason:
-            preliminary[candidate.source_url] = {
+            preliminary[candidate.slug] = {
                 **base,
                 "status": "deferred",
                 "eligibleForManualIntake": False,
                 "reason": "recheck_reason_required",
             }
         elif registry_entry and registry_entry.status == "blocked":
-            preliminary[candidate.source_url] = {
+            preliminary[candidate.slug] = {
                 **base,
                 "status": "blocked",
                 "eligibleForManualIntake": False,
                 "reason": "blocked_registry_requires_separate_human_clearance",
             }
         else:
-            preliminary[candidate.source_url] = base
+            preliminary[candidate.slug] = base
             network_candidates.append(candidate)
 
     network_results: dict[str, NetworkCheck] = {}
@@ -652,7 +695,7 @@ def run_candidate_preflight(
             candidate.source_url: check_candidate_network(
                 candidate, user_agent=user_agent
             )
-            for candidate in candidates
+            for candidate in {item.source_url: item for item in candidates}.values()
         }
 
     with ThreadPoolExecutor(max_workers=max(1, min(max_workers, 4))) as executor:
@@ -664,7 +707,7 @@ def run_candidate_preflight(
             network_results.update(future.result())
 
     for candidate in batch.candidates:
-        base = preliminary[candidate.source_url]
+        base = preliminary[candidate.slug]
         network = network_results.get(candidate.source_url)
         if network is None:
             results.append(base)

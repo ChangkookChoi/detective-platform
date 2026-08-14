@@ -7,6 +7,7 @@ from pathlib import Path
 
 from collector.candidate_batch import (
     CandidateBatchError,
+    candidate_has_blocking_duplicate,
     candidate_matches_published,
     candidate_duplicate_reasons,
     load_candidate_batch,
@@ -60,17 +61,60 @@ class CandidateBatchTests(unittest.TestCase):
             ("family", "evidence-fact-checking"),
         )
 
-    def test_rejects_duplicate_source_urls(self) -> None:
+    def test_requires_explicit_review_for_shared_source_urls(self) -> None:
         manifest = _manifest()
         manifest["candidates"] = [
             manifest["candidates"][0],
-            {**manifest["candidates"][0], "slug": "another-test-office"},
+            {
+                **manifest["candidates"][0],
+                "slug": "another-test-office",
+                "addressText": "서울특별시 강남구 테스트로 2",
+            },
         ]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "batch.json"
             path.write_text(json.dumps(manifest), encoding="utf-8")
             with self.assertRaisesRegex(
-                CandidateBatchError, "duplicate_sourceUrl_in_manifest"
+                CandidateBatchError,
+                "shared_source_requires_distinct_branch_review",
+            ):
+                load_candidate_batch(path)
+
+    def test_allows_reviewed_branches_with_shared_source_urls(self) -> None:
+        manifest = _manifest()
+        first = {
+            **manifest["candidates"][0],
+            "distinctBranchReviewed": True,
+        }
+        second = {
+            **first,
+            "slug": "another-test-office",
+            "addressText": "서울특별시 강남구 테스트로 2",
+        }
+        manifest["candidates"] = [first, second]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "batch.json"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            batch = load_candidate_batch(path)
+
+        self.assertEqual(len(batch.candidates), 2)
+        self.assertTrue(batch.candidates[0].distinct_branch_reviewed)
+
+    def test_rejects_same_source_and_address_even_as_reviewed_branches(self) -> None:
+        manifest = _manifest()
+        candidate = {
+            **manifest["candidates"][0],
+            "distinctBranchReviewed": True,
+        }
+        manifest["candidates"] = [
+            candidate,
+            {**candidate, "slug": "another-test-office"},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "batch.json"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(
+                CandidateBatchError, "duplicate_source_address_in_manifest"
             ):
                 load_candidate_batch(path)
 
@@ -149,6 +193,20 @@ class CandidateBatchTests(unittest.TestCase):
         self.assertEqual(
             candidate_duplicate_reasons(candidate, keys), ["source", "phone"]
         )
+        self.assertTrue(candidate_has_blocking_duplicate(candidate, ["source"]))
+
+    def test_allows_reviewed_branch_when_address_and_slug_are_unique(self) -> None:
+        manifest = _manifest()
+        manifest["candidates"][0]["distinctBranchReviewed"] = True
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "batch.json"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            candidate = load_candidate_batch(path).candidates[0]
+
+        self.assertFalse(
+            candidate_has_blocking_duplicate(candidate, ["source", "name", "phone"])
+        )
+        self.assertTrue(candidate_has_blocking_duplicate(candidate, ["address"]))
 
     def test_recognizes_exact_published_candidate_for_batch_resume(self) -> None:
         manifest = _manifest()

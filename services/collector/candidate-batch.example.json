@@ -13,7 +13,8 @@
       "serviceCategorySlugs": ["family", "evidence-fact-checking"],
       "sourceType": "official_website",
       "evidenceNote": "공식 푸터에서 상호·대표 전화·단일 사무소 주소를 확인하고 업무 안내에서 가족 문제와 증거 수집을 확인",
-      "manualPolicyReviewed": false
+      "manualPolicyReviewed": false,
+      "distinctBranchReviewed": false
     }
   ]
 }

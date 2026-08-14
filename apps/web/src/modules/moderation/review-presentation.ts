@@ -21,6 +21,7 @@ const fieldLabels: Record<string, string> = {
   source_type: "출처 유형",
   batchId: "배치 ID",
   evidenceNote: "검증 근거 메모",
+  distinctBranchReviewed: "공식 지점 구분 검토",
   requestedField: "정정 요청 항목",
   requesterRole: "요청자 관계",
   evidenceUrl: "제안 공개 근거 URL",

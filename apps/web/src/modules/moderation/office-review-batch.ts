@@ -40,6 +40,7 @@ export type OfficeBatchCandidate = {
   serviceCategorySlugs: string[];
   sourceType: ApprovalSourceType;
   evidenceNote: string;
+  distinctBranchReviewed: boolean;
 };
 
 export type OfficeReviewBatch = {
@@ -96,6 +97,7 @@ function parseCandidate(value: unknown): OfficeBatchCandidate {
   const slug = requiredText(candidate.slug, 3, 80).toLowerCase();
   const regionSlug = requiredText(candidate.regionSlug, 1, 100);
   const sourceType = requiredText(candidate.sourceType, 1, 100);
+  const distinctBranchReviewed = candidate.distinctBranchReviewed ?? false;
   const categoryValues = candidate.serviceCategorySlugs;
 
   if (
@@ -103,6 +105,8 @@ function parseCandidate(value: unknown): OfficeBatchCandidate {
     !slugPattern.test(slug) ||
     !categorySlugPattern.test(regionSlug) ||
     !approvalSourceTypes.includes(sourceType as ApprovalSourceType) ||
+    typeof distinctBranchReviewed !== "boolean" ||
+    (distinctBranchReviewed && sourceType !== "official_website") ||
     !Array.isArray(categoryValues) ||
     categoryValues.length === 0 ||
     categoryValues.length > 10
@@ -132,6 +136,7 @@ function parseCandidate(value: unknown): OfficeBatchCandidate {
     serviceCategorySlugs,
     sourceType: sourceType as ApprovalSourceType,
     evidenceNote: requiredText(candidate.evidenceNote, 10, 1000),
+    distinctBranchReviewed,
   };
 }
 
@@ -168,11 +173,25 @@ export function parseOfficeReviewBatch(
     throw new OfficeReviewBatchError("invalid_batch");
   }
   const candidates = manifest.candidates.map(parseCandidate);
-  const uniqueSources = new Set(candidates.map((item) => item.sourceUrl));
   const uniqueSlugs = new Set(candidates.map((item) => item.slug));
+  const uniqueSourceAddresses = new Set(
+    candidates.map((item) => `${item.sourceUrl}\n${item.addressText}`),
+  );
+  const sourceCounts = new Map<string, number>();
+  for (const candidate of candidates) {
+    sourceCounts.set(
+      candidate.sourceUrl,
+      (sourceCounts.get(candidate.sourceUrl) ?? 0) + 1,
+    );
+  }
   if (
-    uniqueSources.size !== candidates.length ||
-    uniqueSlugs.size !== candidates.length
+    uniqueSlugs.size !== candidates.length ||
+    uniqueSourceAddresses.size !== candidates.length ||
+    candidates.some(
+      (candidate) =>
+        (sourceCounts.get(candidate.sourceUrl) ?? 0) > 1 &&
+        !candidate.distinctBranchReviewed,
+    )
   ) {
     throw new OfficeReviewBatchError("duplicate_candidate");
   }
@@ -213,7 +232,14 @@ export function parseOfficeReviewBatch(
     throw new OfficeReviewBatchError("preflight_expired");
   }
 
-  const resultBySource = new Map<string, Record<string, unknown>>();
+  const resultBySlug = new Map<string, Record<string, unknown>>();
+  const candidatesBySource = new Map<string, OfficeBatchCandidate[]>();
+  for (const candidate of candidates) {
+    candidatesBySource.set(candidate.sourceUrl, [
+      ...(candidatesBySource.get(candidate.sourceUrl) ?? []),
+      candidate,
+    ]);
+  }
   for (const rawResult of preflight.results) {
     let result: Record<string, unknown>;
     try {
@@ -227,15 +253,28 @@ export function parseOfficeReviewBatch(
       2048,
       "invalid_preflight",
     );
-    if (resultBySource.has(sourceUrl)) {
+    const sourceCandidates = candidatesBySource.get(sourceUrl) ?? [];
+    const slug =
+      typeof result.slug === "string"
+        ? requiredText(result.slug, 3, 80, "invalid_preflight")
+        : sourceCandidates.length === 1
+          ? sourceCandidates.at(0)?.slug
+          : undefined;
+    if (
+      !slug ||
+      !sourceCandidates.some((candidate) => candidate.slug === slug)
+    ) {
       throw new OfficeReviewBatchError("invalid_preflight");
     }
-    resultBySource.set(sourceUrl, result);
+    if (resultBySlug.has(slug)) {
+      throw new OfficeReviewBatchError("invalid_preflight");
+    }
+    resultBySlug.set(slug, result);
   }
   if (
     candidates.some(
       (candidate) =>
-        resultBySource.get(candidate.sourceUrl)?.eligibleForManualIntake !== true,
+        resultBySlug.get(candidate.slug)?.eligibleForManualIntake !== true,
     )
   ) {
     throw new OfficeReviewBatchError("preflight_failed");
@@ -327,6 +366,7 @@ export async function createOfficeReviewBatch(input: {
           serviceCategorySlugs: candidate.serviceCategorySlugs,
           sourceType: candidate.sourceType,
           evidenceNote: candidate.evidenceNote,
+          distinctBranchReviewed: candidate.distinctBranchReviewed,
         },
       });
       results.push({
@@ -375,6 +415,7 @@ export async function createOfficeReviewBatch(input: {
               serviceCategorySlugs: candidate.serviceCategorySlugs,
               sourceType: candidate.sourceType,
               evidenceNote: candidate.evidenceNote,
+              distinctBranchReviewed: candidate.distinctBranchReviewed,
             },
             updatedAt: new Date(),
           })

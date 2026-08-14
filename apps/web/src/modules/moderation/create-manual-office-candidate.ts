@@ -46,6 +46,7 @@ type CreateManualOfficeCandidateInput = {
     serviceCategorySlugs: string[];
     sourceType: string;
     evidenceNote: string;
+    distinctBranchReviewed: boolean;
   };
   createdAt?: Date;
 };
@@ -167,6 +168,7 @@ export async function createManualOfficeCandidate(
             1000,
             "invalid_source_url",
           ),
+          distinctBranchReviewed: input.batch.distinctBranchReviewed,
         }
       : {}),
   };

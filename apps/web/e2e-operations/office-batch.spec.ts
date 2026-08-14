@@ -26,6 +26,7 @@ type OfficeBatchManifest = {
 
 type PreflightResult = {
   sourceUrl: string;
+  slug?: string;
   eligibleForManualIntake: boolean;
 };
 
@@ -75,11 +76,32 @@ function loadAndValidateBatch() {
   ) {
     throw new Error("Office batch preflight must be less than 24 hours old.");
   }
-  const resultBySource = new Map(
-    preflight.results.map((result) => [result.sourceUrl, result]),
-  );
+  const resultBySlug = new Map<string, PreflightResult>();
+  for (const result of preflight.results) {
+    if (result.slug) {
+      const matchesSource = manifest.candidates.some(
+        (candidate) =>
+          candidate.slug === result.slug &&
+          candidate.sourceUrl === result.sourceUrl,
+      );
+      if (!matchesSource) {
+        throw new Error("Preflight slug and source URL do not match.");
+      }
+      resultBySlug.set(result.slug, result);
+      continue;
+    }
+    const matchingCandidates = manifest.candidates.filter(
+      (candidate) => candidate.sourceUrl === result.sourceUrl,
+    );
+    if (matchingCandidates.length === 1) {
+      const [candidate] = matchingCandidates;
+      if (candidate) {
+        resultBySlug.set(candidate.slug, result);
+      }
+    }
+  }
   for (const candidate of manifest.candidates) {
-    if (resultBySource.get(candidate.sourceUrl)?.eligibleForManualIntake !== true) {
+    if (resultBySlug.get(candidate.slug)?.eligibleForManualIntake !== true) {
       throw new Error(`Candidate did not pass preflight: ${candidate.sourceUrl}`);
     }
   }
