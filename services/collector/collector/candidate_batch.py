@@ -32,6 +32,8 @@ ALLOWED_CATEGORY_SLUGS = {
 }
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 PHONE_DIGIT_PATTERN = re.compile(r"\D+")
+LEADING_POSTAL_CODE_PATTERN = re.compile(r"^\d{5}\s+")
+ADDRESS_SEPARATOR_PATTERN = re.compile(r"[\W_]+", re.UNICODE)
 REGISTRY_STATUS_PATTERN = re.compile(r"`([a-z_]+)`")
 AI_BLOCKED_AGENTS = {"gptbot", "chatgpt-user"}
 INVALID_PAGE_MARKERS = (
@@ -109,6 +111,20 @@ def normalize_source_url(value: Any) -> str:
         raise CandidateBatchError("sourceUrl_must_be_public_https")
     path = parts.path or "/"
     return urlunsplit(("https", parts.netloc.lower(), path, parts.query, ""))
+
+
+def normalize_phone_key(value: str) -> str:
+    digits = PHONE_DIGIT_PATTERN.sub("", value)
+    if digits.startswith("82") and 9 <= len(digits[2:]) <= 10:
+        return f"0{digits[2:]}"
+    return digits
+
+
+def normalize_address_key(value: str) -> str:
+    without_postal_code = LEADING_POSTAL_CODE_PATTERN.sub(
+        "", value.strip().lower()
+    )
+    return ADDRESS_SEPARATOR_PATTERN.sub("", without_postal_code)
 
 
 def _load_candidate(raw: Any, index: int) -> Candidate:
@@ -455,9 +471,9 @@ def load_database_duplicate_keys(database_url: str) -> dict[str, set[str]]:
                 result["slug"].add(str(slug).lower())
                 result["name"].add(" ".join(str(name).lower().split()))
                 if phone:
-                    result["phone"].add(PHONE_DIGIT_PATTERN.sub("", str(phone)))
+                    result["phone"].add(normalize_phone_key(str(phone)))
                 if address:
-                    result["address"].add(" ".join(str(address).lower().split()))
+                    result["address"].add(normalize_address_key(str(address)))
                 if source:
                     try:
                         result["source"].add(normalize_source_url(str(source)))
@@ -540,8 +556,8 @@ def candidate_duplicate_reasons(
         "source": candidate.source_url,
         "slug": candidate.slug.lower(),
         "name": " ".join(candidate.name.lower().split()),
-        "phone": PHONE_DIGIT_PATTERN.sub("", candidate.phone_display),
-        "address": " ".join(candidate.address_text.lower().split()),
+        "phone": normalize_phone_key(candidate.phone_display),
+        "address": normalize_address_key(candidate.address_text),
     }
     return [key for key, value in comparisons.items() if value in duplicate_keys[key]]
 

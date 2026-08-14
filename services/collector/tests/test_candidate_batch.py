@@ -12,6 +12,8 @@ from collector.candidate_batch import (
     load_candidate_batch,
     load_source_registry,
     _is_same_site_host,
+    normalize_address_key,
+    normalize_phone_key,
     page_has_invalid_marker,
     robots_explicitly_blocks_ai,
 )
@@ -81,6 +83,26 @@ class CandidateBatchTests(unittest.TestCase):
             batch = load_candidate_batch(path)
 
         self.assertEqual(batch.candidates[0].phone_display, "1661-9782")
+
+    def test_normalizes_korean_country_code_for_duplicate_matching(self) -> None:
+        self.assertEqual(
+            normalize_phone_key("+82-10-4741-9991"),
+            normalize_phone_key("010-4741-9991"),
+        )
+        self.assertEqual(
+            normalize_phone_key("+82-2-1234-5678"),
+            normalize_phone_key("02-1234-5678"),
+        )
+
+    def test_normalizes_postal_code_and_address_separators(self) -> None:
+        self.assertEqual(
+            normalize_address_key("01000 서울특별시 강북구 도봉로 191"),
+            normalize_address_key("서울특별시 강북구 도봉로 191"),
+        )
+        self.assertEqual(
+            normalize_address_key("경기도 안산시 중앙대로 951, 301호 (고잔동)"),
+            normalize_address_key("경기도 안산시 중앙대로951 301호 고잔동"),
+        )
 
     def test_parses_machine_readable_registry_table(self) -> None:
         content = """# registry

@@ -68,6 +68,8 @@ DATABASE_URL="postgresql://..." \
 
 명령은 manifest 형식, 등록부 상태, 운영 DB 중복, 공개 IP, HTTPS, robots와 공식
 페이지 HTTP 상태, 호스팅 만료·정지 표식과 활성 최하위 지역 slug를 검사한다.
+DB 중복 키는 한국 전화의 `+82`·국내 `0` 표기를 통일하고 주소 앞 우편번호와
+공백·구두점 차이를 제거해, 표시 형식만 다른 같은 사무소의 재등록도 차단한다.
 HTML은 파일로 보존하지 않는다. 결과의 모든 후보가
 `eligibleForManualIntake: true`여야 관리자 배치 실행 대상으로 사용할 수 있다.
 
