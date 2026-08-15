@@ -1,12 +1,12 @@
 # 프로젝트 상태
 
-- 기준일: 2026-08-14
+- 기준일: 2026-08-16
 - 단계: 핵심 MVP 기능 구현·출시 준비
 - 배포 상태: 최신 `main` Vercel Production `Ready`, custom domain·Clerk
   Production·정책 확정 전 공개 출시 차단
 - 데이터 상태: 실제 파일럿 결함 후보 `rejected` 1건·공식 출처 수동 후보
-  `approved` 51건·`approved_with_edits` 1건·`on_hold` 1건·`pending` 0건,
-  지속형 개발 DB 공개 업체 52건·Production Neon 32건
+  `approved` 63건·`approved_with_edits` 1건·`on_hold` 1건·`pending` 0건,
+  지속형 개발 DB 공개 업체 64건·Production Neon 32건
 
 ## 현재 요약
 
@@ -771,6 +771,12 @@ branch protection을 적용했습니다.
   preflight 2/2와 Clerk 관리자 배치 E2E 2/2, 독립 DB 조회를 통과해 개발 DB
   54건·`approved` 53건·`approved_with_edits` 1건·`pending` 0건으로 확대했고
   Production Neon은 32건으로 유지
+- 2026-08-16 공식 홈페이지 신규 후보 10곳의 현재 robots·원문과 상호·전화·
+  정확한 한 사무소 주소·업무 분야를 재확인하고 기존 54곳의 상호·전화·주소·
+  slug와 전수 대조. preflight 10/10과 Clerk 관리자 배치 E2E 최초·무변경
+  재실행 각 2/2를 통과해 모두 승인·공개. 독립 DB 조회에서 개발 DB 64건·
+  `approved` 63건·`approved_with_edits` 1건·`pending` 0건, 신규 각 대표 출처
+  1건·필드 근거·제출자·처리자를 확인했고 Production Neon은 32건으로 유지
 
 ## 다음 작업 후보
 
@@ -833,6 +839,28 @@ branch protection을 적용했습니다.
 - 독립 DB 조회에서 두 업체 각각 대표 출처 1건·필드 근거 6건·업무 분야 3건,
   전체 `approved` 53건·`approved_with_edits` 1건·`on_hold` 1건·`rejected`
   1건·`pending` 0건과 지속형 개발 DB 공개 업체 54건을 확인했다. Production
+  Neon은 사용자 요청대로 32건에서 변경하지 않았다.
+
+### 2026-08-16 개선 배치 02 독립 공식 업체 10곳 확대
+
+- 공개 웹에서 발굴한 후보를 공식 홈페이지 원문으로 다시 확인하고 기존 개발
+  DB 54곳의 상호·전화·주소·slug와 전수 대조했다. 별도 브랜드지만 기존 전화·
+  주소가 같은 후보, 현재·이전 공식 값이 충돌한 후보, DNS 실패 후보와 서울·경기
+  밖 후보는 제외했다.
+- 지티(GT)·여성·보스·요한·김앤유 마포본사·다산행정·제우스·인사이트·
+  한국·부부의세계 탐정사무소 10곳은 robots 공개 경로와 공식 원문 HTTP 200,
+  사업상 대표전화와 정확한 한 사무소 주소, 공식 안내가 직접 뒷받침하는 관리형
+  업무 분야를 확인했다. 같은 건물의 기존 업체가 있는 경우 층·호실과 별도
+  사업자 표기가 다른 사무소만 포함했다.
+- 구조화 manifest의 정책 preflight 10/10을 통과한 뒤 Clerk Development
+  allowlist 관리자 배치 화면과 Server Action으로 후보를 만들고 제안값 그대로
+  승인·공개했다. SQL 직접 삽입이나 인증 우회는 사용하지 않았다.
+- 관리자 배치 production Chrome 시나리오는 최초 실행과 무변경 재실행에서 각각
+  2/2를 통과했다. 독립 DB 조회에서 신규 10곳 모두 `published`, 활성 최하위
+  소재지, 대표 출처 1건, 필드 근거 4~7건, 업무 분야 1~4건과 유효한 제출자·
+  승인 처리자를 확인했다.
+- 최종 검수 상태는 `approved` 63건·`approved_with_edits` 1건·`on_hold` 1건·
+  `rejected` 1건·`pending` 0건, 지속형 개발 DB 공개 업체는 64건이다. Production
   Neon은 사용자 요청대로 32건에서 변경하지 않았다.
 
 ## 확정된 초기 데이터 모델
