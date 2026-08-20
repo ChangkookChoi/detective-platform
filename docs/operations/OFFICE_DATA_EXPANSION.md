@@ -31,6 +31,49 @@ Clerk 관리자 배치 브라우저 실행은 하나의 운영 계약이다. 절
 9. Production 승격은 개발 배치와 분리해 충분한 누적 건수, 별도 사용자 승인과
    사전 암호화 백업이 있을 때 수행한다.
 
+## 2.1 NAVER API HUB 제한적 후보 발굴
+
+[ADR-0010](../decisions/ADR-0010-naver-api-discovery-pilot.md)의 재검토 기한 전
+비상업 파일럿에 한해 지역 검색 API를 후보 발굴
+입력으로 사용할 수 있다. 검색 결과는 공식 출처나 공개 근거가 아니며 다음
+경계를 지킨다.
+
+1. 실행당 요청 예산과 최대 2회 시도 한도를 코드로 강제한다.
+2. 실제 응답은 `data/private/discovery-runs`의 Raw JSONL에만 저장하고 각
+   레코드에 기본 7일, 최대 21일의 만료 시각을 기록한다. 새 API 실행 전 만료
+   실행을 자동 파기하고, 정기 수집 전에는 별도 파기 명령을 예약한다.
+3. filtered JSONL은 서울·경기, 관련 상호·분류, 실행 내부 중복, DB·출처 등록부
+   중복과 공식 링크 필요 여부를 사유 코드로 기록한다.
+4. Raw와 filtered 파일을 AI 입력, Git, CI artifact, 공개 화면, Production에
+   전달하지 않는다.
+5. 링크가 있는 후보도 `source_check_required`로만 분류한다. 모든 filtered
+   레코드는 `source_verification=required`, `promotion_allowed=false`이며 자동
+   manifest 변환 경로를 두지 않는다. 별도 절차로 공식 홈페이지의 현재 원문·
+   정책·대표 전화·한 사무소 주소를 다시 확인하고 공식 출처에서 확인한 값으로
+   새 manifest를 작성해야 한다.
+6. 지역 결과에서 공식 링크 없음·비공식 링크·HTTP 링크 사유가 있는 비반려
+   후보만 웹문서 API 재검색 대상으로 삼는다. 웹 Raw에는 제목·URL만 저장하고
+   설명문·질의문은 저장하지 않으며 부모 지역 Raw 만료 뒤에는 사용할 수 없다.
+   웹 실행 manifest에는 부모 레코드 ID와 후보 정체성 해시만 기록해, 다른
+   질의·검색어에서 같은 업체가 다시 발견돼도 보존기한 안에는 재호출하지 않는다.
+7. 웹 결과도 `source_check_required`까지만 분류한다. 해당 URL의 공개 IP·HTTPS·
+   동일 사이트 redirect·robots·응답 상태·크기를 점검하고 통과 결과도
+   `content_check_required`로만 기록한다. 공식 홈페이지 원문과 대표번호·주소를
+   독립적으로 확인하기 전 manifest로 변환하지 않는다.
+8. `content_check_required`만 정책 기반 HTTP client로 읽고 원문 파일을 남기지
+   않는다. JSON-LD와 보이는 HTML에서 상호·업무용 대표번호·주소 신호만 추출해
+   강한 일치·부분 일치·정보 부족으로 분류한다. 강한/부분 일치도 자동 공개
+   후보가 아니라 `promotion_allowed=false`인 수동 검토 큐다.
+9. 여러 facts 파일은 `build-discovery-review-queue`로 업체 정체성 해시 기준
+   중복 제거할 수 있다. 이 큐는 기존 office batch manifest가 아니며 지역 slug,
+   업무 분야, 출처 유형과 사람의 원문 대조를 추가하기 전에는 관리자 등록에
+   사용할 수 없다.
+10. 2026-09-07 개정 약관 시행 전 전문가·NAVER 서면 답변이 없으면 실제 호출과
+   저장을 중단하고 파일을 파기한다.
+
+실행 예시와 환경변수는 수집기 README, 약관 쟁점은
+[전문가 검토 요청서](NAVER_API_LEGAL_REVIEW_BRIEF.md)를 따른다.
+
 ## 3. manifest
 
 실제 값은 Git 제외 파일 `data/private/office-batches/<batch-id>.json`에 둔다.

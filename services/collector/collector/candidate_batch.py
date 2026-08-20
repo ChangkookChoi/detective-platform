@@ -330,14 +330,15 @@ def page_has_invalid_marker(content: bytes) -> bool:
     return any(marker in text for marker in INVALID_PAGE_MARKERS)
 
 
-def check_candidate_network(
-    candidate: Candidate,
+def check_source_network(
+    source_url: str,
     *,
+    manual_policy_reviewed: bool,
     user_agent: str,
     timeout_seconds: float = 12.0,
     max_response_bytes: int = 2_500_000,
 ) -> NetworkCheck:
-    parts = urlsplit(candidate.source_url)
+    parts = urlsplit(source_url)
     host = parts.hostname or ""
     try:
         _resolve_public_host(host)
@@ -380,7 +381,7 @@ def check_candidate_network(
                 parser = RobotFileParser()
                 parser.set_url(robots_url)
                 parser.parse(robots_text.splitlines())
-                if not parser.can_fetch(user_agent, candidate.source_url):
+                if not parser.can_fetch(user_agent, source_url):
                     return NetworkCheck(
                         "blocked",
                         robots_status,
@@ -410,7 +411,7 @@ def check_candidate_network(
                     0,
                     f"robots_http_{robots_status}",
                 )
-            with client.stream("GET", candidate.source_url) as response:
+            with client.stream("GET", source_url) as response:
                 source_status = response.status_code
                 final_parts = urlsplit(str(response.url))
                 if final_parts.scheme != "https" or not final_parts.hostname:
@@ -453,7 +454,7 @@ def check_candidate_network(
                         content_bytes,
                         "invalid_or_expired_site_page",
                     )
-            if policy_status == "manual_policy_review" and not candidate.manual_policy_reviewed:
+            if policy_status == "manual_policy_review" and not manual_policy_reviewed:
                 return NetworkCheck(
                     policy_status,
                     robots_status,
@@ -470,8 +471,26 @@ def check_candidate_network(
                 content_bytes,
                 None,
             )
-    except (CandidateBatchError, httpx.HTTPError, OSError, socket.gaierror) as exc:
+    except CandidateBatchError as exc:
+        return NetworkCheck("deferred", None, None, None, 0, str(exc))
+    except (httpx.HTTPError, OSError, socket.gaierror) as exc:
         return NetworkCheck("deferred", None, None, None, 0, type(exc).__name__)
+
+
+def check_candidate_network(
+    candidate: Candidate,
+    *,
+    user_agent: str,
+    timeout_seconds: float = 12.0,
+    max_response_bytes: int = 2_500_000,
+) -> NetworkCheck:
+    return check_source_network(
+        candidate.source_url,
+        manual_policy_reviewed=candidate.manual_policy_reviewed,
+        user_agent=user_agent,
+        timeout_seconds=timeout_seconds,
+        max_response_bytes=max_response_bytes,
+    )
 
 
 def load_database_duplicate_keys(database_url: str) -> dict[str, set[str]]:
@@ -518,6 +537,40 @@ def load_active_leaf_region_slugs(database_url: str) -> set[str]:
                 """
             )
             return {str(row[0]) for row in cursor.fetchall()}
+
+
+def load_active_leaf_region_queries(database_url: str) -> tuple[str, ...]:
+    with psycopg.connect(database_url) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select leaf.name, parent.name, grandparent.name
+                from regions as leaf
+                join regions as parent on parent.id = leaf.parent_id
+                left join regions as grandparent on grandparent.id = parent.parent_id
+                where leaf.is_active = true
+                  and parent.is_active = true
+                  and not exists (
+                    select 1 from regions as child
+                    where child.parent_id = leaf.id and child.is_active = true
+                  )
+                  and (
+                    parent.name in ('서울특별시', '경기도')
+                    or grandparent.name = '경기도'
+                  )
+                order by coalesce(grandparent.display_order, parent.display_order),
+                         parent.display_order, leaf.display_order
+                """
+            )
+            queries: list[str] = []
+            for leaf, parent, grandparent in cursor.fetchall():
+                if str(parent) == "서울특별시":
+                    queries.append(f"서울 {leaf}")
+                elif str(parent) == "경기도":
+                    queries.append(f"경기 {leaf}")
+                elif str(grandparent) == "경기도":
+                    queries.append(f"경기 {parent} {leaf}")
+            return tuple(queries)
 
 
 def load_published_offices(database_url: str) -> dict[str, dict[str, Any]]:
