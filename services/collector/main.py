@@ -24,6 +24,8 @@ from collector.office_discovery import (
     collect_office_email_candidates,
     extract_official_source_facts,
     load_office_email_targets,
+    load_region_queries_from_raw,
+    prepare_direct_local_source_candidates,
     probe_web_source_candidates,
     purge_expired_discovery_files,
     refilter_naver_local_discovery,
@@ -59,15 +61,20 @@ def _parser() -> argparse.ArgumentParser:
     discover.add_argument("--registry", type=Path, required=True)
     discover.add_argument("--region", action="append")
     discover.add_argument("--regions-from-database", action="store_true")
+    discover.add_argument("--regions-from-raw", action="append", type=Path)
+    discover.add_argument("--region-offset", type=int, default=0)
+    discover.add_argument("--region-limit", type=int)
     discover.add_argument("--keyword", action="append", required=True)
     discover.add_argument("--display", type=int, default=5)
     discover.add_argument("--max-requests", type=int, default=30)
     discover.add_argument("--retention-days", type=int, default=7)
+    discover.add_argument("--nationwide", action="store_true")
 
     refilter = subparsers.add_parser("filter-naver-discovery")
     refilter.add_argument("--raw", type=Path, required=True)
     refilter.add_argument("--output", type=Path, required=True)
     refilter.add_argument("--registry", type=Path, required=True)
+    refilter.add_argument("--nationwide", action="store_true")
 
     purge = subparsers.add_parser("purge-naver-discovery")
     purge.add_argument("--output-dir", type=Path, required=True)
@@ -80,6 +87,13 @@ def _parser() -> argparse.ArgumentParser:
     discover_web.add_argument("--max-candidates", type=int, default=20)
     discover_web.add_argument("--max-requests", type=int, default=30)
     discover_web.add_argument("--retention-days", type=int, default=7)
+    discover_web.add_argument("--nationwide", action="store_true")
+
+    direct_sources = subparsers.add_parser("prepare-local-source-links")
+    direct_sources.add_argument("--local-raw", type=Path, required=True)
+    direct_sources.add_argument("--output-dir", type=Path, required=True)
+    direct_sources.add_argument("--registry", type=Path, required=True)
+    direct_sources.add_argument("--nationwide", action="store_true")
 
     probe_sources = subparsers.add_parser("probe-discovery-sources")
     probe_sources.add_argument("--web-raw", type=Path, required=True)
@@ -100,6 +114,7 @@ def _parser() -> argparse.ArgumentParser:
     build_review = subparsers.add_parser("build-discovery-review-queue")
     build_review.add_argument("--output-dir", type=Path, required=True)
     build_review.add_argument("--output", type=Path, required=True)
+    build_review.add_argument("--parent-dir", type=Path)
 
     collect_emails = subparsers.add_parser("collect-office-emails")
     collect_emails.add_argument("--output", type=Path, required=True)
@@ -126,6 +141,47 @@ def _validate_private_path(path: Path) -> Path:
 
 def main() -> int:
     args = _parser().parse_args()
+
+    if args.command == "prepare-local-source-links":
+        database_url = os.environ.get("DATABASE_URL")
+        try:
+            output_dir = _validate_private_output_dir(args.output_dir)
+            summary = prepare_direct_local_source_candidates(
+                local_raw_path=args.local_raw,
+                output_dir=output_dir,
+                duplicate_keys=(
+                    load_database_duplicate_keys(database_url)
+                    if database_url
+                    else {
+                        key: set()
+                        for key in ("source", "name", "phone", "address", "slug")
+                    }
+                ),
+                registry=load_source_registry(args.registry),
+                nationwide=args.nationwide,
+            )
+        except (
+            CandidateBatchError,
+            OfficeDiscoveryError,
+            OSError,
+            psycopg.Error,
+        ) as exc:
+            print(
+                json.dumps(
+                    {"ok": False, "error": str(exc)},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            return 2
+        print(
+            json.dumps(
+                {"ok": True, **summary.__dict__},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+        return 0
 
     if args.command == "collect-office-emails":
         database_url = os.environ.get("DATABASE_URL")
@@ -169,6 +225,11 @@ def main() -> int:
             summary = build_discovery_review_queue(
                 output_dir=output_dir,
                 output_path=_validate_private_path(args.output),
+                parent_dir=(
+                    _validate_private_output_dir(args.parent_dir)
+                    if args.parent_dir
+                    else None
+                ),
                 duplicate_keys=(
                     load_database_duplicate_keys(database_url)
                     if database_url
@@ -239,6 +300,7 @@ def main() -> int:
                 filtered_path=output_path,
                 duplicate_keys=duplicate_keys,
                 registry=registry,
+                nationwide=args.nationwide,
             )
         except (
             CandidateBatchError,
@@ -297,6 +359,7 @@ def main() -> int:
                     max_candidates=args.max_candidates,
                     display=args.display,
                     retention_days=args.retention_days,
+                    nationwide=args.nationwide,
                 )
         except (
             CandidateBatchError,
@@ -391,6 +454,25 @@ def main() -> int:
                         "discovery_database_url_required_for_regions"
                     )
                 regions.extend(load_active_leaf_region_queries(database_url))
+            if args.regions_from_raw:
+                regions.extend(
+                    load_region_queries_from_raw(
+                        tuple(
+                            _validate_private_path(path)
+                            for path in args.regions_from_raw
+                        )
+                    )
+                )
+            if args.region_offset < 0 or (
+                args.region_limit is not None and args.region_limit < 1
+            ):
+                raise OfficeDiscoveryError("discovery_region_slice_invalid")
+            region_end = (
+                args.region_offset + args.region_limit
+                if args.region_limit is not None
+                else None
+            )
+            regions = list(dict.fromkeys(regions))[args.region_offset:region_end]
             queries = build_query_plan(
                 regions,
                 args.keyword,
@@ -418,6 +500,7 @@ def main() -> int:
                     registry=registry,
                     display=args.display,
                     retention_days=args.retention_days,
+                    nationwide=args.nationwide,
                 )
         except (
             CandidateBatchError,

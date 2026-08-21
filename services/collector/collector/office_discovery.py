@@ -76,6 +76,25 @@ _NON_OFFICIAL_HOST_SUFFIXES = (
     "notion.site",
 )
 _TARGET_ADDRESS_PREFIXES = ("서울", "서울특별시", "경기", "경기도")
+_NATIONWIDE_ADDRESS_PREFIXES = (
+    "서울",
+    "부산",
+    "대구",
+    "인천",
+    "광주",
+    "대전",
+    "울산",
+    "세종",
+    "경기",
+    "강원",
+    "충북",
+    "충남",
+    "전북",
+    "전남",
+    "경북",
+    "경남",
+    "제주",
+)
 _LEGACY_RAW_FIELDS = {"description", "telephone", "mapx", "mapy"}
 _HTML_CHARSET_PATTERN = re.compile(
     br"charset\s*=\s*[\"']?([a-zA-Z0-9_-]+)", re.IGNORECASE
@@ -544,6 +563,7 @@ def filter_discovery_record(
     duplicate_keys: dict[str, set[str]],
     registry: dict[str, RegistryEntry],
     seen_identities: set[str],
+    nationwide: bool = False,
 ) -> FilteredOfficeDiscoveryRecord:
     name = normalize_result_text(record.title)
     category = normalize_result_text(record.category)
@@ -560,7 +580,10 @@ def filter_discovery_record(
     else:
         seen_identities.add(identity)
 
-    if not address.startswith(_TARGET_ADDRESS_PREFIXES):
+    address_prefixes = (
+        _NATIONWIDE_ADDRESS_PREFIXES if nationwide else _TARGET_ADDRESS_PREFIXES
+    )
+    if not address.startswith(address_prefixes):
         reasons.append("OUTSIDE_TARGET_REGION")
     if relevance.status == "irrelevant":
         reasons.extend(("UNRELATED_CATEGORY", "IRRELEVANT_BUSINESS"))
@@ -738,6 +761,21 @@ def load_raw_discovery_records(
     return records
 
 
+def load_region_queries_from_raw(
+    paths: tuple[Path, ...], *, now: datetime | None = None
+) -> tuple[str, ...]:
+    regions: set[str] = set()
+    for path in paths:
+        for record in load_raw_discovery_records(path, now=now):
+            address = normalize_result_text(record.road_address or record.address)
+            parts = address.split()
+            if len(parts) >= 2 and address.startswith(_NATIONWIDE_ADDRESS_PREFIXES):
+                regions.add(" ".join(parts[:2]))
+    if not regions:
+        raise OfficeDiscoveryError("discovery_regions_from_raw_empty")
+    return tuple(sorted(regions))
+
+
 def _load_file_expiry(path: Path) -> datetime:
     run_ids: set[str] = set()
     expiries: set[datetime] = set()
@@ -782,7 +820,13 @@ def purge_expired_discovery_files(
     scanned_run_count = 0
     deleted_run_count = 0
     deleted_file_count = 0
-    for raw_path in sorted(output_dir.glob("naver-*.raw.jsonl")):
+    raw_paths = sorted(
+        (
+            *output_dir.glob("naver-*.raw.jsonl"),
+            *output_dir.glob("local-source-*.raw.jsonl"),
+        )
+    )
+    for raw_path in raw_paths:
         scanned_run_count += 1
         expires_at = _load_file_expiry(raw_path)
         if expires_at > current:
@@ -804,7 +848,13 @@ def purge_expired_discovery_files(
                 path.unlink()
                 deleted_file_count += 1
         deleted_run_count += 1
-    for manifest_path in sorted(output_dir.glob("naver-web-*.manifest.json")):
+    manifest_paths = sorted(
+        (
+            *output_dir.glob("naver-web-*.manifest.json"),
+            *output_dir.glob("local-source-*.manifest.json"),
+        )
+    )
+    for manifest_path in manifest_paths:
         raw_path = manifest_path.with_name(
             manifest_path.name.removesuffix(".manifest.json") + ".raw.jsonl"
         )
@@ -835,6 +885,7 @@ def filter_discovery_records(
     *,
     duplicate_keys: dict[str, set[str]],
     registry: dict[str, RegistryEntry],
+    nationwide: bool = False,
 ) -> tuple[FilteredOfficeDiscoveryRecord, ...]:
     seen_identities: set[str] = set()
     return tuple(
@@ -843,6 +894,7 @@ def filter_discovery_records(
             duplicate_keys=duplicate_keys,
             registry=registry,
             seen_identities=seen_identities,
+            nationwide=nationwide,
         )
         for record in records
     )
@@ -866,6 +918,7 @@ def refilter_naver_local_discovery(
     filtered_path: Path,
     duplicate_keys: dict[str, set[str]],
     registry: dict[str, RegistryEntry],
+    nationwide: bool = False,
     now: datetime | None = None,
 ) -> DiscoverySummary:
     raw_records = load_raw_discovery_records(raw_path, now=now)
@@ -873,6 +926,7 @@ def refilter_naver_local_discovery(
         raw_records,
         duplicate_keys=duplicate_keys,
         registry=registry,
+        nationwide=nationwide,
     )
     _write_jsonl(filtered_path, list(filtered_records))
     status_counts, reason_counts = _summarize_filtered(filtered_records)
@@ -902,6 +956,7 @@ def run_naver_local_discovery(
     registry: dict[str, RegistryEntry],
     display: int = 5,
     retention_days: int = 7,
+    nationwide: bool = False,
     now: datetime | None = None,
 ) -> DiscoverySummary:
     if not 1 <= retention_days <= 21:
@@ -941,6 +996,7 @@ def run_naver_local_discovery(
         tuple(raw_records),
         duplicate_keys=duplicate_keys,
         registry=registry,
+        nationwide=nationwide,
     )
     raw_path = output_dir / f"{run_id}.raw.jsonl"
     filtered_path = output_dir / f"{run_id}.filtered.jsonl"
@@ -994,6 +1050,122 @@ def _web_query(record: RawOfficeDiscoveryRecord) -> str:
     address = normalize_result_text(record.road_address or record.address)
     region = " ".join(address.split()[:2])
     return " ".join(part for part in (name, region, "공식 홈페이지") if part)
+
+
+def prepare_direct_local_source_candidates(
+    *,
+    local_raw_path: Path,
+    output_dir: Path,
+    duplicate_keys: dict[str, set[str]],
+    registry: dict[str, RegistryEntry],
+    nationwide: bool = False,
+    now: datetime | None = None,
+) -> WebSourceDiscoverySummary:
+    """Reuse official-looking links returned by local search without a web API call."""
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        raise OfficeDiscoveryError("discovery_timestamp_must_be_timezone_aware")
+    current = current.astimezone(timezone.utc)
+    processed_parent_ids, processed_identity_hashes = _load_processed_web_history(
+        output_dir, now=current
+    )
+    local_records = load_raw_discovery_records(local_raw_path, now=current)
+    local_filtered = filter_discovery_records(
+        local_records,
+        duplicate_keys=duplicate_keys,
+        registry=registry,
+        nationwide=nationwide,
+    )
+    selected: list[tuple[RawOfficeDiscoveryRecord, FilteredOfficeDiscoveryRecord]] = []
+    seen_identities: set[str] = set()
+    for record, filtered in zip(local_records, local_filtered, strict=True):
+        identity_hash = _identity_hash(record)
+        if (
+            record.record_id in processed_parent_ids
+            or identity_hash in processed_identity_hashes
+            or filtered.status != "source_check_required"
+        ):
+            continue
+        identity = _identity(record)
+        if identity in seen_identities:
+            continue
+        seen_identities.add(identity)
+        selected.append((record, filtered))
+    if not selected:
+        raise OfficeDiscoveryError("discovery_direct_source_candidates_empty")
+
+    expires_at = min(_parse_expiry(record.expires_at) for record, _ in selected)
+    run_id = f"local-source-{current.strftime('%Y%m%dT%H%M%S%fZ')}"
+    raw_records: list[RawWebSourceRecord] = []
+    filtered_records: list[FilteredWebSourceRecord] = []
+    for parent, filtered in selected:
+        item = {"title": parent.title, "link": filtered.normalized_url}
+        record_id = _web_record_id(parent.record_id, 1, item)
+        raw_records.append(
+            RawWebSourceRecord(
+                version=1,
+                record_id=record_id,
+                run_id=run_id,
+                parent_record_id=parent.record_id,
+                provider=parent.provider,
+                endpoint=parent.endpoint,
+                position=1,
+                fetched_at=current.isoformat(),
+                expires_at=expires_at.isoformat(),
+                title=parent.title,
+                link=filtered.normalized_url,
+            )
+        )
+        filtered_records.append(
+            FilteredWebSourceRecord(
+                version=1,
+                rules_version="office-direct-source-v1",
+                record_id=record_id,
+                run_id=run_id,
+                parent_record_id=parent.record_id,
+                status="source_check_required",
+                reason_codes=("DIRECT_LOCAL_SOURCE_LINK",),
+                source_verification="required",
+                promotion_allowed=False,
+                normalized_url=filtered.normalized_url,
+                host=filtered.host,
+            )
+        )
+
+    raw_path = output_dir / f"{run_id}.raw.jsonl"
+    filtered_path = output_dir / f"{run_id}.filtered.jsonl"
+    manifest_path = output_dir / f"{run_id}.manifest.json"
+    _write_jsonl(raw_path, raw_records)
+    _write_jsonl(filtered_path, filtered_records)
+    _write_private_json(
+        manifest_path,
+        {
+            "version": 1,
+            "run_id": run_id,
+            "parent_record_ids": [record.record_id for record, _ in selected],
+            "candidate_identity_hashes": [
+                _identity_hash(record) for record, _ in selected
+            ],
+            "expires_at": expires_at.isoformat(),
+        },
+    )
+    return WebSourceDiscoverySummary(
+        run_id=run_id,
+        candidate_count=len(selected),
+        previously_processed_count=max(
+            len(processed_parent_ids), len(processed_identity_hashes)
+        ),
+        request_count=0,
+        raw_count=len(raw_records),
+        source_check_required_count=len(filtered_records),
+        needs_review_count=0,
+        rejected_count=0,
+        reason_counts={"DIRECT_LOCAL_SOURCE_LINK": len(filtered_records)},
+        raw_output=str(raw_path),
+        filtered_output=str(filtered_path),
+        manifest_output=str(manifest_path),
+        expires_at=expires_at.isoformat(),
+    )
 
 
 def _filter_web_source_record(
@@ -1072,7 +1244,13 @@ def _load_processed_web_history(
             continue
         for record in load_raw_discovery_records(path, now=now):
             local_identity_by_record_id[record.record_id] = _identity_hash(record)
-    for path in sorted(output_dir.glob("naver-web-*.manifest.json")):
+    manifest_paths = sorted(
+        (
+            *output_dir.glob("naver-web-*.manifest.json"),
+            *output_dir.glob("local-source-*.manifest.json"),
+        )
+    )
+    for path in manifest_paths:
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
             run_id = payload["run_id"]
@@ -1101,7 +1279,13 @@ def _load_processed_web_history(
             for parent_id in raw_parent_ids
             if parent_id in local_identity_by_record_id
         )
-    for path in sorted(output_dir.glob("naver-web-*.raw.jsonl")):
+    history_raw_paths = sorted(
+        (
+            *output_dir.glob("naver-web-*.raw.jsonl"),
+            *output_dir.glob("local-source-*.raw.jsonl"),
+        )
+    )
+    for path in history_raw_paths:
         if _load_file_expiry(path) <= now:
             continue
         run_id_from_name = path.name.removesuffix(".raw.jsonl")
@@ -1136,6 +1320,7 @@ def run_naver_web_source_discovery(
     max_candidates: int,
     display: int = 5,
     retention_days: int = 7,
+    nationwide: bool = False,
     now: datetime | None = None,
 ) -> WebSourceDiscoverySummary:
     if not 1 <= max_candidates <= 100:
@@ -1156,6 +1341,7 @@ def run_naver_web_source_discovery(
         local_records,
         duplicate_keys=duplicate_keys,
         registry=registry,
+        nationwide=nationwide,
     )
     source_reasons = {
         "OFFICIAL_SOURCE_REQUIRED",
@@ -2087,6 +2273,7 @@ def build_discovery_review_queue(
     *,
     output_dir: Path,
     output_path: Path,
+    parent_dir: Path | None = None,
     duplicate_keys: dict[str, set[str]] | None = None,
     now: datetime | None = None,
 ) -> DiscoveryReviewSummary:
@@ -2096,14 +2283,21 @@ def build_discovery_review_queue(
     current = current.astimezone(timezone.utc)
 
     local_by_id: dict[str, RawOfficeDiscoveryRecord] = {}
-    for path in sorted(output_dir.glob("naver-local-*.raw.jsonl")):
+    local_directory = parent_dir or output_dir
+    for path in sorted(local_directory.glob("naver-local-*.raw.jsonl")):
         if _load_file_expiry(path) <= current:
             continue
         for record in load_raw_discovery_records(path, now=current):
             local_by_id[record.record_id] = record
 
     facts: list[OfficialSourceFactRecord] = []
-    for path in sorted(output_dir.glob("naver-web-*.facts.jsonl")):
+    fact_paths = sorted(
+        (
+            *output_dir.glob("naver-web-*.facts.jsonl"),
+            *output_dir.glob("local-source-*.facts.jsonl"),
+        )
+    )
+    for path in fact_paths:
         if _load_file_expiry(path) <= current:
             continue
         for line_number, line in enumerate(

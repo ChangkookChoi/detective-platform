@@ -122,6 +122,23 @@ Raw 또는 filtered 파일을 AI 입력에 첨부하지 않는다.
 후보 manifest로 직접 변환하지 않고 공식 홈페이지에서 다시 확인한 값만 별도
 manifest에 작성한다.
 
+전국 비공개 후보 수집은 `--nationwide`를 명시한 실행에서만 활성화한다. 광역
+검색 Raw에서 확인된 시·군·구를 후속 질의로 재사용할 때는 하나 이상의
+`--regions-from-raw`를 지정하고, 100회 실행 예산 안에서 `--region-offset`과
+`--region-limit`으로 분할한다. 전국 후보는 지역 seed와 공개 범위를 자동으로
+확장하지 않는다.
+
+지역 검색 결과에 공식으로 보이는 HTTPS 링크가 이미 있으면 웹문서 API를 다시
+호출하지 않고 기존 probe 입력 형식으로 변환한다.
+
+```bash
+uv run --env-file ../../apps/web/.env.local python main.py \
+  prepare-local-source-links \
+  --local-raw ../../data/private/discovery-runs/<local-run-id>.raw.jsonl \
+  --output-dir ../../data/private/direct-source-runs \
+  --registry ../../docs/operations/SOURCE_REGISTRY.md
+```
+
 지역 Raw의 보존기한 안에서 공식 홈페이지 후보를 재검색한다. `max-candidates`는
 검색할 지역 후보 수, `max-requests`는 재시도를 포함한 전체 호출 상한이다.
 

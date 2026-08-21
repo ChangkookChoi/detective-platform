@@ -24,7 +24,9 @@ from collector.office_discovery import (
     extract_official_business_emails,
     filter_discovery_record,
     load_raw_discovery_records,
+    load_region_queries_from_raw,
     normalize_result_text,
+    prepare_direct_local_source_candidates,
     probe_web_source_candidates,
     purge_expired_discovery_files,
     refilter_naver_local_discovery,
@@ -263,6 +265,46 @@ class OfficeDiscoveryTests(unittest.TestCase):
         self.assertEqual(result.source_verification, "required")
         self.assertFalse(result.promotion_allowed)
 
+    def test_prepares_direct_local_source_without_web_api_call(self) -> None:
+        now = datetime(2026, 8, 20, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            local_raw = root / "naver-local-test.raw.jsonl"
+            local_raw.write_text(
+                json.dumps(asdict(_raw()), ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            summary = prepare_direct_local_source_candidates(
+                local_raw_path=local_raw,
+                output_dir=root,
+                duplicate_keys=_empty_duplicate_keys(),
+                registry={},
+                now=now,
+            )
+            raw = json.loads(
+                Path(summary.raw_output).read_text(encoding="utf-8").strip()
+            )
+            filtered = json.loads(
+                Path(summary.filtered_output).read_text(encoding="utf-8").strip()
+            )
+            with self.assertRaisesRegex(
+                OfficeDiscoveryError, "discovery_direct_source_candidates_empty"
+            ):
+                prepare_direct_local_source_candidates(
+                    local_raw_path=local_raw,
+                    output_dir=root,
+                    duplicate_keys=_empty_duplicate_keys(),
+                    registry={},
+                    now=now,
+                )
+
+        self.assertEqual(summary.request_count, 0)
+        self.assertEqual(summary.source_check_required_count, 1)
+        self.assertEqual(raw["parent_record_id"], "record-1")
+        self.assertEqual(filtered["status"], "source_check_required")
+        self.assertEqual(filtered["reason_codes"], ["DIRECT_LOCAL_SOURCE_LINK"])
+        self.assertFalse(filtered["promotion_allowed"])
+
     def test_rejects_out_of_region_and_unrelated_result(self) -> None:
         result = filter_discovery_record(
             _raw(
@@ -277,6 +319,30 @@ class OfficeDiscoveryTests(unittest.TestCase):
         self.assertEqual(result.status, "rejected")
         self.assertIn("OUTSIDE_TARGET_REGION", result.reason_codes)
         self.assertIn("UNRELATED_CATEGORY", result.reason_codes)
+
+    def test_accepts_nationwide_address_only_when_explicitly_enabled(self) -> None:
+        candidate = _raw(
+            title="부산 테스트 탐정사무소",
+            category="서비스>탐정",
+            address="부산광역시 해운대구 테스트동 1",
+            road_address="부산광역시 해운대구 테스트로 1",
+        )
+        default_result = filter_discovery_record(
+            candidate,
+            duplicate_keys=_empty_duplicate_keys(),
+            registry={},
+            seen_identities=set(),
+        )
+        nationwide_result = filter_discovery_record(
+            candidate,
+            duplicate_keys=_empty_duplicate_keys(),
+            registry={},
+            seen_identities=set(),
+            nationwide=True,
+        )
+
+        self.assertIn("OUTSIDE_TARGET_REGION", default_result.reason_codes)
+        self.assertEqual(nationwide_result.status, "source_check_required")
 
     def test_rejects_result_without_detective_business_signal(self) -> None:
         result = filter_discovery_record(
@@ -401,6 +467,35 @@ class OfficeDiscoveryTests(unittest.TestCase):
 
         self.assertEqual(records, (_raw(),))
         self.assertNotIn("description", asdict(records[0]))
+
+    def test_loads_deduplicated_district_queries_from_raw_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "first.raw.jsonl"
+            second = Path(directory) / "second.raw.jsonl"
+            first.write_text(
+                json.dumps(asdict(_raw()), ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            second.write_text(
+                json.dumps(
+                    asdict(
+                        _raw(
+                            record_id="record-2",
+                            address="부산광역시 해운대구 테스트동 1",
+                            road_address="부산광역시 해운대구 테스트로 1",
+                        )
+                    ),
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            regions = load_region_queries_from_raw(
+                (first, second),
+                now=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            )
+
+        self.assertEqual(regions, ("부산광역시 해운대구", "서울특별시 강남구"))
 
     def test_rejects_expired_raw_file_and_purges_only_expired_run(self) -> None:
         expired = _raw(
