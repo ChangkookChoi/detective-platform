@@ -55,9 +55,20 @@ export const sourceAccessStatus = pgEnum("source_access_status", [
   "paused",
 ]);
 
+export const businessEmailKind = pgEnum("business_email_kind", [
+  "generic_business",
+  "unknown",
+]);
+
+export const marketingConsentStatus = pgEnum("marketing_consent_status", [
+  "consented",
+  "unsubscribed",
+]);
+
 export const evidenceField = pgEnum("evidence_field", [
   "name",
   "phone",
+  "email",
   "address",
   "service_category",
   "summary",
@@ -165,6 +176,9 @@ export const offices = pgTable(
     summary: text("summary"),
     phoneNormalized: text("phone_normalized"),
     phoneDisplay: text("phone_display"),
+    emailNormalized: text("email_normalized"),
+    emailDisplay: text("email_display"),
+    emailKind: businessEmailKind("email_kind"),
     addressText: text("address_text"),
     regionId: uuid("region_id")
       .notNull()
@@ -178,10 +192,37 @@ export const offices = pgTable(
     uniqueIndex("offices_slug_uidx").on(table.slug),
     index("offices_public_region_idx").on(table.status, table.regionId),
     index("offices_phone_normalized_idx").on(table.phoneNormalized),
+    index("offices_email_normalized_idx").on(table.emailNormalized),
     index("offices_last_verified_at_idx").on(table.lastVerifiedAt),
     check(
       "offices_published_fields_check",
       sql`${table.status} <> 'published' OR (${table.phoneNormalized} IS NOT NULL AND length(trim(${table.phoneNormalized})) > 0 AND ${table.phoneDisplay} IS NOT NULL AND length(trim(${table.phoneDisplay})) > 0 AND ${table.addressText} IS NOT NULL AND length(trim(${table.addressText})) > 0 AND ${table.publishedAt} IS NOT NULL AND ${table.lastVerifiedAt} IS NOT NULL)`,
+    ),
+    check(
+      "offices_email_pair_check",
+      sql`(${table.emailNormalized} IS NULL AND ${table.emailDisplay} IS NULL AND ${table.emailKind} IS NULL) OR (${table.emailNormalized} IS NOT NULL AND length(trim(${table.emailNormalized})) > 0 AND ${table.emailDisplay} IS NOT NULL AND length(trim(${table.emailDisplay})) > 0 AND ${table.emailKind} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const officeEmailMarketingConsents = pgTable(
+  "office_email_marketing_consents",
+  {
+    officeId: uuid("office_id")
+      .primaryKey()
+      .references(() => offices.id, { onDelete: "cascade" }),
+    emailNormalized: text("email_normalized").notNull(),
+    status: marketingConsentStatus("status").notNull(),
+    consentSource: text("consent_source").notNull(),
+    consentedAt: timestamp("consented_at", { withTimezone: true }).notNull(),
+    unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index("office_email_marketing_consents_status_idx").on(table.status),
+    check(
+      "office_email_marketing_consents_status_check",
+      sql`(${table.status} = 'consented' AND ${table.unsubscribedAt} IS NULL) OR (${table.status} = 'unsubscribed' AND ${table.unsubscribedAt} IS NOT NULL)`,
     ),
   ],
 );

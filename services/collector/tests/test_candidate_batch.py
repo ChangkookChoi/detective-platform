@@ -30,6 +30,7 @@ def _manifest() -> dict[str, object]:
                 "sourceUrl": "https://example.com/office#ignored",
                 "name": "테스트 탐정사무소",
                 "phoneDisplay": "02-1234-5678",
+                "emailDisplay": "Info@Example.com",
                 "addressText": "서울특별시 강남구 테스트로 1",
                 "slug": "test-detective-gangnam",
                 "regionSlug": "seoul-gangnam",
@@ -60,6 +61,18 @@ class CandidateBatchTests(unittest.TestCase):
             batch.candidates[0].service_category_slugs,
             ("family", "evidence-fact-checking"),
         )
+        self.assertEqual(batch.candidates[0].email_display, "Info@Example.com")
+
+    def test_rejects_invalid_optional_business_email(self) -> None:
+        manifest = _manifest()
+        manifest["candidates"][0]["emailDisplay"] = "first@example.com,second@example.com"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "batch.json"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(
+                CandidateBatchError, "emailDisplay_invalid"
+            ):
+                load_candidate_batch(path)
 
     def test_requires_explicit_review_for_shared_source_urls(self) -> None:
         manifest = _manifest()
@@ -217,6 +230,7 @@ class CandidateBatchTests(unittest.TestCase):
         published = {
             "name": candidate.name,
             "phoneDisplay": candidate.phone_display,
+            "emailDisplay": candidate.email_display,
             "addressText": candidate.address_text,
             "regionSlug": candidate.region_slug,
             "sourceUrl": candidate.source_url,

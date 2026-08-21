@@ -7,6 +7,9 @@ _FIELD_MAP = {
     "name": "name",
     "phoneNormalized": "phone_normalized",
     "phoneDisplay": "phone_display",
+    "emailNormalized": "email_normalized",
+    "emailDisplay": "email_display",
+    "emailKind": "email_kind",
     "addressText": "address_text",
     "summary": "summary",
 }

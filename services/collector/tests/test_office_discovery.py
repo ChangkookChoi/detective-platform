@@ -13,12 +13,15 @@ from collector.naver_api_hub import NaverSearchResponse
 from collector.office_discovery import (
     _html_fallback_facts,
     OfficialSourceFactRecord,
+    OfficeEmailTarget,
     OfficeDiscoveryError,
     RawOfficeDiscoveryRecord,
     assess_business_relevance,
     build_discovery_review_queue,
     build_query_plan,
+    collect_office_email_candidates,
     extract_official_source_facts,
+    extract_official_business_emails,
     filter_discovery_record,
     load_raw_discovery_records,
     normalize_result_text,
@@ -104,6 +107,7 @@ class OfficeDiscoveryTests(unittest.TestCase):
               <p>서울특별시 강남구 테스트로 1</p>
               <p>탐정 업무 상담과 사실 조사를 제공합니다.</p>
               <a href="tel:02-1234-5678">전화</a>
+              <a href="mailto:info@example.com">이메일</a>
             </body></html>
             """.encode("utf-8"),
             candidate_name="테스트 탐정사무소",
@@ -114,7 +118,75 @@ class OfficeDiscoveryTests(unittest.TestCase):
         self.assertTrue(facts["addressMatch"])
         self.assertTrue(facts["regionMatch"])
         self.assertEqual(facts["phoneNormalized"], "0212345678")
+        self.assertEqual(facts["emailNormalized"], "info@example.com")
+        self.assertEqual(facts["emailKind"], "generic_business")
         self.assertTrue(facts["businessServiceMatch"])
+
+    def test_extracts_deduplicated_official_business_emails(self) -> None:
+        emails = extract_official_business_emails(
+            b"""
+            <html><body>
+              <a href="mailto:Info@Example.com">contact</a>
+              <p>info@example.com</p>
+              <p>owner@example.com</p>
+            </body></html>
+            """,
+            source_url="https://example.com/",
+            user_agent="CollectorTest/1.0",
+            checked_at=datetime(2026, 8, 21, tzinfo=timezone.utc).date(),
+        )
+
+        self.assertEqual(
+            emails,
+            (
+                ("info@example.com", "Info@Example.com", "generic_business"),
+                ("owner@example.com", "owner@example.com", "unknown"),
+            ),
+        )
+
+    def test_builds_private_email_candidates_without_marketing_consent(self) -> None:
+        targets = (
+            OfficeEmailTarget(
+                target_type="office",
+                target_id="office-1",
+                office_id="office-1",
+                source_url="https://example.com/",
+            ),
+            OfficeEmailTarget(
+                target_type="review",
+                target_id="review-1",
+                office_id=None,
+                source_url="https://second.example.com/",
+            ),
+        )
+
+        def fetcher(url: str, **_kwargs: object) -> bytes:
+            if url == "https://example.com/":
+                return b'<a href="mailto:info@example.com">email</a>'
+            return b"<html><body>no email</body></html>"
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "office-emails.jsonl"
+            summary = collect_office_email_candidates(
+                targets=targets,
+                output_path=output,
+                user_agent="CollectorTest/1.0",
+                now=datetime(2026, 8, 21, tzinfo=timezone.utc),
+                fetcher=fetcher,
+            )
+            records = [
+                json.loads(line)
+                for line in output.read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertEqual(summary.checked_count, 2)
+        self.assertEqual(summary.email_candidate_count, 1)
+        self.assertEqual(summary.no_email_count, 1)
+        self.assertEqual(
+            {record["marketing_consent_status"] for record in records},
+            {"not_obtained"},
+        )
+        self.assertTrue(all(not record["promotion_allowed"] for record in records))
 
     def test_does_not_treat_detective_entertainment_as_service_evidence(self) -> None:
         facts = _html_fallback_facts(

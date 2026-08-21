@@ -21,7 +21,9 @@ from collector.office_discovery import (
     OfficeDiscoveryError,
     build_discovery_review_queue,
     build_query_plan,
+    collect_office_email_candidates,
     extract_official_source_facts,
+    load_office_email_targets,
     probe_web_source_candidates,
     purge_expired_discovery_files,
     refilter_naver_local_discovery,
@@ -98,6 +100,12 @@ def _parser() -> argparse.ArgumentParser:
     build_review = subparsers.add_parser("build-discovery-review-queue")
     build_review.add_argument("--output-dir", type=Path, required=True)
     build_review.add_argument("--output", type=Path, required=True)
+
+    collect_emails = subparsers.add_parser("collect-office-emails")
+    collect_emails.add_argument("--output", type=Path, required=True)
+    collect_emails.add_argument("--user-agent", required=True)
+    collect_emails.add_argument("--max-sources", type=int, default=100)
+    collect_emails.add_argument("--retention-days", type=int, default=7)
     return parser
 
 
@@ -118,6 +126,41 @@ def _validate_private_path(path: Path) -> Path:
 
 def main() -> int:
     args = _parser().parse_args()
+
+    if args.command == "collect-office-emails":
+        database_url = os.environ.get("DATABASE_URL")
+        try:
+            if not database_url:
+                raise OfficeDiscoveryError("office_email_database_url_required")
+            summary = collect_office_email_candidates(
+                targets=load_office_email_targets(database_url),
+                output_path=_validate_private_path(args.output),
+                user_agent=args.user_agent,
+                max_sources=args.max_sources,
+                retention_days=args.retention_days,
+            )
+        except (
+            CandidateBatchError,
+            OfficeDiscoveryError,
+            OSError,
+            psycopg.Error,
+        ) as exc:
+            print(
+                json.dumps(
+                    {"ok": False, "error": str(exc)},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            return 2
+        print(
+            json.dumps(
+                {"ok": True, **summary.__dict__},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+        return 0
 
     if args.command == "build-discovery-review-queue":
         database_url = os.environ.get("DATABASE_URL")

@@ -15,6 +15,8 @@ from urllib.robotparser import RobotFileParser
 import httpx
 import psycopg
 
+from collector.normalize import normalize_email
+
 
 ALLOWED_SOURCE_TYPES = {
     "official_website",
@@ -62,6 +64,7 @@ class Candidate:
     manual_policy_reviewed: bool
     distinct_branch_reviewed: bool
     recheck_reason: str | None
+    email_display: str | None = None
 
 
 @dataclass(frozen=True)
@@ -181,6 +184,13 @@ def _load_candidate(raw: Any, index: int) -> Candidate:
     phone_digits = PHONE_DIGIT_PATTERN.sub("", phone_display)
     if not 8 <= len(phone_digits) <= 11:
         raise CandidateBatchError(f"candidates[{index}].phoneDisplay_invalid")
+    email_raw = raw.get("emailDisplay")
+    email_display: str | None = None
+    if email_raw is not None:
+        email_normalized, normalized_display, _email_kind = normalize_email(email_raw)
+        if email_normalized is None or normalized_display is None:
+            raise CandidateBatchError(f"candidates[{index}].emailDisplay_invalid")
+        email_display = normalized_display
     region_slug = _required_text(
         raw.get("regionSlug"), f"candidates[{index}].regionSlug", maximum=100
     )
@@ -211,6 +221,7 @@ def _load_candidate(raw: Any, index: int) -> Candidate:
         manual_policy_reviewed=manual_policy_reviewed,
         distinct_branch_reviewed=distinct_branch_reviewed,
         recheck_reason=recheck_reason,
+        email_display=email_display,
     )
 
 
@@ -579,7 +590,8 @@ def load_published_offices(database_url: str) -> dict[str, dict[str, Any]]:
             cursor.execute(
                 """
                 select offices.slug, offices.name, offices.phone_display,
-                       offices.address_text, regions.slug, office_sources.url,
+                       offices.email_display, offices.address_text, regions.slug,
+                       office_sources.url,
                        coalesce(array_agg(distinct service_categories.slug)
                          filter (where service_categories.slug is not null), '{}')
                 from offices
@@ -598,10 +610,15 @@ def load_published_offices(database_url: str) -> dict[str, dict[str, Any]]:
                 str(row[0]): {
                     "name": str(row[1]),
                     "phoneDisplay": str(row[2]),
-                    "addressText": str(row[3]),
-                    "regionSlug": str(row[4]),
-                    "sourceUrl": normalize_source_url(str(row[5])),
-                    "serviceCategorySlugs": sorted(str(value) for value in row[6]),
+                    **(
+                        {"emailDisplay": str(row[3])}
+                        if row[3] is not None
+                        else {}
+                    ),
+                    "addressText": str(row[4]),
+                    "regionSlug": str(row[5]),
+                    "sourceUrl": normalize_source_url(str(row[6])),
+                    "serviceCategorySlugs": sorted(str(value) for value in row[7]),
                 }
                 for row in cursor.fetchall()
             }
@@ -615,6 +632,11 @@ def candidate_matches_published(
     return published == {
         "name": candidate.name,
         "phoneDisplay": candidate.phone_display,
+        **(
+            {"emailDisplay": candidate.email_display}
+            if candidate.email_display
+            else {}
+        ),
         "addressText": candidate.address_text,
         "regionSlug": candidate.region_slug,
         "sourceUrl": candidate.source_url,

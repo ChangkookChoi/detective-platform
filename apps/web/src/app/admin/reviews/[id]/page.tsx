@@ -165,6 +165,10 @@ export default async function ReviewDetailPage({
       proposedRecord.phoneDisplay,
       item.office?.phoneDisplay,
     ),
+    emailDisplay: textValue(
+      proposedRecord.emailDisplay,
+      item.office?.emailDisplay,
+    ),
     addressText: textValue(
       proposedRecord.addressText,
       item.office?.addressText,
@@ -195,6 +199,10 @@ export default async function ReviewDetailPage({
       isNewCandidate ||
       "phoneDisplay" in proposedRecord ||
       "phoneNormalized" in proposedRecord,
+    email:
+      isNewCandidate ||
+      "emailDisplay" in proposedRecord ||
+      "emailNormalized" in proposedRecord,
     address: isNewCandidate || "addressText" in proposedRecord,
   };
 
@@ -438,6 +446,21 @@ export default async function ReviewDetailPage({
                         readOnly={!editableFields.phone}
                         className="rounded-lg border border-slate-300 p-3 font-normal outline-none read-only:bg-slate-100 focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                       />
+                    </label>
+                    <label className="grid gap-2 text-sm font-bold">
+                      공식 업무용 이메일 (선택)
+                      <input
+                        name="emailDisplay"
+                        type="email"
+                        maxLength={254}
+                        defaultValue={candidateValues.emailDisplay}
+                        readOnly={!editableFields.email}
+                        className="rounded-lg border border-slate-300 p-3 font-normal outline-none read-only:bg-slate-100 focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                      />
+                      <span className="text-xs font-normal leading-5 text-slate-500">
+                        공식 페이지에 업무 연락처로 공개된 주소인지 확인합니다.
+                        저장해도 메일 발송 동의로 취급하지 않습니다.
+                      </span>
                     </label>
                     <label className="grid gap-2 text-sm font-bold md:col-span-2">
                       주소

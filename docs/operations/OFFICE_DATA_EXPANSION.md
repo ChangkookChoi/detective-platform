@@ -91,6 +91,8 @@ Clerk 관리자 배치 브라우저 실행은 하나의 운영 계약이다. 절
 - 배치: `version`, `batchId`, `verifiedAt`, `candidates`
 - 후보: `sourceUrl`, `name`, `phoneDisplay`, `addressText`, `slug`,
   `regionSlug`, `serviceCategorySlugs`, `sourceType`, `evidenceNote`
+- 선택 후보 필드: 공식 페이지에 업무 연락처로 공개되고 검수된 `emailDisplay`.
+  이 값은 메일 발송 동의가 아니다.
 - 기존 `deferred` 재검사: `recheckReason`
 - robots 404처럼 자동 정책 판단이 불가능하지만 사람이 공식 공개 페이지를
   확인한 경우: `manualPolicyReviewed: true`

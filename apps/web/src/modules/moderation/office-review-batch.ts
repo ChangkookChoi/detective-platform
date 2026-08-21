@@ -22,6 +22,7 @@ import {
   ManualOfficeCandidateError,
 } from "@/modules/moderation/create-manual-office-candidate";
 import { normalizeDomesticPhoneDigits } from "@/modules/shared/domestic-phone";
+import { normalizeOptionalBusinessEmail } from "@/modules/shared/business-email";
 import { isPublicHttpUrl } from "@/modules/shared/public-url";
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -34,6 +35,7 @@ export type OfficeBatchCandidate = {
   sourceUrl: string;
   name: string;
   phoneDisplay: string;
+  emailDisplay?: string;
   addressText: string;
   slug: string;
   regionSlug: string;
@@ -99,6 +101,12 @@ function parseCandidate(value: unknown): OfficeBatchCandidate {
   const sourceType = requiredText(candidate.sourceType, 1, 100);
   const distinctBranchReviewed = candidate.distinctBranchReviewed ?? false;
   const categoryValues = candidate.serviceCategorySlugs;
+  let email: ReturnType<typeof normalizeOptionalBusinessEmail> = null;
+  try {
+    email = normalizeOptionalBusinessEmail(candidate.emailDisplay);
+  } catch {
+    throw new OfficeReviewBatchError("invalid_batch");
+  }
 
   if (
     !isPublicHttpUrl(sourceUrl) ||
@@ -130,6 +138,7 @@ function parseCandidate(value: unknown): OfficeBatchCandidate {
     sourceUrl: new URL(sourceUrl).toString(),
     name: requiredText(candidate.name, 2, 200),
     phoneDisplay: requiredText(candidate.phoneDisplay, 8, 50),
+    ...(email ? { emailDisplay: email.display } : {}),
     addressText: requiredText(candidate.addressText, 5, 500),
     slug,
     regionSlug,
@@ -356,6 +365,7 @@ export async function createOfficeReviewBatch(input: {
         sourceUrl: candidate.sourceUrl,
         name: candidate.name,
         phoneDisplay: candidate.phoneDisplay,
+        emailDisplay: candidate.emailDisplay,
         addressText: candidate.addressText,
         officialSourceConfirmed: true,
         sensitiveContentConfirmed: true,

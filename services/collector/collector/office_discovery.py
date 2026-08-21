@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
+import psycopg
+
 from collector.candidate_batch import (
     CandidateBatchError,
     NetworkCheck,
@@ -26,7 +28,7 @@ from collector.adapters.jsonld import AdapterError, JsonLdLocalBusinessAdapter
 from collector.http_client import CollectorHttpError, PolicyHttpClient
 from collector.models import NormalizedRecord, RetryPolicy, SourcePolicy, TimeoutPolicy
 from collector.naver_api_hub import NaverApiHubClient
-from collector.normalize import normalize_phone, normalize_record
+from collector.normalize import normalize_email, normalize_phone, normalize_record
 
 
 _HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
@@ -80,6 +82,13 @@ _HTML_CHARSET_PATTERN = re.compile(
 )
 _VISIBLE_PHONE_PATTERN = re.compile(
     r"(?<!\d)(0\d{1,2})[\s().-]*(\d{3,4})[\s.-]*(\d{4})(?!\d)"
+)
+_VISIBLE_EMAIL_PATTERN = re.compile(
+    r"(?<![A-Z0-9.!#$%&'*+/=?^_`{|}~-])"
+    r"[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?"
+    r"(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+",
+    re.IGNORECASE,
 )
 
 
@@ -254,6 +263,9 @@ class OfficialSourceFactRecord:
     expires_at: str
     business_service_match: bool = False
     business_service_reason_codes: tuple[str, ...] = ()
+    email_normalized: str | None = None
+    email_display: str | None = None
+    email_kind: str | None = None
 
 
 @dataclass(frozen=True)
@@ -280,6 +292,9 @@ class DiscoveryReviewRecord:
     candidate_address: str
     phone_normalized: str | None
     phone_display: str | None
+    email_normalized: str | None
+    email_display: str | None
+    email_kind: str | None
     source_url: str
     evidence_status: str
     business_relevance: str
@@ -327,6 +342,9 @@ class DiscoveryResearchRecord:
     candidate_address: str
     phone_normalized: str | None
     phone_display: str | None
+    email_normalized: str | None
+    email_display: str | None
+    email_kind: str | None
     source_url: str
     evidence_status: str
     business_relevance: str
@@ -338,6 +356,47 @@ class DiscoveryResearchRecord:
     expires_at: str
     review_status: str
     promotion_allowed: bool
+
+
+@dataclass(frozen=True)
+class OfficeEmailTarget:
+    target_type: str
+    target_id: str
+    office_id: str | None
+    source_url: str
+
+
+@dataclass(frozen=True)
+class OfficeEmailCandidateRecord:
+    version: int
+    rules_version: str
+    target_type: str
+    target_id: str
+    office_id: str | None
+    source_url: str
+    email_normalized: str | None
+    email_display: str | None
+    email_kind: str | None
+    status: str
+    reason_code: str | None
+    checked_at: str
+    expires_at: str
+    marketing_consent_status: str
+    promotion_allowed: bool
+
+
+@dataclass(frozen=True)
+class OfficeEmailCandidateSummary:
+    target_count: int
+    checked_count: int
+    email_candidate_count: int
+    generic_business_count: int
+    unknown_count: int
+    no_email_count: int
+    failed_count: int
+    reason_counts: dict[str, int]
+    output: str
+    expires_at: str
 
 
 def build_query_plan(
@@ -1418,6 +1477,7 @@ class _VisibleFactParser(HTMLParser):
         self._ignored_depth = 0
         self._parts: list[str] = []
         self.telephones: list[str] = []
+        self.emails: list[str] = []
 
     def handle_starttag(
         self, tag: str, attrs: list[tuple[str, str | None]]
@@ -1430,6 +1490,8 @@ class _VisibleFactParser(HTMLParser):
             href = attributes.get("href") or ""
             if href.lower().startswith("tel:"):
                 self.telephones.append(href[4:500])
+            elif href.lower().startswith("mailto:"):
+                self.emails.append(href[7:500])
 
     def handle_endtag(self, tag: str) -> None:
         if tag.lower() in {"script", "style", "noscript"} and self._ignored_depth:
@@ -1442,6 +1504,217 @@ class _VisibleFactParser(HTMLParser):
     @property
     def visible_text(self) -> str:
         return normalize_result_text(" ".join(self._parts))
+
+
+def extract_official_business_emails(
+    body: bytes, *, source_url: str, user_agent: str, checked_at: date
+) -> tuple[tuple[str, str, str], ...]:
+    normalized_body = _normalize_html_encoding(body)
+    policy = _source_policy(source_url, user_agent, checked_at)
+    adapter = JsonLdLocalBusinessAdapter()
+    candidates: list[tuple[str, str, str]] = []
+    for record in adapter.extract(normalized_body, source_url, policy):
+        values = normalize_record(record).normalized_values
+        normalized = values.get("emailNormalized")
+        display = values.get("emailDisplay")
+        kind = values.get("emailKind")
+        if all(isinstance(value, str) for value in (normalized, display, kind)):
+            candidates.append((str(normalized), str(display), str(kind)))
+
+    parser = _VisibleFactParser()
+    try:
+        parser.feed(normalized_body.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise OfficeDiscoveryError("discovery_fact_html_parse_failed") from exc
+    visible_candidates = list(parser.emails)
+    visible_candidates.extend(
+        match.group(0)
+        for match in _VISIBLE_EMAIL_PATTERN.finditer(parser.visible_text)
+    )
+    for value in visible_candidates:
+        normalized, display, kind = normalize_email(value)
+        if normalized and display and kind:
+            candidates.append((normalized, display, kind))
+
+    deduplicated: dict[str, tuple[str, str, str]] = {}
+    for candidate in candidates:
+        deduplicated.setdefault(candidate[0], candidate)
+    return tuple(
+        sorted(
+            deduplicated.values(),
+            key=lambda item: (item[2] != "generic_business", item[0]),
+        )
+    )
+
+
+def load_office_email_targets(database_url: str) -> tuple[OfficeEmailTarget, ...]:
+    with psycopg.connect(database_url) as connection:
+        rows = connection.execute(
+            """
+            SELECT 'office' AS target_type,
+                   office.id::text AS target_id,
+                   office.id::text AS office_id,
+                   source.url
+            FROM offices AS office
+            INNER JOIN office_sources AS source ON source.office_id = office.id
+            WHERE office.status IN ('draft', 'published')
+              AND source.is_primary = true
+              AND source.source_type = 'official_website'
+              AND source.access_status = 'available'
+            UNION ALL
+            SELECT 'review' AS target_type,
+                   review.id::text AS target_id,
+                   review.office_id::text AS office_id,
+                   record.source_url
+            FROM review_items AS review
+            INNER JOIN collected_records AS record
+                ON record.id = review.collected_record_id
+            WHERE review.status IN ('pending', 'on_hold')
+              AND review.type IN ('new_office', 'field_change')
+            ORDER BY target_type, target_id
+            """
+        ).fetchall()
+    seen: set[tuple[str, str]] = set()
+    targets: list[OfficeEmailTarget] = []
+    for target_type, target_id, office_id, source_url in rows:
+        normalized_source = normalize_source_url(str(source_url))
+        identity = (str(target_id), normalized_source)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        targets.append(
+            OfficeEmailTarget(
+                target_type=str(target_type),
+                target_id=str(target_id),
+                office_id=str(office_id) if office_id is not None else None,
+                source_url=normalized_source,
+            )
+        )
+    return tuple(targets)
+
+
+def collect_office_email_candidates(
+    *,
+    targets: tuple[OfficeEmailTarget, ...],
+    output_path: Path,
+    user_agent: str,
+    max_sources: int = 100,
+    retention_days: int = 7,
+    now: datetime | None = None,
+    fetcher: Callable[..., bytes] = _fetch_official_source_html,
+) -> OfficeEmailCandidateSummary:
+    if not 1 <= max_sources <= 100:
+        raise OfficeDiscoveryError("office_email_source_budget_invalid")
+    if not 1 <= retention_days <= 21:
+        raise OfficeDiscoveryError("office_email_retention_invalid")
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        raise OfficeDiscoveryError("discovery_timestamp_must_be_timezone_aware")
+    current = current.astimezone(timezone.utc)
+    selected = targets[:max_sources]
+    if not selected:
+        raise OfficeDiscoveryError("office_email_targets_empty")
+    expires_at = current + timedelta(days=retention_days)
+    records: list[OfficeEmailCandidateRecord] = []
+    for target in selected:
+        try:
+            body = fetcher(
+                target.source_url,
+                user_agent=user_agent,
+                checked_at=current.date(),
+            )
+            candidates = extract_official_business_emails(
+                body,
+                source_url=target.source_url,
+                user_agent=user_agent,
+                checked_at=current.date(),
+            )
+        except (AdapterError, CollectorHttpError, OfficeDiscoveryError, OSError) as exc:
+            reason = exc.code if isinstance(exc, CollectorHttpError) else str(exc)
+            records.append(
+                OfficeEmailCandidateRecord(
+                    version=1,
+                    rules_version="official-business-email-v1",
+                    target_type=target.target_type,
+                    target_id=target.target_id,
+                    office_id=target.office_id,
+                    source_url=target.source_url,
+                    email_normalized=None,
+                    email_display=None,
+                    email_kind=None,
+                    status="fetch_failed",
+                    reason_code=reason,
+                    checked_at=current.isoformat(),
+                    expires_at=expires_at.isoformat(),
+                    marketing_consent_status="not_obtained",
+                    promotion_allowed=False,
+                )
+            )
+            continue
+        if not candidates:
+            records.append(
+                OfficeEmailCandidateRecord(
+                    version=1,
+                    rules_version="official-business-email-v1",
+                    target_type=target.target_type,
+                    target_id=target.target_id,
+                    office_id=target.office_id,
+                    source_url=target.source_url,
+                    email_normalized=None,
+                    email_display=None,
+                    email_kind=None,
+                    status="not_found",
+                    reason_code="OFFICIAL_EMAIL_NOT_FOUND",
+                    checked_at=current.isoformat(),
+                    expires_at=expires_at.isoformat(),
+                    marketing_consent_status="not_obtained",
+                    promotion_allowed=False,
+                )
+            )
+            continue
+        status = "pending" if len(candidates) == 1 else "multiple_review_required"
+        reason_code = None if len(candidates) == 1 else "MULTIPLE_OFFICIAL_EMAILS"
+        for normalized, display, kind in candidates:
+            records.append(
+                OfficeEmailCandidateRecord(
+                    version=1,
+                    rules_version="official-business-email-v1",
+                    target_type=target.target_type,
+                    target_id=target.target_id,
+                    office_id=target.office_id,
+                    source_url=target.source_url,
+                    email_normalized=normalized,
+                    email_display=display,
+                    email_kind=kind,
+                    status=status,
+                    reason_code=reason_code,
+                    checked_at=current.isoformat(),
+                    expires_at=expires_at.isoformat(),
+                    marketing_consent_status="not_obtained",
+                    promotion_allowed=False,
+                )
+            )
+    _write_jsonl(output_path, records)
+    status_counts = Counter(record.status for record in records)
+    reason_counts = Counter(
+        record.reason_code for record in records if record.reason_code
+    )
+    return OfficeEmailCandidateSummary(
+        target_count=len(targets),
+        checked_count=len(selected),
+        email_candidate_count=sum(
+            record.email_normalized is not None for record in records
+        ),
+        generic_business_count=sum(
+            record.email_kind == "generic_business" for record in records
+        ),
+        unknown_count=sum(record.email_kind == "unknown" for record in records),
+        no_email_count=status_counts["not_found"],
+        failed_count=status_counts["fetch_failed"],
+        reason_counts=dict(sorted(reason_counts.items())),
+        output=str(output_path),
+        expires_at=expires_at.isoformat(),
+    )
 
 
 def _business_service_evidence(value: str) -> tuple[str, ...]:
@@ -1479,10 +1752,27 @@ def _html_fallback_facts(
             phone_normalized = normalized
             phone_display = display
             break
+    email_normalized: str | None = None
+    email_display: str | None = None
+    email_kind: str | None = None
+    email_candidates = list(parser.emails)
+    email_candidates.extend(
+        match.group(0) for match in _VISIBLE_EMAIL_PATTERN.finditer(visible_text)
+    )
+    for value in email_candidates:
+        normalized, display, kind = normalize_email(value)
+        if normalized:
+            email_normalized = normalized
+            email_display = display
+            email_kind = kind
+            break
     return {
         "name": normalize_result_text(candidate_name) if name_match else None,
         "phoneNormalized": phone_normalized,
         "phoneDisplay": phone_display,
+        "emailNormalized": email_normalized,
+        "emailDisplay": email_display,
+        "emailKind": email_kind,
         "addressText": candidate_address if address_match else None,
         "nameMatch": name_match,
         "addressMatch": address_match,
@@ -1609,6 +1899,9 @@ def extract_official_source_facts(
                     extracted_name=None,
                     phone_normalized=None,
                     phone_display=None,
+                    email_normalized=None,
+                    email_display=None,
+                    email_kind=None,
                     address_text=None,
                     name_match=False,
                     address_match=False,
@@ -1664,6 +1957,21 @@ def extract_official_source_facts(
             if isinstance(values.get("phoneDisplay"), str)
             else None
         )
+        email_normalized = (
+            values.get("emailNormalized")
+            if isinstance(values.get("emailNormalized"), str)
+            else None
+        )
+        email_display = (
+            values.get("emailDisplay")
+            if isinstance(values.get("emailDisplay"), str)
+            else None
+        )
+        email_kind = (
+            values.get("emailKind")
+            if isinstance(values.get("emailKind"), str)
+            else None
+        )
         address = (
             values.get("addressText")
             if isinstance(values.get("addressText"), str)
@@ -1680,6 +1988,21 @@ def extract_official_source_facts(
             phone_display = (
                 fallback.get("phoneDisplay")
                 if isinstance(fallback.get("phoneDisplay"), str)
+                else None
+            )
+            used_fallback = True
+        if email_normalized is None and isinstance(
+            fallback.get("emailNormalized"), str
+        ):
+            email_normalized = fallback["emailNormalized"]
+            email_display = (
+                fallback.get("emailDisplay")
+                if isinstance(fallback.get("emailDisplay"), str)
+                else None
+            )
+            email_kind = (
+                fallback.get("emailKind")
+                if isinstance(fallback.get("emailKind"), str)
                 else None
             )
             used_fallback = True
@@ -1719,6 +2042,9 @@ def extract_official_source_facts(
                 extracted_name=name,
                 phone_normalized=phone_normalized,
                 phone_display=phone_display,
+                email_normalized=email_normalized,
+                email_display=email_display,
+                email_kind=email_kind,
                 address_text=address,
                 name_match=name_match,
                 address_match=address_match,
@@ -1910,6 +2236,9 @@ def build_discovery_review_queue(
                     candidate_address=candidate_address,
                     phone_normalized=fact.phone_normalized,
                     phone_display=fact.phone_display,
+                    email_normalized=fact.email_normalized,
+                    email_display=fact.email_display,
+                    email_kind=fact.email_kind,
                     source_url=fact.source_url,
                     evidence_status=fact.status,
                     business_relevance=relevance.status,
@@ -1933,6 +2262,9 @@ def build_discovery_review_queue(
                 candidate_address=candidate_address,
                 phone_normalized=fact.phone_normalized,
                 phone_display=fact.phone_display,
+                email_normalized=fact.email_normalized,
+                email_display=fact.email_display,
+                email_kind=fact.email_kind,
                 source_url=fact.source_url,
                 evidence_status=fact.status,
                 business_relevance=relevance.status,

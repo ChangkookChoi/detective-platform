@@ -35,6 +35,9 @@
 | `summary` | 검수된 짧은 소개 |
 | `phone_normalized` | 검색·연결용 정규화 전화번호 |
 | `phone_display` | 화면 표시용 전화번호 |
+| `email_normalized` | 검수된 공식 업무용 이메일 정규화값 |
+| `email_display` | 검수된 공식 업무용 이메일 표시값 |
+| `email_kind` | `generic_business`, `unknown` 중 하나 |
 | `address_text` | 검수된 주소 표시값 |
 | `region_id` | 대표 지역 참조 |
 | `status` | `draft`, `published`, `suspended`, `closed_suspected`, `archived` 중 하나 |
@@ -48,9 +51,14 @@
 
 - `id`는 UUID를 사용한다.
 - `slug`, `name`, `region_id`, `status`, `created_at`, `updated_at`은 null을 허용하지 않는다.
-- `phone_normalized`, `phone_display`, `address_text`, `summary`, `published_at`, `last_verified_at`은 초안에서 null일 수 있다. 전화번호, 주소와 확인 시각은 `published` 전환 시 필수로 검증한다.
+- `phone_normalized`, `phone_display`, `email_normalized`, `email_display`,
+  `email_kind`, `address_text`, `summary`, `published_at`, `last_verified_at`은
+  초안에서 null일 수 있다. 전화번호, 주소와 확인 시각은 `published` 전환 시
+  필수로 검증하고 이메일은 선택 정보로 유지한다.
 - `slug`는 전역 고유하며 업체가 보관 처리되어도 재사용하지 않는다.
 - `phone_normalized`는 국내 전화 연결에 사용할 수 있는 정규화 형식으로 저장하고 `phone_display`는 검수된 표시값으로 저장한다.
+- 이메일 세 필드는 모두 null이거나 모두 유효해야 한다. 공식 이메일이 저장돼도
+  메일 발송 동의를 뜻하지 않는다.
 - 전화번호만으로 전역 고유 제약을 두지 않는다. 동일 대표번호를 여러 지점이 합법적으로 공유할 수 있으므로 중복 후보 탐지에만 사용한다.
 - `region_id`는 업체 주소가 속한 검색용 최하위 활성 지역을 참조한다.
 
@@ -65,6 +73,19 @@
 | `archived` | 비공개 | 폐업 확정, 중복 정리 등으로 보관 |
 
 허용 전이는 애플리케이션 유스케이스에서 제한한다. `published` 전환에는 유효한 대표 출처, 필수 필드의 근거, `last_verified_at`과 승인 이력이 필요하다. `archived` 업체의 slug는 유지한다.
+
+### `office_email_marketing_consents`
+
+공식 업무용 이메일과 메일 발송 동의를 분리한다. 행이 없으면 발송 동의가 없는
+것이다. `office_id`, 동의 당시 `email_normalized`, `status`, `consent_source`,
+`consented_at`, `unsubscribed_at`, 생성·수정 시각을 둔다.
+
+- `consented`는 명시적 동의 출처와 시각이 있고 수신거부 시각이 없어야 한다.
+- `unsubscribed`는 수신거부 시각이 있어야 한다.
+- 수집기, 관리자 후보 등록과 업체 승인 트랜잭션은 이 테이블에 행을 자동 생성하지
+  않는다.
+- 발송 기능은 별도 결정 전 구현하지 않으며, 구현 시 `consented`만 대상으로 삼고
+  이메일 변경·철회·수신거부 동시성을 검증한다.
 
 ### `regions`
 

@@ -2,6 +2,40 @@
 
 승인된 공개 출처에서 업체 정보 후보를 순차 수집하고 JSON-LD 추출, 정규화와 변경 감지를 수행하는 Python 3.13 애플리케이션입니다. 결과는 `collection_runs`, `collected_records`, `review_items`에만 기록하며 공개 운영값인 `offices`를 수정하지 않습니다.
 
+공식 출처 정책에 `email`이 명시된 경우 JSON-LD, 공식 페이지의 `mailto:`와
+보이는 단일 이메일을 선택 정보로 정규화할 수 있습니다. 자동 추출 이메일은
+관리자 승인 전 운영값에 반영하지 않으며 메일 발송 동의를 생성하지 않습니다.
+세부 경계는 [공식 업무용 이메일 운영 정책](../../docs/operations/BUSINESS_EMAIL_POLICY.md)과
+[ADR-0011](../../docs/decisions/ADR-0011-business-email-and-outreach-consent.md)을
+따릅니다.
+
+현재 개발 DB의 공개 업체와 `pending`·`on_hold` 후보의 공식 출처를 대상으로
+이메일 후보만 비공개 JSONL로 만들 수 있습니다. 원문은 저장하지 않고 CLI에는
+이메일 값을 출력하지 않습니다. 결과는 `marketing_consent_status=not_obtained`,
+`promotion_allowed=false`로 고정되며 관리자 검수 전 DB에 반영되지 않습니다.
+
+```bash
+uv run --env-file ../../apps/web/.env.local python main.py collect-office-emails \
+  --output ../../data/private/email-runs/<email-run-id>.jsonl \
+  --user-agent "DetectivePlatformCollector/0.1 (+https://github.com/ChangkookChoi/detective-platform/issues)" \
+  --max-sources 100 \
+  --retention-days 7
+```
+
+공식 이메일이 하나만 확인된 기존 업체는 먼저 전체 트랜잭션 dry-run으로 검증한
+뒤 관리자 `field_change` 검수 큐에 올린다. `multiple_review_required`, 접근 실패,
+미발견, 아직 업체가 생성되지 않은 신규 후보는 자동 staging하지 않는다. 같은
+업체의 미해결 이메일 검수 항목이 있으면 재실행해도 중복 생성하지 않는다.
+
+```bash
+npm --prefix apps/web run db:stage-office-emails -- \
+  --input ../../data/private/email-runs/<email-run-id>.jsonl \
+  --dry-run
+
+npm --prefix apps/web run db:stage-office-emails -- \
+  --input ../../data/private/email-runs/<email-run-id>.jsonl
+```
+
 출처 등록과 실행 절차는 [수집기 운영 절차](../../docs/operations/COLLECTOR_RUNBOOK.md), 정책 경계는 [데이터 수집 정책](../../docs/operations/DATA_COLLECTION_POLICY.md)을 따릅니다. [`sources.toml`](sources.toml)에는 2026-07-23 기준 한 개 공식 홈페이지의 단일 페이지·사실 필드 파일럿 정책만 등록되어 있으며 판단 근거는 [수집 출처 등록부](../../docs/operations/SOURCE_REGISTRY.md)에 기록합니다.
 
 ## 구성

@@ -84,6 +84,9 @@ class OfficeSnapshot:
     name: str
     phone_normalized: str | None
     phone_display: str | None
+    email_normalized: str | None
+    email_display: str | None
+    email_kind: str | None
     address_text: str | None
     summary: str | None
 

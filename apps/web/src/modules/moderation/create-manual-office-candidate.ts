@@ -9,12 +9,14 @@ import {
   reviewItems,
 } from "@/db/schema";
 import { normalizeDomesticPhoneDigits } from "@/modules/shared/domestic-phone";
+import { normalizeOptionalBusinessEmail } from "@/modules/shared/business-email";
 import { isPublicHttpUrl } from "@/modules/shared/public-url";
 
 export type ManualOfficeCandidateFailure =
   | "duplicate"
   | "invalid_actor"
   | "invalid_address"
+  | "invalid_email"
   | "invalid_name"
   | "invalid_phone"
   | "invalid_source_url"
@@ -36,6 +38,7 @@ type CreateManualOfficeCandidateInput = {
   sourceUrl: string;
   name: string;
   phoneDisplay: string;
+  emailDisplay?: string;
   addressText: string;
   officialSourceConfirmed: boolean;
   sensitiveContentConfirmed: boolean;
@@ -118,6 +121,12 @@ export async function createManualOfficeCandidate(
   const sourceUrl = normalizeSourceUrl(input.sourceUrl);
   const name = normalizeRequiredText(input.name, 2, 200, "invalid_name");
   const phone = normalizePhone(input.phoneDisplay);
+  let email: ReturnType<typeof normalizeOptionalBusinessEmail> = null;
+  try {
+    email = normalizeOptionalBusinessEmail(input.emailDisplay);
+  } catch {
+    throw new ManualOfficeCandidateError("invalid_email");
+  }
   const addressText = normalizeRequiredText(
     input.addressText,
     5,
@@ -128,12 +137,20 @@ export async function createManualOfficeCandidate(
   const extractedValues = {
     name,
     telephone: phone.display,
+    ...(email ? { email: email.display } : {}),
     address: addressText,
   };
   const proposedValues = {
     name,
     phoneDisplay: phone.display,
     phoneNormalized: phone.normalized,
+    ...(email
+      ? {
+          emailDisplay: email.display,
+          emailNormalized: email.normalized,
+          emailKind: email.kind,
+        }
+      : {}),
     addressText,
     ...(input.batch
       ? {

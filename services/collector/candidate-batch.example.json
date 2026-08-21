@@ -7,6 +7,7 @@
       "sourceUrl": "https://example.com/official-office",
       "name": "예시 탐정사무소",
       "phoneDisplay": "02-000-0000",
+      "emailDisplay": "info@example.com",
       "addressText": "서울특별시 강남구 예시로 1",
       "slug": "example-detective-gangnam",
       "regionSlug": "seoul-gangnam",

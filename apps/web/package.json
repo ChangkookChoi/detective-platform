@@ -33,6 +33,7 @@
     "db:verify-restored-backup": "tsx scripts/verify-restored-production-backup.ts",
     "db:verify-publication": "tsx scripts/verify-publication.ts",
     "db:inspect-review-state": "tsx scripts/inspect-review-state.ts",
+    "db:stage-office-emails": "tsx scripts/stage-office-email-candidates.ts",
     "db:verify-manual-candidates": "tsx scripts/verify-manual-candidates.ts",
     "db:verify-office-review-batch": "tsx scripts/verify-office-review-batch.ts",
     "db:verify-analytics": "tsx scripts/verify-analytics.ts",

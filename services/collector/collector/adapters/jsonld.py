@@ -67,6 +67,7 @@ def _extract_field(field: str, value: object) -> str | dict[str, str] | None:
         limits = {
             "name": 500,
             "telephone": 100,
+            "email": 254,
             "address": 2_000,
             "description": 10_000,
         }
