@@ -8,7 +8,7 @@ from typing import Any
 from collector.models import RetryPolicy, SourcePolicy, TimeoutPolicy
 
 SUPPORTED_FIELDS = frozenset(
-    {"name", "telephone", "address", "description"}
+    {"name", "telephone", "email", "address", "description"}
 )
 SUPPORTED_ADAPTERS = frozenset({"jsonld_local_business"})
 

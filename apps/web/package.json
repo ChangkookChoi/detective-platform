@@ -11,6 +11,7 @@
     "test:e2e:admin": "../../scripts/verify-admin-e2e-postgres.sh",
     "test:e2e:admin:browser": "playwright test --config=playwright.admin.config.ts",
     "test:e2e:reviewer:browser": "playwright test --config=playwright.reviewer.config.ts",
+    "ops:office-batch": "playwright test --config=playwright.office-batch.config.ts",
     "test:e2e:db": "../../scripts/verify-web-e2e-postgres.sh",
     "test:e2e:db:browser": "playwright test --config=playwright.db.config.ts",
     "test:e2e:report": "playwright show-report",
@@ -32,7 +33,9 @@
     "db:verify-restored-backup": "tsx scripts/verify-restored-production-backup.ts",
     "db:verify-publication": "tsx scripts/verify-publication.ts",
     "db:inspect-review-state": "tsx scripts/inspect-review-state.ts",
+    "db:stage-office-emails": "tsx scripts/stage-office-email-candidates.ts",
     "db:verify-manual-candidates": "tsx scripts/verify-manual-candidates.ts",
+    "db:verify-office-review-batch": "tsx scripts/verify-office-review-batch.ts",
     "db:verify-analytics": "tsx scripts/verify-analytics.ts",
     "db:verify-corrections": "tsx scripts/verify-corrections.ts"
   },

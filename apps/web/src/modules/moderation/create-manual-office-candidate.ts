@@ -9,12 +9,14 @@ import {
   reviewItems,
 } from "@/db/schema";
 import { normalizeDomesticPhoneDigits } from "@/modules/shared/domestic-phone";
+import { normalizeOptionalBusinessEmail } from "@/modules/shared/business-email";
 import { isPublicHttpUrl } from "@/modules/shared/public-url";
 
 export type ManualOfficeCandidateFailure =
   | "duplicate"
   | "invalid_actor"
   | "invalid_address"
+  | "invalid_email"
   | "invalid_name"
   | "invalid_phone"
   | "invalid_source_url"
@@ -36,9 +38,19 @@ type CreateManualOfficeCandidateInput = {
   sourceUrl: string;
   name: string;
   phoneDisplay: string;
+  emailDisplay?: string;
   addressText: string;
   officialSourceConfirmed: boolean;
   sensitiveContentConfirmed: boolean;
+  batch?: {
+    batchId: string;
+    slug: string;
+    regionSlug: string;
+    serviceCategorySlugs: string[];
+    sourceType: string;
+    evidenceNote: string;
+    distinctBranchReviewed: boolean;
+  };
   createdAt?: Date;
 };
 
@@ -109,6 +121,12 @@ export async function createManualOfficeCandidate(
   const sourceUrl = normalizeSourceUrl(input.sourceUrl);
   const name = normalizeRequiredText(input.name, 2, 200, "invalid_name");
   const phone = normalizePhone(input.phoneDisplay);
+  let email: ReturnType<typeof normalizeOptionalBusinessEmail> = null;
+  try {
+    email = normalizeOptionalBusinessEmail(input.emailDisplay);
+  } catch {
+    throw new ManualOfficeCandidateError("invalid_email");
+  }
   const addressText = normalizeRequiredText(
     input.addressText,
     5,
@@ -119,13 +137,57 @@ export async function createManualOfficeCandidate(
   const extractedValues = {
     name,
     telephone: phone.display,
+    ...(email ? { email: email.display } : {}),
     address: addressText,
   };
   const proposedValues = {
     name,
     phoneDisplay: phone.display,
     phoneNormalized: phone.normalized,
+    ...(email
+      ? {
+          emailDisplay: email.display,
+          emailNormalized: email.normalized,
+          emailKind: email.kind,
+        }
+      : {}),
     addressText,
+    ...(input.batch
+      ? {
+          batchId: normalizeRequiredText(
+            input.batch.batchId,
+            3,
+            100,
+            "invalid_source_url",
+          ),
+          slug: normalizeRequiredText(
+            input.batch.slug,
+            3,
+            80,
+            "invalid_source_url",
+          ),
+          regionSlug: normalizeRequiredText(
+            input.batch.regionSlug,
+            1,
+            100,
+            "invalid_source_url",
+          ),
+          serviceCategorySlugs: [...input.batch.serviceCategorySlugs],
+          sourceType: normalizeRequiredText(
+            input.batch.sourceType,
+            1,
+            100,
+            "invalid_source_url",
+          ),
+          evidenceNote: normalizeRequiredText(
+            input.batch.evidenceNote,
+            10,
+            1000,
+            "invalid_source_url",
+          ),
+          distinctBranchReviewed: input.batch.distinctBranchReviewed,
+        }
+      : {}),
   };
   const contentHash = createHash("sha256")
     .update(JSON.stringify({ sourceUrl, ...proposedValues }))
@@ -165,8 +227,8 @@ export async function createManualOfficeCandidate(
       .insert(collectionRuns)
       .values({
         sourceName: "manual-admin",
-        adapterName: "manual_admin",
-        extractorVersion: "manual-v1",
+        adapterName: input.batch ? "manual_admin_batch" : "manual_admin",
+        extractorVersion: input.batch ? "manual-batch-v1" : "manual-v1",
         status: "succeeded",
         startedAt: createdAt,
         finishedAt: createdAt,
@@ -205,7 +267,9 @@ export async function createManualOfficeCandidate(
         risk: "high",
         status: "pending",
         proposedValues,
-        cause: "manual_official_source_candidate",
+        cause: input.batch
+          ? "manual_official_source_batch"
+          : "manual_official_source_candidate",
         submittedByActorId: actorId,
         createdAt,
         updatedAt: createdAt,

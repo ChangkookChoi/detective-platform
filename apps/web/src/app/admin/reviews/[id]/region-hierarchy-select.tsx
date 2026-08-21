@@ -15,15 +15,24 @@ type RegionGroup = {
 
 export function RegionHierarchySelect({
   groups,
+  defaultRegionSlug,
 }: {
   groups: RegionGroup[];
+  defaultRegionSlug?: string;
 }) {
   const provinceId = useId();
   const regionId = useId();
   const hintId = useId();
-  const [provinceSlug, setProvinceSlug] = useState("");
-  const [regionSlug, setRegionSlug] = useState("");
+  const initialProvinceSlug =
+    groups.find((group) =>
+      group.regions.some((region) => region.slug === defaultRegionSlug),
+    )?.slug ?? "";
+  const [provinceSlug, setProvinceSlug] = useState(initialProvinceSlug);
+  const [regionSlug, setRegionSlug] = useState(defaultRegionSlug ?? "");
   const selectedGroup = groups.find((group) => group.slug === provinceSlug);
+  const selectedRegionIsValid = Boolean(
+    selectedGroup?.regions.some((region) => region.slug === regionSlug),
+  );
 
   return (
     <fieldset className="grid gap-4 rounded-lg border border-slate-300 p-4 md:col-span-2 md:grid-cols-2">
@@ -57,7 +66,7 @@ export function RegionHierarchySelect({
           name="regionSlug"
           required
           disabled={!selectedGroup}
-          value={regionSlug}
+          value={selectedRegionIsValid ? regionSlug : ""}
           onChange={(event) => setRegionSlug(event.target.value)}
           aria-describedby={hintId}
           className="rounded-lg border border-slate-300 bg-white p-3 font-normal outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 focus:border-sky-700 focus:ring-2 focus:ring-sky-100"

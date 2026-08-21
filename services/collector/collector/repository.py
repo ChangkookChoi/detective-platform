@@ -144,6 +144,9 @@ class CollectorRepository:
                    office.name,
                    office.phone_normalized,
                    office.phone_display,
+                   office.email_normalized,
+                   office.email_display,
+                   office.email_kind,
                    office.address_text,
                    office.summary
             FROM office_sources AS source
@@ -161,6 +164,9 @@ class CollectorRepository:
             name=row["name"],
             phone_normalized=row["phone_normalized"],
             phone_display=row["phone_display"],
+            email_normalized=row["email_normalized"],
+            email_display=row["email_display"],
+            email_kind=row["email_kind"],
             address_text=row["address_text"],
             summary=row["summary"],
         )

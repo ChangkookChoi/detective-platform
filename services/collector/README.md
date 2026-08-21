@@ -2,6 +2,40 @@
 
 승인된 공개 출처에서 업체 정보 후보를 순차 수집하고 JSON-LD 추출, 정규화와 변경 감지를 수행하는 Python 3.13 애플리케이션입니다. 결과는 `collection_runs`, `collected_records`, `review_items`에만 기록하며 공개 운영값인 `offices`를 수정하지 않습니다.
 
+공식 출처 정책에 `email`이 명시된 경우 JSON-LD, 공식 페이지의 `mailto:`와
+보이는 단일 이메일을 선택 정보로 정규화할 수 있습니다. 자동 추출 이메일은
+관리자 승인 전 운영값에 반영하지 않으며 메일 발송 동의를 생성하지 않습니다.
+세부 경계는 [공식 업무용 이메일 운영 정책](../../docs/operations/BUSINESS_EMAIL_POLICY.md)과
+[ADR-0011](../../docs/decisions/ADR-0011-business-email-and-outreach-consent.md)을
+따릅니다.
+
+현재 개발 DB의 공개 업체와 `pending`·`on_hold` 후보의 공식 출처를 대상으로
+이메일 후보만 비공개 JSONL로 만들 수 있습니다. 원문은 저장하지 않고 CLI에는
+이메일 값을 출력하지 않습니다. 결과는 `marketing_consent_status=not_obtained`,
+`promotion_allowed=false`로 고정되며 관리자 검수 전 DB에 반영되지 않습니다.
+
+```bash
+uv run --env-file ../../apps/web/.env.local python main.py collect-office-emails \
+  --output ../../data/private/email-runs/<email-run-id>.jsonl \
+  --user-agent "DetectivePlatformCollector/0.1 (+https://github.com/ChangkookChoi/detective-platform/issues)" \
+  --max-sources 100 \
+  --retention-days 7
+```
+
+공식 이메일이 하나만 확인된 기존 업체는 먼저 전체 트랜잭션 dry-run으로 검증한
+뒤 관리자 `field_change` 검수 큐에 올린다. `multiple_review_required`, 접근 실패,
+미발견, 아직 업체가 생성되지 않은 신규 후보는 자동 staging하지 않는다. 같은
+업체의 미해결 이메일 검수 항목이 있으면 재실행해도 중복 생성하지 않는다.
+
+```bash
+npm --prefix apps/web run db:stage-office-emails -- \
+  --input ../../data/private/email-runs/<email-run-id>.jsonl \
+  --dry-run
+
+npm --prefix apps/web run db:stage-office-emails -- \
+  --input ../../data/private/email-runs/<email-run-id>.jsonl
+```
+
 출처 등록과 실행 절차는 [수집기 운영 절차](../../docs/operations/COLLECTOR_RUNBOOK.md), 정책 경계는 [데이터 수집 정책](../../docs/operations/DATA_COLLECTION_POLICY.md)을 따릅니다. [`sources.toml`](sources.toml)에는 2026-07-23 기준 한 개 공식 홈페이지의 단일 페이지·사실 필드 파일럿 정책만 등록되어 있으며 판단 근거는 [수집 출처 등록부](../../docs/operations/SOURCE_REGISTRY.md)에 기록합니다.
 
 ## 구성
@@ -36,6 +70,157 @@ DATABASE_URL='postgresql://...' \
 ```
 
 출력에는 실행 ID, 상태, 건수와 비민감 오류 코드만 포함합니다. 실제 URL, 환경변수 값이나 원문 HTML을 로그로 출력하지 않습니다.
+
+## NAVER API HUB 지역 후보 발굴
+
+지역 검색 API는 공개 업체를 직접 만들지 않고 비공개 발견 후보만 생성한다.
+실제 검색 결과는 Git에서 제외된 `data/private/discovery-runs` 아래 Raw JSONL과
+결정론적 필터 JSONL로 분리하며 기본 보존 기간은 7일, 최대 21일이다. Raw v2에는
+후보 발견에 필요한 제목·링크·분류·주소만 저장한다. 새 검색 실행 전 만료 파일을
+자동 정리하며, 만료 Raw는 재필터할 수 없다. CLI 출력은 업체명·주소·URL을
+포함하지 않고 건수와 사유 코드 집계만 표시한다.
+
+로컬 키는 `apps/web/.env.local`의 `NAVER_API_HUB_CLIENT_ID`와
+`NAVER_API_HUB_CLIENT_SECRET`에 저장한다. 검색 API 결과의 이용 조건은
+[전문가 검토 요청서](../../docs/operations/NAVER_API_LEGAL_REVIEW_BRIEF.md)와
+[ADR-0010](../../docs/decisions/ADR-0010-naver-api-discovery-pilot.md)을 따른다.
+웹문서 API는 지역 결과에서 공식 링크 없음·비공식 링크·HTTP 링크 사유가 있는
+비반려 후보의 공식 홈페이지 후보 재검색에만 사용한다. 웹 Raw에는 제목·URL만
+저장하고 설명문·질의문은 저장하지 않으며 AI 입력·공개 후보 전환은 하지 않는다.
+
+```bash
+uv run --env-file ../../apps/web/.env.local python main.py discover-naver-local \
+  --output-dir ../../data/private/discovery-runs \
+  --registry ../../docs/operations/SOURCE_REGISTRY.md \
+  --region "서울 강남구" \
+  --region "서울 송파구" \
+  --keyword "탐정사무소" \
+  --keyword "흥신소" \
+  --max-requests 4 \
+  --retention-days 7
+```
+
+개발 DB에 등록된 서울·경기 활성 최하위 지역 전체를 대상으로 실행할 때는 개별
+`--region` 대신 `--regions-from-database`를 사용한다. 검색어 하나당 현재 72개
+질의이므로 `--max-requests 100` 안에서 실행한다.
+
+```bash
+uv run --env-file ../../apps/web/.env.local python main.py discover-naver-local \
+  --output-dir ../../data/private/discovery-runs \
+  --registry ../../docs/operations/SOURCE_REGISTRY.md \
+  --regions-from-database \
+  --keyword "탐정사무소" \
+  --max-requests 100 \
+  --retention-days 7
+```
+
+`DATABASE_URL`이 같은 환경에 있으면 현재 공개·비공개 운영 업체의 이름·주소·
+공식 출처와 대조한다. 없으면 실행 배치 내부와 출처 등록부 중복만 검사한다.
+Raw 또는 filtered 파일을 AI 입력에 첨부하지 않는다.
+`source_check_required`도 공식 출처 확인 전 발견 후보일 뿐이며 filtered 결과는
+항상 `source_verification=required`, `promotion_allowed=false`다. 이 파일을
+후보 manifest로 직접 변환하지 않고 공식 홈페이지에서 다시 확인한 값만 별도
+manifest에 작성한다.
+
+전국 비공개 후보 수집은 `--nationwide`를 명시한 실행에서만 활성화한다. 광역
+검색 Raw에서 확인된 시·군·구를 후속 질의로 재사용할 때는 하나 이상의
+`--regions-from-raw`를 지정하고, 100회 실행 예산 안에서 `--region-offset`과
+`--region-limit`으로 분할한다. 전국 후보는 지역 seed와 공개 범위를 자동으로
+확장하지 않는다.
+
+지역 검색 결과에 공식으로 보이는 HTTPS 링크가 이미 있으면 웹문서 API를 다시
+호출하지 않고 기존 probe 입력 형식으로 변환한다.
+
+```bash
+uv run --env-file ../../apps/web/.env.local python main.py \
+  prepare-local-source-links \
+  --local-raw ../../data/private/discovery-runs/<local-run-id>.raw.jsonl \
+  --output-dir ../../data/private/direct-source-runs \
+  --registry ../../docs/operations/SOURCE_REGISTRY.md
+```
+
+지역 Raw의 보존기한 안에서 공식 홈페이지 후보를 재검색한다. `max-candidates`는
+검색할 지역 후보 수, `max-requests`는 재시도를 포함한 전체 호출 상한이다.
+
+```bash
+uv run --env-file ../../apps/web/.env.local python main.py \
+  discover-naver-web-sources \
+  --local-raw ../../data/private/discovery-runs/<local-run-id>.raw.jsonl \
+  --output-dir ../../data/private/discovery-runs \
+  --registry ../../docs/operations/SOURCE_REGISTRY.md \
+  --max-candidates 10 \
+  --max-requests 15 \
+  --display 5 \
+  --retention-days 7
+```
+
+웹 결과도 HTTPS·비공식 도메인·실행 내 중복·기존 출처·출처 등록부·후보명 일치
+신호를 판정한다. 지역 후보는 강한 탐정업 상호 또는 NAVER 관련 분류가 있어야
+웹 재검색 대상으로 삼고, 오락·동물·건설·전문사무소 등 무관 문맥은 제외한다.
+`source_check_required`는 공식 홈페이지 확인 완료가 아니다.
+
+`source_check_required` URL은 원문을 저장하지 않는 네트워크 사전검증으로 넘긴다.
+공개 IP·HTTPS·동일 사이트 redirect·robots·응답 상태·크기 제한을 통과해도
+`content_check_required`일 뿐이며 공식 업체 확인이나 공개 승격을 의미하지 않는다.
+
+```bash
+uv run python main.py probe-discovery-sources \
+  --web-raw ../../data/private/discovery-runs/<web-run-id>.raw.jsonl \
+  --web-filtered ../../data/private/discovery-runs/<web-run-id>.filtered.jsonl \
+  --output ../../data/private/discovery-runs/<web-run-id>.probe.jsonl \
+  --user-agent "DetectivePlatformPreflight/1.0 (+https://github.com/ChangkookChoi/detective-platform)" \
+  --max-sources 10
+```
+
+웹 검색 배치 manifest는 선택한 부모 레코드 ID와 후보 정체성 해시만 보관한다.
+결과가 없었던 후보를 포함해 같은 업체가 다른 지역 질의나 검색어에서 다시
+나타나도 보존기한 안에는 웹 API를 다시 호출하지 않는다.
+
+`content_check_required` 페이지는 원문을 파일로 저장하지 않고 JSON-LD와 보이는
+HTML에서 상호·업무용 대표번호·주소와 탐정 업무 문구를 추출한다. 결과는 강한
+일치, 부분 일치, 정보 부족, 실패로 나뉘며 어떤 상태도 자동 승격을 허용하지
+않는다.
+
+```bash
+uv run python main.py extract-discovery-facts \
+  --local-raw ../../data/private/discovery-runs/<local-run-id>.raw.jsonl \
+  --web-raw ../../data/private/discovery-runs/<web-run-id>.raw.jsonl \
+  --web-filtered ../../data/private/discovery-runs/<web-run-id>.filtered.jsonl \
+  --probe ../../data/private/discovery-runs/<web-run-id>.probe.jsonl \
+  --output ../../data/private/discovery-runs/<web-run-id>.facts.jsonl \
+  --user-agent "DetectivePlatformPreflight/1.0 (+https://github.com/ChangkookChoi/detective-platform)" \
+  --max-sources 50
+```
+
+활성 facts 파일을 업체 정체성 해시로 합친다. 관련성 probable, 강한 사실 일치,
+대표 전화, 공식 페이지 탐정 업무 증거, 비공식 host 제외와 현재 DB 중복 부재를
+모두 충족한 후보만 `review_status=pending` 큐에 둔다. 그 밖의 확인 가능 후보는
+같은 이름의 `.research.jsonl`에 `review_status=research_required`로 분리한다.
+두 출력 모두 office batch manifest가 아니며 `promotion_allowed=false`다.
+
+```bash
+uv run python main.py build-discovery-review-queue \
+  --output-dir ../../data/private/discovery-runs \
+  --output ../../data/private/discovery-runs/<review-run-id>.jsonl
+```
+
+필터 규칙을 개선한 뒤에는 API를 다시 호출하지 않고 같은 Raw 파일을 재사용한다.
+
+```bash
+uv run --env-file ../../apps/web/.env.local python main.py filter-naver-discovery \
+  --raw ../../data/private/discovery-runs/<run-id>.raw.jsonl \
+  --output ../../data/private/discovery-runs/<run-id>.filtered.jsonl \
+  --registry ../../docs/operations/SOURCE_REGISTRY.md
+```
+
+보존기한 정리는 새 검색 전 자동 실행된다. 정기 검색을 도입하기 전에는 다음
+명령을 하루 한 번 실행하고 실패를 감시하도록 예약한다. 삭제 건수만 출력하며
+실제 후보 값은 출력하지 않는다.
+
+```bash
+uv run python main.py purge-naver-discovery \
+  --output-dir ../../data/private/discovery-runs
+```
 
 ## 검증
 

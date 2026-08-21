@@ -89,6 +89,12 @@ export default async function ReviewQueuePage({
               {items.length}건
             </p>
             <Link
+              href="/admin/reviews/batch"
+              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:border-slate-950"
+            >
+              후보 일괄 검수
+            </Link>
+            <Link
               href="/admin/reviews/new"
               className="rounded-full bg-slate-950 px-4 py-2 text-sm font-bold text-white hover:bg-sky-900"
             >

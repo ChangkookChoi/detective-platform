@@ -165,11 +165,28 @@ export default async function ReviewDetailPage({
       proposedRecord.phoneDisplay,
       item.office?.phoneDisplay,
     ),
+    emailDisplay: textValue(
+      proposedRecord.emailDisplay,
+      item.office?.emailDisplay,
+    ),
     addressText: textValue(
       proposedRecord.addressText,
       item.office?.addressText,
     ),
   };
+  const suggestedSlug = textValue(proposedRecord.slug, "");
+  const suggestedRegionSlug = textValue(proposedRecord.regionSlug, "");
+  const suggestedSourceType = textValue(
+    proposedRecord.sourceType,
+    "official_website",
+  );
+  const suggestedCategorySlugs = Array.isArray(
+    proposedRecord.serviceCategorySlugs,
+  )
+    ? proposedRecord.serviceCategorySlugs.filter(
+        (value): value is string => typeof value === "string",
+      )
+    : [];
   const isNewCandidate = item.office === null && item.type === "new_office";
   const suggestedEvidenceUrl =
     typeof proposedRecord.evidenceUrl === "string"
@@ -182,6 +199,10 @@ export default async function ReviewDetailPage({
       isNewCandidate ||
       "phoneDisplay" in proposedRecord ||
       "phoneNormalized" in proposedRecord,
+    email:
+      isNewCandidate ||
+      "emailDisplay" in proposedRecord ||
+      "emailNormalized" in proposedRecord,
     address: isNewCandidate || "addressText" in proposedRecord,
   };
 
@@ -426,6 +447,21 @@ export default async function ReviewDetailPage({
                         className="rounded-lg border border-slate-300 p-3 font-normal outline-none read-only:bg-slate-100 focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                       />
                     </label>
+                    <label className="grid gap-2 text-sm font-bold">
+                      공식 업무용 이메일 (선택)
+                      <input
+                        name="emailDisplay"
+                        type="email"
+                        maxLength={254}
+                        defaultValue={candidateValues.emailDisplay}
+                        readOnly={!editableFields.email}
+                        className="rounded-lg border border-slate-300 p-3 font-normal outline-none read-only:bg-slate-100 focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                      />
+                      <span className="text-xs font-normal leading-5 text-slate-500">
+                        공식 페이지에 업무 연락처로 공개된 주소인지 확인합니다.
+                        저장해도 메일 발송 동의로 취급하지 않습니다.
+                      </span>
+                    </label>
                     <label className="grid gap-2 text-sm font-bold md:col-span-2">
                       주소
                       <input
@@ -463,10 +499,14 @@ export default async function ReviewDetailPage({
                           maxLength={80}
                           pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
                           placeholder="sample-office"
+                          defaultValue={suggestedSlug}
                           className="rounded-lg border border-slate-300 p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                         />
                       </label>
-                      <RegionHierarchySelect groups={formOptions.regionGroups} />
+                      <RegionHierarchySelect
+                        groups={formOptions.regionGroups}
+                        defaultRegionSlug={suggestedRegionSlug}
+                      />
                       <fieldset className="rounded-lg border border-slate-300 p-4 md:col-span-2">
                         <legend className="px-2 text-sm font-bold">
                           대표 출처 유형
@@ -481,7 +521,9 @@ export default async function ReviewDetailPage({
                                 type="radio"
                                 name="sourceType"
                                 value={sourceType}
-                                defaultChecked={sourceType === "official_website"}
+                                defaultChecked={
+                                  sourceType === suggestedSourceType
+                                }
                                 required
                               />
                               {sourceTypeLabels[sourceType]}
@@ -503,6 +545,9 @@ export default async function ReviewDetailPage({
                                 type="checkbox"
                                 name="serviceCategorySlugs"
                                 value={category.slug}
+                                defaultChecked={suggestedCategorySlugs.includes(
+                                  category.slug,
+                                )}
                               />
                               {category.name}
                             </label>

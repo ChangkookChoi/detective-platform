@@ -48,6 +48,7 @@ temp/
 # Local data
 data/raw/
 data/private/
+*.preflight.json
 *.sqlite
 *.sqlite3
 

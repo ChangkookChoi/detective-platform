@@ -137,6 +137,7 @@ export async function approveReviewAction(formData: FormData) {
         name: readString(formData, "name"),
         summary: readString(formData, "summary"),
         phoneDisplay: readString(formData, "phoneDisplay"),
+        emailDisplay: readString(formData, "emailDisplay"),
         addressText: readString(formData, "addressText"),
       },
       newOffice:

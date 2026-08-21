@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from collector.adapters import JsonLdLocalBusinessAdapter
-from collector.normalize import normalize_address, normalize_record
+from collector.normalize import normalize_address, normalize_email, normalize_record
 from tests.helpers import source_policy
 
 
@@ -18,17 +18,34 @@ class JsonLdAdapterTest(unittest.TestCase):
         )
 
         self.assertEqual(len(records), 1)
-        self.assertNotIn("email", records[0].extracted_values)
+        self.assertEqual(
+            records[0].extracted_values["email"], "not-collected@example.com"
+        )
         self.assertNotIn("email", records[0].extracted_values["address"])
         normalized = normalize_record(records[0])
         self.assertEqual(normalized.source_record_key, "office-001")
         self.assertEqual(normalized.normalized_values["name"], "테스트 탐정사무소")
         self.assertEqual(normalized.normalized_values["phoneNormalized"], "0212345678")
         self.assertEqual(
+            normalized.normalized_values["emailNormalized"],
+            "not-collected@example.com",
+        )
+        self.assertEqual(normalized.normalized_values["emailKind"], "unknown")
+        self.assertEqual(
             normalized.normalized_values["addressText"],
             "01234 서울특별시 강남구 테헤란로 1",
         )
         self.assertEqual(len(normalized.content_hash), 64)
+
+    def test_normalizes_only_single_valid_business_email(self) -> None:
+        self.assertEqual(
+            normalize_email("mailto:Info@Example.COM?subject=hello"),
+            ("info@example.com", "Info@Example.COM", "generic_business"),
+        )
+        self.assertEqual(
+            normalize_email("first@example.com,second@example.com"),
+            (None, "first@example.com,second@example.com", None),
+        )
 
     def test_address_normalization_avoids_repeating_full_street_address(self) -> None:
         self.assertEqual(
