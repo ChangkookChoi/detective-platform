@@ -120,13 +120,24 @@ def main() -> int:
     args = _parser().parse_args()
 
     if args.command == "build-discovery-review-queue":
+        database_url = os.environ.get("DATABASE_URL")
         try:
             output_dir = _validate_private_output_dir(args.output_dir)
             summary = build_discovery_review_queue(
                 output_dir=output_dir,
                 output_path=_validate_private_path(args.output),
+                duplicate_keys=(
+                    load_database_duplicate_keys(database_url)
+                    if database_url
+                    else None
+                ),
             )
-        except (OfficeDiscoveryError, OSError) as exc:
+        except (
+            CandidateBatchError,
+            OfficeDiscoveryError,
+            OSError,
+            psycopg.Error,
+        ) as exc:
             print(
                 json.dumps(
                     {"ok": False, "error": str(exc)},

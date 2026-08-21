@@ -32,6 +32,27 @@ from collector.normalize import normalize_phone, normalize_record
 _HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 _RELEVANT_TERMS = ("탐정", "흥신", "민간조사")
+_STRONG_OFFICE_NAME_PATTERN = re.compile(
+    r"탐정\s*(?:사무소|법인|연구소|센터|업체|그룹)|"
+    r"(?:공인|사설)\s*탐정|민간\s*조사|흥신소",
+    re.IGNORECASE,
+)
+_NEGATIVE_CONTEXT_PATTERN = re.compile(
+    r"명탐정|코난|추리|팝업|게임|카페|전시|애니|만화|방탈출|"
+    r"보드게임|동물|반려|펫|보육원|레미콘|콘크리트|행정사|"
+    r"법무사|세무사|공인중개|부동산|학원|서점|박물관|키즈",
+    re.IGNORECASE,
+)
+_SERVICE_EVIDENCE_PATTERNS = (
+    ("DETECTIVE_SERVICE", re.compile(r"탐정\s*(?:업무|서비스|의뢰|상담)")),
+    ("PRIVATE_INVESTIGATION", re.compile(r"민간\s*조사")),
+    ("FACT_INVESTIGATION", re.compile(r"사실\s*조사")),
+    ("EVIDENCE_COLLECTION", re.compile(r"증거\s*(?:수집|확보)")),
+    ("AFFAIR_INVESTIGATION", re.compile(r"(?:외도|불륜)\s*(?:조사|증거)")),
+    ("PERSON_SEARCH", re.compile(r"(?:사람|실종인|가출인)\s*찾기")),
+    ("CORPORATE_INVESTIGATION", re.compile(r"기업\s*조사")),
+    ("BACKGROUND_INVESTIGATION", re.compile(r"신원\s*조사")),
+)
 _SEO_OR_DIRECTORY_HOSTS = (
     "blog.naver.com",
     "cafe.naver.com",
@@ -42,6 +63,15 @@ _SEO_OR_DIRECTORY_HOSTS = (
     "www.facebook.com",
     "instagram.com",
     "www.instagram.com",
+)
+_NON_OFFICIAL_HOST_SUFFIXES = (
+    "naver.com",
+    "daum.net",
+    "kakao.com",
+    "tistory.com",
+    "blogspot.com",
+    "wordpress.com",
+    "notion.site",
 )
 _TARGET_ADDRESS_PREFIXES = ("서울", "서울특별시", "경기", "경기도")
 _LEGACY_RAW_FIELDS = {"description", "telephone", "mapx", "mapy"}
@@ -222,6 +252,8 @@ class OfficialSourceFactRecord:
     promotion_allowed: bool
     checked_at: str
     expires_at: str
+    business_service_match: bool = False
+    business_service_reason_codes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -233,6 +265,7 @@ class OfficialSourceFactSummary:
     partial_match_count: int
     insufficient_count: int
     failed_count: int
+    business_service_match_count: int
     reason_counts: dict[str, int]
     output: str
     expires_at: str
@@ -249,6 +282,9 @@ class DiscoveryReviewRecord:
     phone_display: str | None
     source_url: str
     evidence_status: str
+    business_relevance: str
+    relevance_reason_codes: tuple[str, ...]
+    business_service_match: bool
     name_match: bool
     address_match: bool
     region_match: bool
@@ -266,10 +302,42 @@ class DiscoveryReviewSummary:
     candidate_count: int
     strong_match_count: int
     partial_match_count: int
+    research_count: int
+    excluded_count: int
     duplicate_count: int
     missing_parent_count: int
+    reason_counts: dict[str, int]
     output: str
+    research_output: str
     expires_at: str
+
+
+@dataclass(frozen=True)
+class BusinessRelevanceAssessment:
+    status: str
+    reason_codes: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DiscoveryResearchRecord:
+    version: int
+    rules_version: str
+    candidate_id: str
+    candidate_name: str
+    candidate_address: str
+    phone_normalized: str | None
+    phone_display: str | None
+    source_url: str
+    evidence_status: str
+    business_relevance: str
+    relevance_reason_codes: tuple[str, ...]
+    business_service_match: bool
+    research_reason_codes: tuple[str, ...]
+    evidence_run_id: str
+    checked_at: str
+    expires_at: str
+    review_status: str
+    promotion_allowed: bool
 
 
 def build_query_plan(
@@ -332,7 +400,9 @@ def _identity(record: RawOfficeDiscoveryRecord) -> str:
     name = normalize_result_text(record.title).lower()
     address = normalize_address_key(record.road_address or record.address)
     link = normalize_discovery_url(record.link)
-    return "|".join((name, address, link))
+    if name and address:
+        return "name-address|" + "|".join((name, address))
+    return "fallback|" + "|".join((name, address, link))
 
 
 def _identity_hash(record: RawOfficeDiscoveryRecord) -> str:
@@ -356,6 +426,59 @@ def _canonical_host(value: str) -> str:
     return host
 
 
+def _is_non_official_host(host: str) -> bool:
+    canonical = host.lower().rstrip(".")
+    return canonical in _SEO_OR_DIRECTORY_HOSTS or any(
+        canonical == suffix or canonical.endswith(f".{suffix}")
+        for suffix in _NON_OFFICIAL_HOST_SUFFIXES
+    )
+
+
+def assess_business_relevance(
+    name: str, category: str
+) -> BusinessRelevanceAssessment:
+    normalized_name = normalize_result_text(name)
+    normalized_category = normalize_result_text(category)
+    strong_name = bool(_STRONG_OFFICE_NAME_PATTERN.search(normalized_name))
+    category_match = any(
+        term in normalized_category for term in _RELEVANT_TERMS
+    )
+    generic_name_match = any(
+        term in normalized_name for term in _RELEVANT_TERMS
+    )
+    negative_context = bool(
+        _NEGATIVE_CONTEXT_PATTERN.search(
+            f"{normalized_name} {normalized_category}"
+        )
+    )
+    reasons: list[str] = []
+    if strong_name:
+        reasons.append("STRONG_OFFICE_NAME")
+    if category_match:
+        reasons.append("RELEVANT_CATEGORY")
+    if generic_name_match and not strong_name:
+        reasons.append("GENERIC_DETECTIVE_TERM")
+    if negative_context:
+        reasons.append("NEGATIVE_CONTEXT")
+
+    if strong_name and (category_match or not negative_context):
+        status = "probable"
+    elif category_match and not negative_context:
+        status = "probable"
+    elif negative_context and not (strong_name or category_match):
+        status = "irrelevant"
+        reasons.append("NO_DETECTIVE_BUSINESS_SIGNAL")
+    elif strong_name or category_match or generic_name_match:
+        status = "ambiguous"
+    else:
+        status = "irrelevant"
+        reasons.append("NO_DETECTIVE_BUSINESS_SIGNAL")
+    return BusinessRelevanceAssessment(
+        status=status,
+        reason_codes=tuple(dict.fromkeys(reasons)),
+    )
+
+
 def filter_discovery_record(
     record: RawOfficeDiscoveryRecord,
     *,
@@ -370,6 +493,7 @@ def filter_discovery_record(
     link = normalize_discovery_url(record.link)
     host = _canonical_host(link)
     reasons: list[str] = []
+    relevance = assess_business_relevance(name, category)
 
     identity = _identity(record)
     if identity in seen_identities:
@@ -379,8 +503,8 @@ def filter_discovery_record(
 
     if not address.startswith(_TARGET_ADDRESS_PREFIXES):
         reasons.append("OUTSIDE_TARGET_REGION")
-    if not any(term in f"{name} {category}" for term in _RELEVANT_TERMS):
-        reasons.append("UNRELATED_CATEGORY")
+    if relevance.status == "irrelevant":
+        reasons.extend(("UNRELATED_CATEGORY", "IRRELEVANT_BUSINESS"))
     if " ".join(name.lower().split()) in duplicate_keys.get("name", set()):
         reasons.append("EXISTING_NAME")
     if normalized_address and normalized_address in duplicate_keys.get("address", set()):
@@ -400,15 +524,16 @@ def filter_discovery_record(
         "EXISTING_ADDRESS",
         "EXISTING_SOURCE",
         "SOURCE_REGISTRY_MATCH",
+        "IRRELEVANT_BUSINESS",
     }
     review_reasons: list[str] = []
     if not link:
         review_reasons.append("OFFICIAL_SOURCE_REQUIRED")
-    elif host in _SEO_OR_DIRECTORY_HOSTS:
+    elif _is_non_official_host(host):
         review_reasons.append("NON_OFFICIAL_LINK")
     elif not link.startswith("https://"):
         review_reasons.append("HTTPS_SOURCE_REQUIRED")
-    if "UNRELATED_CATEGORY" in reasons:
+    if relevance.status == "ambiguous":
         review_reasons.append("RELEVANCE_REVIEW_REQUIRED")
     if "EXISTING_NAME" in reasons and not (blocking & set(reasons)):
         review_reasons.append("POSSIBLE_BRANCH_OR_DUPLICATE_NAME")
@@ -421,8 +546,8 @@ def filter_discovery_record(
     else:
         status = "source_check_required"
     return FilteredOfficeDiscoveryRecord(
-        version=2,
-        rules_version="office-discovery-v2",
+        version=3,
+        rules_version="office-discovery-v3",
         record_id=record.record_id,
         run_id=record.run_id,
         status=status,
@@ -843,14 +968,16 @@ def _filter_web_source_record(
     if _registered_source_match(link, registry):
         reasons.append("SOURCE_REGISTRY_MATCH")
         blocking.add("SOURCE_REGISTRY_MATCH")
-    if host in _SEO_OR_DIRECTORY_HOSTS:
+    if _is_non_official_host(host):
         reasons.append("NON_OFFICIAL_LINK")
     elif link and not link.startswith("https://"):
         reasons.append("HTTPS_SOURCE_REQUIRED")
 
     title = normalize_result_text(record.title).lower()
     name_terms = _candidate_name_terms(parent.title)
-    if name_terms and not any(term in title for term in name_terms):
+    if not name_terms:
+        reasons.append("NAME_SIGNAL_REQUIRED")
+    elif not any(term in title for term in name_terms):
         reasons.append("NAME_MATCH_REVIEW_REQUIRED")
 
     if blocking:
@@ -860,8 +987,8 @@ def _filter_web_source_record(
     else:
         status = "source_check_required"
     return FilteredWebSourceRecord(
-        version=1,
-        rules_version="office-web-source-v1",
+        version=2,
+        rules_version="office-web-source-v2",
         record_id=record.record_id,
         run_id=record.run_id,
         parent_record_id=record.parent_record_id,
@@ -988,6 +1115,8 @@ def run_naver_web_source_discovery(
         if filtered.status == "rejected" or not (
             source_reasons & set(filtered.reason_codes)
         ):
+            continue
+        if assess_business_relevance(record.title, record.category).status != "probable":
             continue
         identity = _identity(record)
         if identity in seen_candidates:
@@ -1315,6 +1444,15 @@ class _VisibleFactParser(HTMLParser):
         return normalize_result_text(" ".join(self._parts))
 
 
+def _business_service_evidence(value: str) -> tuple[str, ...]:
+    normalized = normalize_result_text(value)
+    return tuple(
+        code
+        for code, pattern in _SERVICE_EVIDENCE_PATTERNS
+        if pattern.search(normalized)
+    )
+
+
 def _html_fallback_facts(
     body: bytes, *, candidate_name: str, candidate_address: str
 ) -> dict[str, object]:
@@ -1324,6 +1462,7 @@ def _html_fallback_facts(
     except (UnicodeDecodeError, ValueError) as exc:
         raise OfficeDiscoveryError("discovery_fact_html_parse_failed") from exc
     visible_text = parser.visible_text
+    service_reason_codes = _business_service_evidence(visible_text)
     name_match = _name_matches(candidate_name, visible_text)
     address_match = _address_matches(candidate_address, visible_text)
     region_match = _region_matches(candidate_address, visible_text)
@@ -1348,6 +1487,8 @@ def _html_fallback_facts(
         "nameMatch": name_match,
         "addressMatch": address_match,
         "regionMatch": region_match,
+        "businessServiceMatch": bool(service_reason_codes),
+        "businessServiceReasonCodes": service_reason_codes,
     }
 
 
@@ -1457,8 +1598,8 @@ def extract_official_source_facts(
             reason = exc.code if isinstance(exc, CollectorHttpError) else str(exc)
             facts.append(
                 OfficialSourceFactRecord(
-                    version=1,
-                    rules_version="office-official-facts-v1",
+                    version=2,
+                    rules_version="office-official-facts-v2",
                     record_id=probe.record_id,
                     run_id=probe.run_id,
                     parent_record_id=probe.parent_record_id,
@@ -1567,8 +1708,8 @@ def extract_official_source_facts(
             reason_code = "FACT_MATCH_MISSING"
         facts.append(
             OfficialSourceFactRecord(
-                version=1,
-                rules_version="office-official-facts-v1",
+                version=2,
+                rules_version="office-official-facts-v2",
                 record_id=probe.record_id,
                 run_id=probe.run_id,
                 parent_record_id=probe.parent_record_id,
@@ -1586,6 +1727,12 @@ def extract_official_source_facts(
                 promotion_allowed=False,
                 checked_at=current.isoformat(),
                 expires_at=expires_at.isoformat(),
+                business_service_match=bool(
+                    fallback.get("businessServiceMatch")
+                ),
+                business_service_reason_codes=tuple(
+                    fallback.get("businessServiceReasonCodes", ())
+                ),
             )
         )
     _write_jsonl(output_path, facts)
@@ -1601,6 +1748,9 @@ def extract_official_source_facts(
         partial_match_count=status_counts["partial_fact_match"],
         insufficient_count=status_counts["insufficient_structured_data"],
         failed_count=status_counts["fetch_failed"],
+        business_service_match_count=sum(
+            record.business_service_match for record in facts
+        ),
         reason_counts=dict(sorted(reason_counts.items())),
         output=str(output_path),
         expires_at=expires_at.isoformat(),
@@ -1611,6 +1761,7 @@ def build_discovery_review_queue(
     *,
     output_dir: Path,
     output_path: Path,
+    duplicate_keys: dict[str, set[str]] | None = None,
     now: datetime | None = None,
 ) -> DiscoveryReviewSummary:
     current = now or datetime.now(timezone.utc)
@@ -1645,8 +1796,15 @@ def build_discovery_review_queue(
         if fact.status in {"strong_fact_match", "partial_fact_match"}
         and _parse_expiry(fact.expires_at) > current
     ]
+    if not facts:
+        raise OfficeDiscoveryError("discovery_fact_records_empty")
     ranked_by_identity: dict[
-        str, tuple[tuple[int, int, int, str], OfficialSourceFactRecord, RawOfficeDiscoveryRecord]
+        str,
+        tuple[
+            tuple[int, int, int, int, int, str],
+            OfficialSourceFactRecord,
+            RawOfficeDiscoveryRecord,
+        ],
     ] = {}
     missing_parent_count = 0
     for fact in eligible:
@@ -1654,7 +1812,14 @@ def build_discovery_review_queue(
         if parent is None:
             missing_parent_count += 1
             continue
+        relevance = assess_business_relevance(parent.title, parent.category)
         rank = (
+            4
+            if relevance.status == "probable"
+            else 2
+            if relevance.status == "ambiguous"
+            else 0,
+            2 if fact.business_service_match else 0,
             2 if fact.status == "strong_fact_match" else 1,
             sum((fact.name_match, fact.address_match, fact.region_match)),
             1 if fact.phone_normalized else 0,
@@ -1665,22 +1830,114 @@ def build_discovery_review_queue(
         if previous is None or rank > previous[0]:
             ranked_by_identity[identity_hash] = (rank, fact, parent)
 
+    database_keys = duplicate_keys or {
+        key: set() for key in ("source", "name", "phone", "address", "slug")
+    }
+    source_host_counts = Counter(
+        _canonical_host(fact.source_url)
+        for _rank, fact, _parent in ranked_by_identity.values()
+    )
+    candidate_name_counts = Counter(
+        normalize_result_text(parent.title).lower()
+        for _rank, _fact, parent in ranked_by_identity.values()
+    )
     review_records: list[DiscoveryReviewRecord] = []
+    research_records: list[DiscoveryResearchRecord] = []
+    reason_counts: Counter[str] = Counter()
+    duplicate_count = max(
+        0, len(eligible) - missing_parent_count - len(ranked_by_identity)
+    )
+    reason_counts["DUPLICATE_CANDIDATE_IDENTITY"] += duplicate_count
+    reason_counts["MISSING_PARENT"] += missing_parent_count
+    for fact in facts:
+        if fact.status not in {"strong_fact_match", "partial_fact_match"}:
+            reason_counts[f"FACT_STATUS_{fact.status.upper()}"] += 1
     for identity_hash, (_rank, fact, parent) in ranked_by_identity.items():
         candidate_address = normalize_result_text(
             parent.road_address or parent.address
         )
+        candidate_name = normalize_result_text(parent.title)
+        relevance = assess_business_relevance(candidate_name, parent.category)
+        research_reasons: list[str] = []
+        exclusion_reasons: list[str] = []
+        if relevance.status == "irrelevant":
+            exclusion_reasons.append("BUSINESS_RELEVANCE_IRRELEVANT")
+        elif relevance.status != "probable":
+            research_reasons.append("BUSINESS_RELEVANCE_REVIEW_REQUIRED")
+        if fact.status != "strong_fact_match":
+            research_reasons.append("STRONG_FACT_MATCH_REQUIRED")
+        if not fact.phone_normalized:
+            research_reasons.append("PHONE_REQUIRED")
+        if not fact.business_service_match:
+            research_reasons.append("OFFICIAL_SERVICE_EVIDENCE_REQUIRED")
+
+        source_host = _canonical_host(fact.source_url)
+        if _is_non_official_host(source_host):
+            exclusion_reasons.append("OFFICIAL_SOURCE_REQUIRED")
+        if source_host_counts[source_host] > 1:
+            research_reasons.append("SHARED_SOURCE_BRANCH_REVIEW_REQUIRED")
+        if candidate_name_counts[candidate_name.lower()] > 1:
+            research_reasons.append("SHARED_NAME_BRANCH_REVIEW_REQUIRED")
+
+        normalized_name = " ".join(candidate_name.lower().split())
+        normalized_address = normalize_address_key(candidate_address)
+        if normalized_name in database_keys.get("name", set()):
+            research_reasons.append("EXISTING_NAME_REVIEW_REQUIRED")
+        if normalized_address in database_keys.get("address", set()):
+            exclusion_reasons.append("EXISTING_ADDRESS")
+        if fact.phone_normalized in database_keys.get("phone", set()):
+            exclusion_reasons.append("EXISTING_PHONE")
+        try:
+            normalized_source = normalize_source_url(fact.source_url)
+        except CandidateBatchError:
+            normalized_source = ""
+            exclusion_reasons.append("OFFICIAL_SOURCE_REQUIRED")
+        if normalized_source in database_keys.get("source", set()):
+            exclusion_reasons.append("EXISTING_SOURCE")
+
+        exclusion_reasons = list(dict.fromkeys(exclusion_reasons))
+        research_reasons = list(dict.fromkeys(research_reasons))
+        reason_counts.update(exclusion_reasons or research_reasons)
+        if exclusion_reasons:
+            continue
+        if research_reasons:
+            research_records.append(
+                DiscoveryResearchRecord(
+                    version=1,
+                    rules_version="office-discovery-research-v2",
+                    candidate_id=identity_hash,
+                    candidate_name=candidate_name,
+                    candidate_address=candidate_address,
+                    phone_normalized=fact.phone_normalized,
+                    phone_display=fact.phone_display,
+                    source_url=fact.source_url,
+                    evidence_status=fact.status,
+                    business_relevance=relevance.status,
+                    relevance_reason_codes=relevance.reason_codes,
+                    business_service_match=fact.business_service_match,
+                    research_reason_codes=tuple(research_reasons),
+                    evidence_run_id=fact.run_id,
+                    checked_at=fact.checked_at,
+                    expires_at=fact.expires_at,
+                    review_status="research_required",
+                    promotion_allowed=False,
+                )
+            )
+            continue
         review_records.append(
             DiscoveryReviewRecord(
-                version=1,
-                rules_version="office-discovery-review-v1",
+                version=2,
+                rules_version="office-discovery-review-v2",
                 candidate_id=identity_hash,
-                candidate_name=normalize_result_text(parent.title),
+                candidate_name=candidate_name,
                 candidate_address=candidate_address,
                 phone_normalized=fact.phone_normalized,
                 phone_display=fact.phone_display,
                 source_url=fact.source_url,
                 evidence_status=fact.status,
+                business_relevance=relevance.status,
+                relevance_reason_codes=relevance.reason_codes,
+                business_service_match=fact.business_service_match,
                 name_match=fact.name_match,
                 address_match=fact.address_match,
                 region_match=fact.region_match,
@@ -1698,21 +1955,36 @@ def build_discovery_review_queue(
             record.candidate_id,
         )
     )
-    if not review_records:
-        raise OfficeDiscoveryError("discovery_review_candidates_empty")
+    research_records.sort(
+        key=lambda record: (record.candidate_name, record.candidate_id)
+    )
     _write_jsonl(output_path, review_records)
+    research_output_path = output_path.with_name(
+        output_path.name.removesuffix(".jsonl") + ".research.jsonl"
+    )
+    _write_jsonl(research_output_path, research_records)
     status_counts = Counter(record.evidence_status for record in review_records)
-    expires_at = min(_parse_expiry(record.expires_at) for record in review_records)
+    expires_at = min(_parse_expiry(record.expires_at) for record in facts)
     return DiscoveryReviewSummary(
         fact_count=len(facts),
         eligible_fact_count=len(eligible),
         candidate_count=len(review_records),
         strong_match_count=status_counts["strong_fact_match"],
         partial_match_count=status_counts["partial_fact_match"],
-        duplicate_count=max(
-            0, len(eligible) - missing_parent_count - len(review_records)
+        research_count=len(research_records),
+        excluded_count=max(
+            0, len(facts) - len(review_records) - len(research_records)
         ),
+        duplicate_count=duplicate_count,
         missing_parent_count=missing_parent_count,
+        reason_counts=dict(
+            sorted(
+                (reason, count)
+                for reason, count in reason_counts.items()
+                if count > 0
+            )
+        ),
         output=str(output_path),
+        research_output=str(research_output_path),
         expires_at=expires_at.isoformat(),
     )

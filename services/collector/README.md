@@ -104,7 +104,9 @@ uv run --env-file ../../apps/web/.env.local python main.py \
 ```
 
 웹 결과도 HTTPS·비공식 도메인·실행 내 중복·기존 출처·출처 등록부·후보명 일치
-신호만 판정한다. `source_check_required`는 공식 홈페이지 확인 완료가 아니다.
+신호를 판정한다. 지역 후보는 강한 탐정업 상호 또는 NAVER 관련 분류가 있어야
+웹 재검색 대상으로 삼고, 오락·동물·건설·전문사무소 등 무관 문맥은 제외한다.
+`source_check_required`는 공식 홈페이지 확인 완료가 아니다.
 
 `source_check_required` URL은 원문을 저장하지 않는 네트워크 사전검증으로 넘긴다.
 공개 IP·HTTPS·동일 사이트 redirect·robots·응답 상태·크기 제한을 통과해도
@@ -124,8 +126,9 @@ uv run python main.py probe-discovery-sources \
 나타나도 보존기한 안에는 웹 API를 다시 호출하지 않는다.
 
 `content_check_required` 페이지는 원문을 파일로 저장하지 않고 JSON-LD와 보이는
-HTML에서 상호·업무용 대표번호·주소 신호만 추출한다. 결과는 강한 일치, 부분
-일치, 정보 부족, 실패로 나뉘며 어떤 상태도 자동 승격을 허용하지 않는다.
+HTML에서 상호·업무용 대표번호·주소와 탐정 업무 문구를 추출한다. 결과는 강한
+일치, 부분 일치, 정보 부족, 실패로 나뉘며 어떤 상태도 자동 승격을 허용하지
+않는다.
 
 ```bash
 uv run python main.py extract-discovery-facts \
@@ -138,9 +141,11 @@ uv run python main.py extract-discovery-facts \
   --max-sources 50
 ```
 
-활성 facts 파일의 강한/부분 일치를 업체 정체성 해시로 합쳐 수동 검토 큐를
-만든다. 이 출력은 office batch manifest가 아니며 `review_status=pending`,
-`promotion_allowed=false`를 유지한다.
+활성 facts 파일을 업체 정체성 해시로 합친다. 관련성 probable, 강한 사실 일치,
+대표 전화, 공식 페이지 탐정 업무 증거, 비공식 host 제외와 현재 DB 중복 부재를
+모두 충족한 후보만 `review_status=pending` 큐에 둔다. 그 밖의 확인 가능 후보는
+같은 이름의 `.research.jsonl`에 `review_status=research_required`로 분리한다.
+두 출력 모두 office batch manifest가 아니며 `promotion_allowed=false`다.
 
 ```bash
 uv run python main.py build-discovery-review-queue \

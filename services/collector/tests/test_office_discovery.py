@@ -15,6 +15,7 @@ from collector.office_discovery import (
     OfficialSourceFactRecord,
     OfficeDiscoveryError,
     RawOfficeDiscoveryRecord,
+    assess_business_relevance,
     build_discovery_review_queue,
     build_query_plan,
     extract_official_source_facts,
@@ -101,6 +102,7 @@ class OfficeDiscoveryTests(unittest.TestCase):
             <html><body>
               <h1>테스트 탐정사무소</h1>
               <p>서울특별시 강남구 테스트로 1</p>
+              <p>탐정 업무 상담과 사실 조사를 제공합니다.</p>
               <a href="tel:02-1234-5678">전화</a>
             </body></html>
             """.encode("utf-8"),
@@ -112,6 +114,50 @@ class OfficeDiscoveryTests(unittest.TestCase):
         self.assertTrue(facts["addressMatch"])
         self.assertTrue(facts["regionMatch"])
         self.assertEqual(facts["phoneNormalized"], "0212345678")
+        self.assertTrue(facts["businessServiceMatch"])
+
+    def test_does_not_treat_detective_entertainment_as_service_evidence(self) -> None:
+        facts = _html_fallback_facts(
+            """
+            <html><body>
+              <h1>명탐정 코난 추리게임 팝업</h1>
+              <p>서울특별시 강남구 테스트로 1</p>
+              <a href="tel:02-1234-5678">행사 문의</a>
+            </body></html>
+            """.encode("utf-8"),
+            candidate_name="명탐정 코난 추리게임 팝업",
+            candidate_address="서울특별시 강남구 테스트로 1",
+        )
+
+        self.assertFalse(facts["businessServiceMatch"])
+
+    def test_classifies_business_relevance_without_substring_false_positives(self) -> None:
+        for name, category in (
+            ("동물보육원 군포지부", "반려동물서비스"),
+            ("레미콘", "건축자재"),
+            ("명탐정 코난 추리게임 팝업", "전시,행사"),
+            ("더폴 행정사 사무소", "행정사"),
+        ):
+            with self.subTest(name=name):
+                self.assertEqual(
+                    assess_business_relevance(name, category).status,
+                    "irrelevant",
+                )
+
+        self.assertEqual(
+            assess_business_relevance(
+                "코난탐정사무소", "탐정,민간조사"
+            ).status,
+            "probable",
+        )
+        self.assertEqual(
+            assess_business_relevance("PIS", "탐정,민간조사").status,
+            "probable",
+        )
+        self.assertEqual(
+            assess_business_relevance("정의 탐정", "생활서비스").status,
+            "ambiguous",
+        )
 
     def test_builds_deduplicated_bounded_query_plan(self) -> None:
         plan = build_query_plan(
@@ -160,15 +206,15 @@ class OfficeDiscoveryTests(unittest.TestCase):
         self.assertIn("OUTSIDE_TARGET_REGION", result.reason_codes)
         self.assertIn("UNRELATED_CATEGORY", result.reason_codes)
 
-    def test_keeps_uncertain_relevance_for_review_inside_target_region(self) -> None:
+    def test_rejects_result_without_detective_business_signal(self) -> None:
         result = filter_discovery_record(
             _raw(title="테스트 서비스", category="생활서비스"),
             duplicate_keys=_empty_duplicate_keys(),
             registry={},
             seen_identities=set(),
         )
-        self.assertEqual(result.status, "needs_review")
-        self.assertIn("RELEVANCE_REVIEW_REQUIRED", result.reason_codes)
+        self.assertEqual(result.status, "rejected")
+        self.assertIn("IRRELEVANT_BUSINESS", result.reason_codes)
 
     def test_requires_review_when_official_link_is_missing(self) -> None:
         result = filter_discovery_record(
@@ -259,7 +305,7 @@ class OfficeDiscoveryTests(unittest.TestCase):
             json.loads(raw_lines[0])["expires_at"], "2026-08-27T00:00:00+00:00"
         )
         self.assertEqual(
-            json.loads(filtered_lines[0])["rules_version"], "office-discovery-v2"
+            json.loads(filtered_lines[0])["rules_version"], "office-discovery-v3"
         )
         self.assertFalse(json.loads(filtered_lines[0])["promotion_allowed"])
         self.assertEqual(raw_mode, 0o600)
@@ -609,6 +655,8 @@ class OfficeDiscoveryTests(unittest.TestCase):
             "promotion_allowed": False,
             "checked_at": "2026-08-20T01:00:00+00:00",
             "expires_at": "2026-08-27T00:00:00+00:00",
+            "business_service_match": True,
+            "business_service_reason_codes": ("DETECTIVE_SERVICE",),
         }
         partial = OfficialSourceFactRecord(
             **{
@@ -657,6 +705,102 @@ class OfficeDiscoveryTests(unittest.TestCase):
         self.assertEqual(review["evidence_status"], "strong_fact_match")
         self.assertEqual(review["review_status"], "pending")
         self.assertFalse(review["promotion_allowed"])
+
+    def test_separates_irrelevant_and_incomplete_review_candidates(self) -> None:
+        irrelevant = _raw(
+            record_id="irrelevant-record",
+            title="명탐정 코난 추리게임 팝업",
+            category="전시,행사",
+        )
+        incomplete = _raw(
+            record_id="incomplete-record",
+            title="검증 탐정사무소",
+            category="서비스>탐정",
+            road_address="서울특별시 강남구 검증로 2",
+        )
+        common = {
+            "version": 2,
+            "rules_version": "office-official-facts-v2",
+            "run_id": "web-run",
+            "source_url": "https://official-example.test/",
+            "reason_code": None,
+            "extracted_name": None,
+            "phone_normalized": "0212345678",
+            "phone_display": "02-1234-5678",
+            "address_text": "서울특별시 강남구 테스트로 1",
+            "name_match": True,
+            "address_match": True,
+            "region_match": True,
+            "source_verification": "required",
+            "promotion_allowed": False,
+            "checked_at": "2026-08-20T01:00:00+00:00",
+            "expires_at": "2026-08-27T00:00:00+00:00",
+            "business_service_reason_codes": (),
+        }
+        irrelevant_fact = OfficialSourceFactRecord(
+            **{
+                **common,
+                "record_id": "irrelevant-fact",
+                "parent_record_id": irrelevant.record_id,
+                "status": "strong_fact_match",
+                "business_service_match": True,
+            }
+        )
+        incomplete_fact = OfficialSourceFactRecord(
+            **{
+                **common,
+                "record_id": "incomplete-fact",
+                "parent_record_id": incomplete.record_id,
+                "source_url": "https://second-official-example.test/",
+                "status": "partial_fact_match",
+                "business_service_match": False,
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "naver-local-test.raw.jsonl").write_text(
+                "".join(
+                    json.dumps(asdict(record), ensure_ascii=False) + "\n"
+                    for record in (irrelevant, incomplete)
+                ),
+                encoding="utf-8",
+            )
+            (root / "naver-web-test.facts.jsonl").write_text(
+                "".join(
+                    json.dumps(asdict(record), ensure_ascii=False) + "\n"
+                    for record in (irrelevant_fact, incomplete_fact)
+                ),
+                encoding="utf-8",
+            )
+            output = root / "naver-review-test.jsonl"
+            summary = build_discovery_review_queue(
+                output_dir=root,
+                output_path=output,
+                now=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            )
+            review_text = output.read_text(encoding="utf-8")
+            research = json.loads(
+                output.with_name(
+                    "naver-review-test.research.jsonl"
+                ).read_text(encoding="utf-8")
+            )
+
+        self.assertEqual(summary.candidate_count, 0)
+        self.assertEqual(summary.research_count, 1)
+        self.assertEqual(review_text, "")
+        self.assertEqual(research["candidate_name"], "검증 탐정사무소")
+        self.assertIn(
+            "STRONG_FACT_MATCH_REQUIRED",
+            research["research_reason_codes"],
+        )
+        self.assertIn(
+            "OFFICIAL_SERVICE_EVIDENCE_REQUIRED",
+            research["research_reason_codes"],
+        )
+        self.assertEqual(
+            summary.reason_counts["BUSINESS_RELEVANCE_IRRELEVANT"], 1
+        )
 
     def test_rejects_invalid_raw_jsonl_without_partial_result(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
