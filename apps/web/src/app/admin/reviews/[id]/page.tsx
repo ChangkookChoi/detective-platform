@@ -15,6 +15,7 @@ import {
   getReviewItem,
   listReviewFormOptions,
 } from "@/modules/moderation/review-repository";
+import { presentReviewSourceEvidence } from "@/modules/moderation/review-source-evidence";
 
 import {
   approveReviewAction,
@@ -22,6 +23,7 @@ import {
   rejectReviewAction,
 } from "./actions";
 import { RegionHierarchySelect } from "./region-hierarchy-select";
+import { SourceEvidencePreview } from "./source-evidence-preview";
 
 export const metadata: Metadata = {
   title: "검수 상세",
@@ -205,6 +207,17 @@ export default async function ReviewDetailPage({
       "emailNormalized" in proposedRecord,
     address: isNewCandidate || "addressText" in proposedRecord,
   };
+  const sourceEvidenceRows = item.collection
+    ? presentReviewSourceEvidence({
+        candidateValues: isNewCandidate ? candidateValues : proposedRecord,
+        extractedValues: item.collection.extractedValues,
+        normalizedValues: item.collection.normalizedValues,
+      }).filter((row) => isNewCandidate || row.status !== "unavailable")
+    : [];
+  const evidenceNote =
+    typeof proposedRecord.evidenceNote === "string"
+      ? proposedRecord.evidenceNote
+      : null;
 
   return (
     <main className="flex-1">
@@ -281,6 +294,45 @@ export default async function ReviewDetailPage({
               </dd>
             </dl>
           </section>
+        )}
+
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
+          <h2 className="text-lg font-bold">검수 순서</h2>
+          <ol className="mt-4 grid gap-3 text-sm leading-6 text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+            <li className="rounded-xl bg-slate-50 p-4">
+              <strong className="block text-slate-950">1. 공식성</strong>
+              실제 업체가 운영하는 출처인지 확인
+            </li>
+            <li className="rounded-xl bg-slate-50 p-4">
+              <strong className="block text-slate-950">2. 동일성</strong>
+              상호·지점·주소가 같은 업체인지 확인
+            </li>
+            <li className="rounded-xl bg-slate-50 p-4">
+              <strong className="block text-slate-950">3. 핵심 정보</strong>
+              전화·주소·업무 내용과 최신성 확인
+            </li>
+            <li className="rounded-xl bg-slate-50 p-4">
+              <strong className="block text-slate-950">4. 결정</strong>
+              승인·수정·보류·반려 사유 기록
+            </li>
+          </ol>
+        </section>
+
+        {item.collection && (
+          <SourceEvidencePreview
+            sourceUrl={item.collection.sourceUrl}
+            isLinkable={item.collection.isLinkable}
+            sourceTypeLabel={
+              sourceTypeLabels[suggestedSourceType] ?? suggestedSourceType
+            }
+            collectedAtLabel={
+              item.collection.collectedAt
+                ? dateFormatter.format(item.collection.collectedAt)
+                : null
+            }
+            evidenceNote={evidenceNote}
+            rows={sourceEvidenceRows}
+          />
         )}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">

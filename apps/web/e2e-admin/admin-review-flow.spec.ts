@@ -360,6 +360,14 @@ test("실제 Clerk 관리자가 수동 후보의 중복을 확인하고 반려�
     sourceTypeGroup.getByRole("radio", { name: "공식 웹사이트" }),
   ).toBeChecked();
   await expect(sourceTypeGroup.getByRole("radio")).toHaveCount(5);
+  await expect(
+    page.getByRole("heading", { name: "공식 출처 증거 미리보기" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /공식 홈페이지 원문 열기/ }),
+  ).toHaveAttribute("href", candidateSourceUrl);
+  await expect(page.getByRole("cell", { name: candidateName })).toHaveCount(2);
+  await expect(page.getByText("값 일치", { exact: true })).toHaveCount(3);
 
   expect(await countOffices()).toBe(officeCountBefore);
 
