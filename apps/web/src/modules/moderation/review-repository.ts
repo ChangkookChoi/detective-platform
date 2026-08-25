@@ -31,6 +31,7 @@ export type ReviewQueueItem = {
   cause: string;
   createdAt: Date;
   updatedAt: Date;
+  candidateName: string | null;
   office: {
     id: string;
     slug: string;
@@ -38,6 +39,15 @@ export type ReviewQueueItem = {
     status: string;
   } | null;
 };
+
+function proposedCandidateName(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const name = (value as Record<string, unknown>).name;
+  return typeof name === "string" && name.trim() ? name.trim() : null;
+}
 
 export class ReviewQueueFilterError extends Error {
   constructor(public readonly field: "status") {
@@ -68,6 +78,7 @@ export async function listReviewQueue(status = "pending") {
       risk: reviewItems.risk,
       status: reviewItems.status,
       cause: reviewItems.cause,
+      proposedValues: reviewItems.proposedValues,
       createdAt: reviewItems.createdAt,
       updatedAt: reviewItems.updatedAt,
       officeId: offices.id,
@@ -89,6 +100,7 @@ export async function listReviewQueue(status = "pending") {
       cause: row.cause,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      candidateName: proposedCandidateName(row.proposedValues),
       office:
         row.officeId && row.officeSlug && row.officeName && row.officeStatus
           ? {

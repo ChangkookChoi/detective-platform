@@ -4,8 +4,11 @@ import { notFound } from "next/navigation";
 
 import { requireReviewer } from "@/modules/auth/admin-authorization";
 import {
+  reviewCauseLabels,
+  reviewRiskDescriptions,
   reviewRiskLabels,
   reviewStatusLabels,
+  reviewTypeDescriptions,
   reviewTypeLabels,
 } from "@/modules/moderation/review-presentation";
 import {
@@ -129,47 +132,118 @@ export default async function ReviewQueuePage({
           ))}
         </nav>
 
+        <details className="mt-6 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+          <summary className="cursor-pointer text-sm font-bold text-slate-900">
+            위험도와 검수 종류 설명
+          </summary>
+          <div className="mt-4 grid gap-5 border-t border-slate-100 pt-4 text-sm leading-6 text-slate-600 lg:grid-cols-2">
+            <div>
+              <h2 className="font-bold text-slate-950">위험도</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                업체의 위험성이나 품질 등급이 아니라 잘못 반영했을 때의 영향도입니다.
+              </p>
+              <dl className="mt-3 space-y-2">
+                {Object.entries(reviewRiskDescriptions).map(([risk, description]) => (
+                  <div key={risk} className="grid grid-cols-[4rem_1fr] gap-2">
+                    <dt className="font-semibold text-slate-800">
+                      {reviewRiskLabels[risk]}
+                    </dt>
+                    <dd>{description}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+            <div>
+              <h2 className="font-bold text-slate-950">검수 종류</h2>
+              <dl className="mt-3 space-y-2">
+                {Object.entries(reviewTypeDescriptions).map(([type, description]) => (
+                  <div key={type} className="grid grid-cols-[5rem_1fr] gap-2">
+                    <dt className="font-semibold text-slate-800">
+                      {reviewTypeLabels[type]}
+                    </dt>
+                    <dd>{description}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+        </details>
+
+        <aside className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm leading-6 text-sky-950">
+          <strong className="block">API 수집 후보가 바로 표시되지 않는 이유</strong>
+          이 대기열은 운영 검수 DB에 안전하게 변환된 항목만 표시합니다. NAVER API
+          발견 결과는 별도 비공개 파일에 있으며, 공식 출처·대표 전화·주소·업체
+          동일성과 소재 지역을 확인한 뒤 검수 후보로 변환해야 이곳에 들어옵니다.
+        </aside>
+
         {items.length === 0 ? (
           <section className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
             <h2 className="text-xl font-bold">해당 상태의 검수 항목이 없습니다.</h2>
           </section>
         ) : (
           <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div
+              aria-label="검수 대기열 열 제목"
+              className="hidden grid-cols-[8rem_9rem_minmax(0,1fr)_10rem] gap-4 border-b border-slate-200 bg-slate-50 px-6 py-3 text-xs font-bold text-slate-600 sm:grid"
+            >
+              <span>위험도</span>
+              <span>검수 종류</span>
+              <span>업체 · 발생 사유</span>
+              <span className="text-right">등록 시각</span>
+            </div>
             <ul className="divide-y divide-slate-100">
               {items.map((item) => (
                 <li key={item.id}>
                   <Link
                     href={`/admin/reviews/${item.id}`}
-                    className="grid gap-4 px-5 py-5 transition hover:bg-sky-50 sm:grid-cols-[7rem_8rem_minmax(0,1fr)_auto] sm:items-center sm:px-6"
+                    className="grid gap-4 px-5 py-5 transition hover:bg-sky-50 sm:grid-cols-[8rem_9rem_minmax(0,1fr)_10rem] sm:items-center sm:px-6"
                   >
-                    <span
-                      className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${
-                        item.risk === "high"
-                          ? "bg-rose-100 text-rose-900"
-                          : item.risk === "medium"
-                            ? "bg-amber-100 text-amber-900"
-                            : "bg-slate-100 text-slate-700"
-                      }`}
-                    >
-                      위험 {reviewRiskLabels[item.risk] ?? item.risk}
-                    </span>
-                    <span className="text-sm font-semibold text-slate-600">
-                      {reviewTypeLabels[item.type] ?? item.type}
-                    </span>
-                    <span className="min-w-0">
-                      <strong className="block truncate text-base text-slate-950">
-                        {item.office?.name ?? "연결 전 신규 후보"}
-                      </strong>
-                      <span className="mt-1 block truncate text-sm text-slate-500">
-                        {item.cause}
+                    <span className="grid justify-items-start gap-1">
+                      <span className="text-[0.7rem] font-bold text-slate-500 sm:hidden">
+                        위험도
+                      </span>
+                      <span
+                        className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${
+                          item.risk === "high"
+                            ? "bg-rose-100 text-rose-900"
+                            : item.risk === "medium"
+                              ? "bg-amber-100 text-amber-900"
+                              : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        {reviewRiskLabels[item.risk] ?? item.risk}
                       </span>
                     </span>
-                    <time
-                      dateTime={item.createdAt.toISOString()}
-                      className="text-xs text-slate-500"
-                    >
-                      {dateFormatter.format(item.createdAt)}
-                    </time>
+                    <span className="grid gap-1 text-sm font-semibold text-slate-700">
+                      <span className="text-[0.7rem] font-bold text-slate-500 sm:hidden">
+                        검수 종류
+                      </span>
+                      <span>{reviewTypeLabels[item.type] ?? item.type}</span>
+                    </span>
+                    <span className="min-w-0">
+                      <span className="mb-1 block text-[0.7rem] font-bold text-slate-500 sm:hidden">
+                        업체 · 발생 사유
+                      </span>
+                      <strong className="block truncate text-base text-slate-950">
+                        {item.office?.name ??
+                          item.candidateName ??
+                          "이름 확인이 필요한 신규 후보"}
+                      </strong>
+                      <span className="mt-1 block truncate text-sm text-slate-500">
+                        {reviewCauseLabels[item.cause] ?? "기타 검수 사유"}
+                      </span>
+                    </span>
+                    <span className="grid gap-1 sm:justify-items-end">
+                      <span className="text-[0.7rem] font-bold text-slate-500 sm:hidden">
+                        등록 시각
+                      </span>
+                      <time
+                        dateTime={item.createdAt.toISOString()}
+                        className="text-xs text-slate-500 sm:text-right"
+                      >
+                        {dateFormatter.format(item.createdAt)}
+                      </time>
+                    </span>
                   </Link>
                 </li>
               ))}

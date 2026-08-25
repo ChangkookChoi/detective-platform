@@ -6,6 +6,7 @@ import { requireReviewer } from "@/modules/auth/admin-authorization";
 import { approvalSourceTypes } from "@/modules/moderation/approve-review";
 import {
   presentReviewValues,
+  reviewCauseLabels,
   reviewDecisionLabels,
   reviewRiskLabels,
   reviewStatusLabels,
@@ -248,7 +249,9 @@ export default async function ReviewDetailPage({
           <h1 className="mt-5 text-3xl font-bold tracking-[-0.04em]">
             {item.office?.name ?? "연결 전 신규 업체 후보"}
           </h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">{item.cause}</p>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            {reviewCauseLabels[item.cause] ?? item.cause}
+          </p>
           <p className="mt-4 text-xs text-slate-500">
             생성 {dateFormatter.format(item.createdAt)} · 최근 변경{" "}
             {dateFormatter.format(item.updatedAt)}
