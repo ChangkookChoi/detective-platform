@@ -126,7 +126,8 @@ manifest에 작성한다.
 검색 Raw에서 확인된 시·군·구를 후속 질의로 재사용할 때는 하나 이상의
 `--regions-from-raw`를 지정하고, 100회 실행 예산 안에서 `--region-offset`과
 `--region-limit`으로 분할한다. 전국 후보는 지역 seed와 공개 범위를 자동으로
-확장하지 않는다.
+확장하지 않는다. 보존 중인 활성 지역 Raw 전체는 `--regions-from-raw-dir`로
+해당 디렉터리를 한 번 지정해 재사용할 수 있다.
 
 지역 검색 결과에 공식으로 보이는 HTTPS 링크가 이미 있으면 웹문서 API를 다시
 호출하지 않고 기존 probe 입력 형식으로 변환한다.
@@ -204,6 +205,24 @@ uv run python main.py build-discovery-review-queue \
   --output ../../data/private/discovery-runs/<review-run-id>.jsonl
 ```
 
+추가 조사 큐는 코드가 동일 도메인 보강, 지점 충돌 수동 검토, 관련성 수동 검토와
+기타 출처 검토로 나눈다. 동일 도메인 보강은 기존 공식 URL에서 연결된 회사소개·
+문의·오시는 길·업무 안내 중 후보당 최대 3페이지만 robots와 안전성을 다시
+검사한다. 원문은 저장하지 않고 결과도 자동 공개하거나 관리자 DB에 쓰지 않는다.
+
+```bash
+uv run python main.py plan-discovery-research \
+  --input ../../data/private/discovery-runs/<review-run-id>.research.jsonl \
+  --output ../../data/private/discovery-runs/<research-plan-id>.jsonl
+
+uv run python main.py enrich-discovery-research \
+  --input ../../data/private/discovery-runs/<review-run-id>.research.jsonl \
+  --output ../../data/private/discovery-runs/<enrichment-id>.jsonl \
+  --user-agent "DetectivePlatformPreflight/1.0 (+https://github.com/ChangkookChoi/detective-platform)" \
+  --max-candidates 20 \
+  --max-pages 3
+```
+
 필터 규칙을 개선한 뒤에는 API를 다시 호출하지 않고 같은 Raw 파일을 재사용한다.
 
 ```bash
@@ -211,6 +230,26 @@ uv run --env-file ../../apps/web/.env.local python main.py filter-naver-discover
   --raw ../../data/private/discovery-runs/<run-id>.raw.jsonl \
   --output ../../data/private/discovery-runs/<run-id>.filtered.jsonl \
   --registry ../../docs/operations/SOURCE_REGISTRY.md
+```
+
+여러 활성 Raw의 이전 필터 결과와 현재 규칙은 실제 업체 식별정보 없는 집계로
+한 번에 비교할 수 있다.
+
+```bash
+uv run --env-file ../../apps/web/.env.local python main.py audit-naver-discovery-filter \
+  --raw-dir ../../data/private/nationwide-discovery-runs \
+  --output ../../data/private/nationwide-discovery-runs/filter-audit.json \
+  --registry ../../docs/operations/SOURCE_REGISTRY.md \
+  --nationwide
+```
+
+지역 수집부터 직접 링크 분리, 제한된 웹 보강, probe, facts, 검토 큐와 추가
+조사 라우팅·보강까지 반복할 때는 저장소 루트의 단일 실행 스크립트를 사용한다.
+
+```bash
+./scripts/run-naver-discovery-cycle.sh \
+  ./data/private/discovery-cycle \
+  ./data/private/nationwide-discovery-runs
 ```
 
 보존기한 정리는 새 검색 전 자동 실행된다. 정기 검색을 도입하기 전에는 다음

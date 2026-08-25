@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import psycopg
 
@@ -39,8 +39,9 @@ _STRONG_OFFICE_NAME_PATTERN = re.compile(
     r"(?:공인|사설)\s*탐정|민간\s*조사|흥신소",
     re.IGNORECASE,
 )
-_NEGATIVE_CONTEXT_PATTERN = re.compile(
-    r"명탐정|코난|추리|팝업|게임|카페|전시|애니|만화|방탈출|"
+_ENTERTAINMENT_BRAND_PATTERN = re.compile(r"명탐정|코난", re.IGNORECASE)
+_HARD_NEGATIVE_CONTEXT_PATTERN = re.compile(
+    r"추리|팝업|게임|카페|전시|애니|만화|방탈출|"
     r"보드게임|동물|반려|펫|보육원|레미콘|콘크리트|행정사|"
     r"법무사|세무사|공인중개|부동산|학원|서점|박물관|키즈",
     re.IGNORECASE,
@@ -171,6 +172,23 @@ class DiscoverySummary:
     raw_output: str
     filtered_output: str
     expires_at: str
+
+
+@dataclass(frozen=True)
+class DiscoveryFilterAuditSummary:
+    rules_version: str
+    scanned_file_count: int
+    active_file_count: int
+    expired_file_count: int
+    raw_count: int
+    comparable_count: int
+    changed_status_count: int
+    newly_rejected_count: int
+    newly_qualified_count: int
+    previous_status_counts: dict[str, int]
+    current_status_counts: dict[str, int]
+    current_reason_counts: dict[str, int]
+    output: str
 
 
 @dataclass(frozen=True)
@@ -378,6 +396,68 @@ class DiscoveryResearchRecord:
 
 
 @dataclass(frozen=True)
+class DiscoveryResearchTaskRecord:
+    version: int
+    rules_version: str
+    candidate_id: str
+    source_url: str
+    route: str
+    reason_codes: tuple[str, ...]
+    checked_at: str
+    expires_at: str
+    review_status: str
+    promotion_allowed: bool
+
+
+@dataclass(frozen=True)
+class DiscoveryResearchPlanSummary:
+    candidate_count: int
+    same_domain_enrichment_count: int
+    manual_branch_review_count: int
+    manual_relevance_review_count: int
+    manual_source_review_count: int
+    reason_counts: dict[str, int]
+    output: str
+    expires_at: str
+
+
+@dataclass(frozen=True)
+class DiscoveryResearchEnrichmentRecord:
+    version: int
+    rules_version: str
+    candidate_id: str
+    source_url: str
+    checked_urls: tuple[str, ...]
+    phone_normalized: str | None
+    phone_display: str | None
+    email_normalized: str | None
+    email_display: str | None
+    email_kind: str | None
+    name_match: bool
+    address_match: bool
+    region_match: bool
+    business_service_match: bool
+    unresolved_reason_codes: tuple[str, ...]
+    status: str
+    checked_at: str
+    expires_at: str
+    promotion_allowed: bool
+
+
+@dataclass(frozen=True)
+class DiscoveryResearchEnrichmentSummary:
+    candidate_count: int
+    completed_count: int
+    research_required_count: int
+    fetched_page_count: int
+    blocked_page_count: int
+    failed_page_count: int
+    unresolved_reason_counts: dict[str, int]
+    output: str
+    expires_at: str
+
+
+@dataclass(frozen=True)
 class OfficeEmailTarget:
     target_type: str
     target_id: str
@@ -524,11 +604,12 @@ def assess_business_relevance(
     generic_name_match = any(
         term in normalized_name for term in _RELEVANT_TERMS
     )
-    negative_context = bool(
-        _NEGATIVE_CONTEXT_PATTERN.search(
-            f"{normalized_name} {normalized_category}"
-        )
+    context = f"{normalized_name} {normalized_category}"
+    entertainment_brand = bool(_ENTERTAINMENT_BRAND_PATTERN.search(context))
+    hard_negative_context = bool(
+        _HARD_NEGATIVE_CONTEXT_PATTERN.search(context)
     )
+    negative_context = entertainment_brand or hard_negative_context
     reasons: list[str] = []
     if strong_name:
         reasons.append("STRONG_OFFICE_NAME")
@@ -539,13 +620,17 @@ def assess_business_relevance(
     if negative_context:
         reasons.append("NEGATIVE_CONTEXT")
 
-    if strong_name and (category_match or not negative_context):
-        status = "probable"
-    elif category_match and not negative_context:
-        status = "probable"
-    elif negative_context and not (strong_name or category_match):
+    # Search category labels are not reliable enough to override an explicit
+    # entertainment, animal, construction, or unrelated professional context.
+    # A legitimate mixed-service business can still be recovered later from an
+    # independently verified official source; discovery should prefer precision.
+    if hard_negative_context or (entertainment_brand and not strong_name):
         status = "irrelevant"
         reasons.append("NO_DETECTIVE_BUSINESS_SIGNAL")
+    elif strong_name:
+        status = "probable"
+    elif category_match:
+        status = "probable"
     elif strong_name or category_match or generic_name_match:
         status = "ambiguous"
     else:
@@ -629,7 +714,7 @@ def filter_discovery_record(
         status = "source_check_required"
     return FilteredOfficeDiscoveryRecord(
         version=3,
-        rules_version="office-discovery-v3",
+        rules_version="office-discovery-v4",
         record_id=record.record_id,
         run_id=record.run_id,
         status=status,
@@ -776,6 +861,23 @@ def load_region_queries_from_raw(
     return tuple(sorted(regions))
 
 
+def load_region_queries_from_directory(
+    raw_dir: Path, *, now: datetime | None = None
+) -> tuple[str, ...]:
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        raise OfficeDiscoveryError("discovery_timestamp_must_be_timezone_aware")
+    current = current.astimezone(timezone.utc)
+    active_paths = tuple(
+        path
+        for path in sorted(raw_dir.glob("naver-local-*.raw.jsonl"))
+        if _load_file_expiry(path) > current
+    )
+    if not active_paths:
+        raise OfficeDiscoveryError("discovery_active_raw_files_empty")
+    return load_region_queries_from_raw(active_paths, now=current)
+
+
 def _load_file_expiry(path: Path) -> datetime:
     run_ids: set[str] = set()
     expiries: set[datetime] = set()
@@ -910,6 +1012,155 @@ def _summarize_filtered(
         reason for record in filtered_records for reason in record.reason_codes
     )
     return status_counts, reason_counts
+
+
+def _load_previous_filtered_statuses(path: Path) -> dict[str, str]:
+    statuses: dict[str, str] = {}
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+            record_id = payload["record_id"]
+            status = payload["status"]
+            if not isinstance(record_id, str) or not isinstance(status, str):
+                raise ValueError
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise OfficeDiscoveryError(
+                f"discovery_filtered_record_invalid_at_line_{line_number}"
+            ) from exc
+        statuses[record_id] = status
+    return statuses
+
+
+def audit_discovery_filter(
+    *,
+    raw_dir: Path,
+    output_path: Path,
+    duplicate_keys: dict[str, set[str]],
+    registry: dict[str, RegistryEntry],
+    nationwide: bool = False,
+    now: datetime | None = None,
+) -> DiscoveryFilterAuditSummary:
+    """Replay active local Raw files and write an identity-free comparison report."""
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        raise OfficeDiscoveryError("discovery_timestamp_must_be_timezone_aware")
+    current = current.astimezone(timezone.utc)
+    raw_paths = sorted(raw_dir.glob("naver-local-*.raw.jsonl"))
+    if not raw_paths:
+        raise OfficeDiscoveryError("discovery_audit_raw_files_empty")
+
+    previous_status_counts: Counter[str] = Counter()
+    current_status_counts: Counter[str] = Counter()
+    current_reason_counts: Counter[str] = Counter()
+    active_file_count = 0
+    expired_file_count = 0
+    raw_count = 0
+    comparable_count = 0
+    changed_status_count = 0
+    newly_rejected_count = 0
+    newly_qualified_count = 0
+    run_reports: list[dict[str, Any]] = []
+
+    for raw_path in raw_paths:
+        if _load_file_expiry(raw_path) <= current:
+            expired_file_count += 1
+            continue
+        active_file_count += 1
+        raw_records = load_raw_discovery_records(raw_path, now=current)
+        filtered_records = filter_discovery_records(
+            raw_records,
+            duplicate_keys=duplicate_keys,
+            registry=registry,
+            nationwide=nationwide,
+        )
+        run_status_counts, run_reason_counts = _summarize_filtered(filtered_records)
+        raw_count += len(raw_records)
+        current_status_counts.update(run_status_counts)
+        current_reason_counts.update(run_reason_counts)
+
+        filtered_path = raw_path.with_name(
+            raw_path.name.removesuffix(".raw.jsonl") + ".filtered.jsonl"
+        )
+        previous = (
+            _load_previous_filtered_statuses(filtered_path)
+            if filtered_path.exists()
+            else {}
+        )
+        run_changed = 0
+        run_newly_rejected = 0
+        run_newly_qualified = 0
+        for record in filtered_records:
+            previous_status = previous.get(record.record_id)
+            if previous_status is None:
+                continue
+            comparable_count += 1
+            previous_status_counts[previous_status] += 1
+            if previous_status == record.status:
+                continue
+            changed_status_count += 1
+            run_changed += 1
+            if record.status == "rejected":
+                newly_rejected_count += 1
+                run_newly_rejected += 1
+            if previous_status == "rejected":
+                newly_qualified_count += 1
+                run_newly_qualified += 1
+        run_reports.append(
+            {
+                "run_id": raw_records[0].run_id,
+                "raw_count": len(raw_records),
+                "comparable_count": sum(
+                    record.record_id in previous for record in filtered_records
+                ),
+                "changed_status_count": run_changed,
+                "newly_rejected_count": run_newly_rejected,
+                "newly_qualified_count": run_newly_qualified,
+                "current_status_counts": dict(sorted(run_status_counts.items())),
+                "current_reason_counts": dict(sorted(run_reason_counts.items())),
+                "expires_at": min(record.expires_at for record in raw_records),
+            }
+        )
+
+    if active_file_count == 0:
+        raise OfficeDiscoveryError("discovery_audit_active_raw_files_empty")
+    report = {
+        "version": 1,
+        "rules_version": "office-discovery-v4",
+        "generated_at": current.isoformat(),
+        "nationwide": nationwide,
+        "scanned_file_count": len(raw_paths),
+        "active_file_count": active_file_count,
+        "expired_file_count": expired_file_count,
+        "raw_count": raw_count,
+        "comparable_count": comparable_count,
+        "changed_status_count": changed_status_count,
+        "newly_rejected_count": newly_rejected_count,
+        "newly_qualified_count": newly_qualified_count,
+        "previous_status_counts": dict(sorted(previous_status_counts.items())),
+        "current_status_counts": dict(sorted(current_status_counts.items())),
+        "current_reason_counts": dict(sorted(current_reason_counts.items())),
+        "runs": run_reports,
+    }
+    _write_private_json(output_path, report)
+    return DiscoveryFilterAuditSummary(
+        rules_version="office-discovery-v4",
+        scanned_file_count=len(raw_paths),
+        active_file_count=active_file_count,
+        expired_file_count=expired_file_count,
+        raw_count=raw_count,
+        comparable_count=comparable_count,
+        changed_status_count=changed_status_count,
+        newly_rejected_count=newly_rejected_count,
+        newly_qualified_count=newly_qualified_count,
+        previous_status_counts=dict(sorted(previous_status_counts.items())),
+        current_status_counts=dict(sorted(current_status_counts.items())),
+        current_reason_counts=dict(sorted(current_reason_counts.items())),
+        output=str(output_path),
+    )
 
 
 def refilter_naver_local_discovery(
@@ -2512,5 +2763,341 @@ def build_discovery_review_queue(
         ),
         output=str(output_path),
         research_output=str(research_output_path),
+        expires_at=expires_at.isoformat(),
+    )
+
+
+def plan_discovery_research(
+    *,
+    research_path: Path,
+    output_path: Path,
+    now: datetime | None = None,
+) -> DiscoveryResearchPlanSummary:
+    """Route private research candidates without exposing their identities in logs."""
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        raise OfficeDiscoveryError("discovery_timestamp_must_be_timezone_aware")
+    current = current.astimezone(timezone.utc)
+    research_records = _load_discovery_research_records(
+        research_path, now=current
+    )
+    if not research_records:
+        raise OfficeDiscoveryError("discovery_research_records_empty")
+
+    branch_reasons = {
+        "SHARED_SOURCE_BRANCH_REVIEW_REQUIRED",
+        "SHARED_NAME_BRANCH_REVIEW_REQUIRED",
+        "EXISTING_NAME_REVIEW_REQUIRED",
+    }
+    enrichment_reasons = {
+        "STRONG_FACT_MATCH_REQUIRED",
+        "PHONE_REQUIRED",
+        "OFFICIAL_SERVICE_EVIDENCE_REQUIRED",
+    }
+    tasks: list[DiscoveryResearchTaskRecord] = []
+    route_counts: Counter[str] = Counter()
+    reason_counts: Counter[str] = Counter()
+    for record in research_records:
+        reasons = set(record.research_reason_codes)
+        reason_counts.update(record.research_reason_codes)
+        if reasons & branch_reasons:
+            route = "manual_branch_review"
+        elif "BUSINESS_RELEVANCE_REVIEW_REQUIRED" in reasons:
+            route = "manual_relevance_review"
+        elif reasons and reasons <= enrichment_reasons:
+            route = "same_domain_enrichment"
+        else:
+            route = "manual_source_review"
+        route_counts[route] += 1
+        tasks.append(
+            DiscoveryResearchTaskRecord(
+                version=1,
+                rules_version="office-discovery-research-plan-v1",
+                candidate_id=record.candidate_id,
+                source_url=record.source_url,
+                route=route,
+                reason_codes=record.research_reason_codes,
+                checked_at=record.checked_at,
+                expires_at=record.expires_at,
+                review_status="research_required",
+                promotion_allowed=False,
+            )
+        )
+    tasks.sort(key=lambda task: (task.route, task.candidate_id))
+    _write_jsonl(output_path, tasks)
+    expires_at = min(_parse_expiry(record.expires_at) for record in research_records)
+    return DiscoveryResearchPlanSummary(
+        candidate_count=len(tasks),
+        same_domain_enrichment_count=route_counts["same_domain_enrichment"],
+        manual_branch_review_count=route_counts["manual_branch_review"],
+        manual_relevance_review_count=route_counts["manual_relevance_review"],
+        manual_source_review_count=route_counts["manual_source_review"],
+        reason_counts=dict(sorted(reason_counts.items())),
+        output=str(output_path),
+        expires_at=expires_at.isoformat(),
+    )
+
+
+def _load_discovery_research_records(
+    research_path: Path, *, now: datetime
+) -> tuple[DiscoveryResearchRecord, ...]:
+    research_records: list[DiscoveryResearchRecord] = []
+    for line_number, line in enumerate(
+        research_path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+            payload["relevance_reason_codes"] = tuple(
+                payload["relevance_reason_codes"]
+            )
+            payload["research_reason_codes"] = tuple(
+                payload["research_reason_codes"]
+            )
+            record = DiscoveryResearchRecord(**payload)
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise OfficeDiscoveryError(
+                f"discovery_research_record_invalid_at_line_{line_number}"
+            ) from exc
+        if _parse_expiry(record.expires_at) <= now:
+            raise OfficeDiscoveryError("discovery_research_records_expired")
+        research_records.append(record)
+    return tuple(research_records)
+
+
+class _CandidateLinkParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.links: list[tuple[str, str]] = []
+        self._href: str | None = None
+        self._text: list[str] = []
+
+    def handle_starttag(
+        self, tag: str, attrs: list[tuple[str, str | None]]
+    ) -> None:
+        if tag.lower() != "a":
+            return
+        attributes = {key.lower(): value for key, value in attrs}
+        self._href = attributes.get("href")
+        self._text = []
+
+    def handle_data(self, data: str) -> None:
+        if self._href is not None and sum(map(len, self._text)) < 500:
+            self._text.append(data[:500])
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() == "a" and self._href is not None:
+            self.links.append((self._href, normalize_result_text(" ".join(self._text))))
+            self._href = None
+            self._text = []
+
+
+_ENRICHMENT_LINK_PATTERN = re.compile(
+    r"회사\s*소개|업체\s*소개|오시는\s*길|찾아오시는\s*길|문의|연락처|"
+    r"업무\s*(?:분야|안내)|서비스|개인정보|about|contact|location|service|privacy",
+    re.IGNORECASE,
+)
+
+
+def _select_same_domain_enrichment_links(
+    body: bytes, *, source_url: str, max_pages: int
+) -> tuple[str, ...]:
+    parser = _CandidateLinkParser()
+    try:
+        parser.feed(_normalize_html_encoding(body).decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise OfficeDiscoveryError("discovery_enrichment_link_parse_failed") from exc
+    source_host = _canonical_host(source_url)
+    source_normalized = normalize_discovery_url(source_url)
+    ranked: list[tuple[int, str]] = []
+    seen: set[str] = {source_normalized}
+    for href, anchor_text in parser.links:
+        absolute = normalize_discovery_url(urljoin(source_url, href))
+        if (
+            not absolute.startswith("https://")
+            or _canonical_host(absolute) != source_host
+            or absolute in seen
+        ):
+            continue
+        signal = f"{urlsplit(absolute).path} {anchor_text}"
+        if not _ENRICHMENT_LINK_PATTERN.search(signal):
+            continue
+        seen.add(absolute)
+        rank = 0 if re.search(r"contact|문의|오시는|location", signal, re.I) else 1
+        ranked.append((rank, absolute))
+    return tuple(url for _rank, url in sorted(ranked)[:max_pages])
+
+
+def enrich_discovery_research(
+    *,
+    research_path: Path,
+    output_path: Path,
+    user_agent: str,
+    max_candidates: int = 20,
+    max_pages_per_candidate: int = 3,
+    now: datetime | None = None,
+    checker: Callable[..., NetworkCheck] = check_source_network,
+    fetcher: Callable[..., bytes] = _fetch_official_source_html,
+) -> DiscoveryResearchEnrichmentSummary:
+    if not 1 <= max_candidates <= 50:
+        raise OfficeDiscoveryError("discovery_enrichment_candidate_budget_invalid")
+    if not 1 <= max_pages_per_candidate <= 5:
+        raise OfficeDiscoveryError("discovery_enrichment_page_budget_invalid")
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        raise OfficeDiscoveryError("discovery_timestamp_must_be_timezone_aware")
+    current = current.astimezone(timezone.utc)
+    research_records = _load_discovery_research_records(
+        research_path, now=current
+    )
+    if not research_records:
+        raise OfficeDiscoveryError("discovery_research_records_empty")
+
+    branch_reasons = {
+        "SHARED_SOURCE_BRANCH_REVIEW_REQUIRED",
+        "SHARED_NAME_BRANCH_REVIEW_REQUIRED",
+        "EXISTING_NAME_REVIEW_REQUIRED",
+        "BUSINESS_RELEVANCE_REVIEW_REQUIRED",
+    }
+    enrichment_reasons = {
+        "STRONG_FACT_MATCH_REQUIRED",
+        "PHONE_REQUIRED",
+        "OFFICIAL_SERVICE_EVIDENCE_REQUIRED",
+    }
+    selected = [
+        record
+        for record in research_records
+        if set(record.research_reason_codes) <= enrichment_reasons
+        and not set(record.research_reason_codes) & branch_reasons
+    ][:max_candidates]
+    if not selected:
+        raise OfficeDiscoveryError("discovery_enrichment_candidates_empty")
+
+    output_records: list[DiscoveryResearchEnrichmentRecord] = []
+    fetched_page_count = 0
+    blocked_page_count = 0
+    failed_page_count = 0
+    unresolved_counts: Counter[str] = Counter()
+    for record in selected:
+        checked_urls: list[str] = []
+        facts: list[dict[str, object]] = []
+        try:
+            base_body = fetcher(
+                record.source_url,
+                user_agent=user_agent,
+                checked_at=current.date(),
+            )
+            normalized_base = _normalize_html_encoding(base_body)
+            facts.append(
+                _html_fallback_facts(
+                    normalized_base,
+                    candidate_name=record.candidate_name,
+                    candidate_address=record.candidate_address,
+                )
+            )
+            checked_urls.append(record.source_url)
+            fetched_page_count += 1
+            links = _select_same_domain_enrichment_links(
+                normalized_base,
+                source_url=record.source_url,
+                max_pages=max_pages_per_candidate,
+            )
+        except (CollectorHttpError, OfficeDiscoveryError, OSError):
+            links = ()
+            failed_page_count += 1
+        for url in links:
+            network = checker(
+                url,
+                manual_policy_reviewed=False,
+                user_agent=user_agent,
+            )
+            if network.status != "eligible":
+                blocked_page_count += 1
+                continue
+            try:
+                body = fetcher(
+                    url,
+                    user_agent=user_agent,
+                    checked_at=current.date(),
+                )
+                facts.append(
+                    _html_fallback_facts(
+                        _normalize_html_encoding(body),
+                        candidate_name=record.candidate_name,
+                        candidate_address=record.candidate_address,
+                    )
+                )
+                checked_urls.append(url)
+                fetched_page_count += 1
+            except (CollectorHttpError, OfficeDiscoveryError, OSError):
+                failed_page_count += 1
+
+        def first_text(key: str) -> str | None:
+            return next(
+                (
+                    value
+                    for fact in facts
+                    if isinstance((value := fact.get(key)), str)
+                ),
+                None,
+            )
+
+        phone_normalized = first_text("phoneNormalized") or record.phone_normalized
+        phone_display = first_text("phoneDisplay") or record.phone_display
+        email_normalized = first_text("emailNormalized") or record.email_normalized
+        email_display = first_text("emailDisplay") or record.email_display
+        email_kind = first_text("emailKind") or record.email_kind
+        name_match = any(bool(fact.get("nameMatch")) for fact in facts)
+        address_match = any(bool(fact.get("addressMatch")) for fact in facts)
+        region_match = any(bool(fact.get("regionMatch")) for fact in facts)
+        service_match = record.business_service_match or any(
+            bool(fact.get("businessServiceMatch")) for fact in facts
+        )
+        unresolved = set(record.research_reason_codes)
+        if phone_normalized:
+            unresolved.discard("PHONE_REQUIRED")
+        if service_match:
+            unresolved.discard("OFFICIAL_SERVICE_EVIDENCE_REQUIRED")
+        if name_match and (address_match or region_match) and phone_normalized:
+            unresolved.discard("STRONG_FACT_MATCH_REQUIRED")
+        unresolved_reason_codes = tuple(sorted(unresolved))
+        unresolved_counts.update(unresolved_reason_codes)
+        status = "enrichment_complete" if not unresolved else "research_required"
+        output_records.append(
+            DiscoveryResearchEnrichmentRecord(
+                version=1,
+                rules_version="office-discovery-enrichment-v1",
+                candidate_id=record.candidate_id,
+                source_url=record.source_url,
+                checked_urls=tuple(checked_urls),
+                phone_normalized=phone_normalized,
+                phone_display=phone_display,
+                email_normalized=email_normalized,
+                email_display=email_display,
+                email_kind=email_kind,
+                name_match=name_match,
+                address_match=address_match,
+                region_match=region_match,
+                business_service_match=service_match,
+                unresolved_reason_codes=unresolved_reason_codes,
+                status=status,
+                checked_at=current.isoformat(),
+                expires_at=record.expires_at,
+                promotion_allowed=False,
+            )
+        )
+    _write_jsonl(output_path, output_records)
+    status_counts = Counter(record.status for record in output_records)
+    expires_at = min(_parse_expiry(record.expires_at) for record in output_records)
+    return DiscoveryResearchEnrichmentSummary(
+        candidate_count=len(output_records),
+        completed_count=status_counts["enrichment_complete"],
+        research_required_count=status_counts["research_required"],
+        fetched_page_count=fetched_page_count,
+        blocked_page_count=blocked_page_count,
+        failed_page_count=failed_page_count,
+        unresolved_reason_counts=dict(sorted(unresolved_counts.items())),
+        output=str(output_path),
         expires_at=expires_at.isoformat(),
     )

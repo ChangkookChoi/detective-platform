@@ -72,11 +72,21 @@ Clerk 관리자 배치 브라우저 실행은 하나의 운영 계약이다. 절
    별도 `research_required` 큐로 보낸다. 두 큐 모두 기존 office batch manifest가
    아니며 지역 slug, 업무 분야, 출처 유형과 사람의 원문 대조를 추가하기 전에는
    관리자 등록에 사용할 수 없다.
-10. 2026-09-07 개정 약관 시행 전 전문가·NAVER 서면 답변이 없으면 실제 호출과
+10. `plan-discovery-research`는 부족한 조건을 동일 도메인 보강과 지점·관련성·
+    기타 수동 검토로 자동 분류한다. 동일 도메인 보강은 공식 시작 페이지에
+    연결된 회사소개·문의·오시는 길·업무 안내 중 최대 3페이지만 각 URL의
+    robots와 안전성 재검사 후 읽고 원문을 저장하지 않는다. 결과는 계속 비공개며
+    관리자 승인 후보나 운영값으로 자동 변환하지 않는다.
+11. `audit-naver-discovery-filter`는 활성 Raw와 이전 filtered를 재호출 없이
+    비교하고 실제 업체 식별정보 없는 집계 보고서만 만든다. 반복 실행은
+    `scripts/run-naver-discovery-cycle.sh`로 연결하되 각 API 실행의 100회 상한과
+    후보당 페이지 상한을 유지한다.
+12. 2026-09-07 개정 약관 시행 전 전문가·NAVER 서면 답변이 없으면 실제 호출과
    저장을 중단하고 파일을 파기한다.
 
 전국 후보 수집은 명시적 `--nationwide` 실행에서만 허용한다. 광역 지역 Raw의
 주소에서 시·군·구 질의를 결정론적으로 만들 때는 `--regions-from-raw`를 쓰고,
+활성 Raw 디렉터리 전체는 `--regions-from-raw-dir`로 한 번 지정할 수 있으며,
 API 실행당 100회 예산을 넘지 않도록 `--region-offset`과 `--region-limit`으로
 나눈다. 지역 API가 직접 제공한 공식 링크 후보는 `prepare-local-source-links`로
 웹문서 API 재검색 없이 probe 단계에 연결한다. 기본 실행은 계속 서울·경기만

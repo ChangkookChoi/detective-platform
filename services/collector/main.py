@@ -19,12 +19,16 @@ from collector.candidate_batch import (
 from collector.naver_api_hub import NaverApiHubClient, NaverApiHubError
 from collector.office_discovery import (
     OfficeDiscoveryError,
+    audit_discovery_filter,
     build_discovery_review_queue,
     build_query_plan,
     collect_office_email_candidates,
+    enrich_discovery_research,
     extract_official_source_facts,
     load_office_email_targets,
+    load_region_queries_from_directory,
     load_region_queries_from_raw,
+    plan_discovery_research,
     prepare_direct_local_source_candidates,
     probe_web_source_candidates,
     purge_expired_discovery_files,
@@ -62,6 +66,7 @@ def _parser() -> argparse.ArgumentParser:
     discover.add_argument("--region", action="append")
     discover.add_argument("--regions-from-database", action="store_true")
     discover.add_argument("--regions-from-raw", action="append", type=Path)
+    discover.add_argument("--regions-from-raw-dir", type=Path)
     discover.add_argument("--region-offset", type=int, default=0)
     discover.add_argument("--region-limit", type=int)
     discover.add_argument("--keyword", action="append", required=True)
@@ -75,6 +80,12 @@ def _parser() -> argparse.ArgumentParser:
     refilter.add_argument("--output", type=Path, required=True)
     refilter.add_argument("--registry", type=Path, required=True)
     refilter.add_argument("--nationwide", action="store_true")
+
+    audit_filter = subparsers.add_parser("audit-naver-discovery-filter")
+    audit_filter.add_argument("--raw-dir", type=Path, required=True)
+    audit_filter.add_argument("--output", type=Path, required=True)
+    audit_filter.add_argument("--registry", type=Path, required=True)
+    audit_filter.add_argument("--nationwide", action="store_true")
 
     purge = subparsers.add_parser("purge-naver-discovery")
     purge.add_argument("--output-dir", type=Path, required=True)
@@ -116,6 +127,17 @@ def _parser() -> argparse.ArgumentParser:
     build_review.add_argument("--output", type=Path, required=True)
     build_review.add_argument("--parent-dir", type=Path)
 
+    plan_research = subparsers.add_parser("plan-discovery-research")
+    plan_research.add_argument("--input", type=Path, required=True)
+    plan_research.add_argument("--output", type=Path, required=True)
+
+    enrich_research = subparsers.add_parser("enrich-discovery-research")
+    enrich_research.add_argument("--input", type=Path, required=True)
+    enrich_research.add_argument("--output", type=Path, required=True)
+    enrich_research.add_argument("--user-agent", required=True)
+    enrich_research.add_argument("--max-candidates", type=int, default=20)
+    enrich_research.add_argument("--max-pages", type=int, default=3)
+
     collect_emails = subparsers.add_parser("collect-office-emails")
     collect_emails.add_argument("--output", type=Path, required=True)
     collect_emails.add_argument("--user-agent", required=True)
@@ -141,6 +163,97 @@ def _validate_private_path(path: Path) -> Path:
 
 def main() -> int:
     args = _parser().parse_args()
+
+    if args.command == "audit-naver-discovery-filter":
+        database_url = os.environ.get("DATABASE_URL")
+        try:
+            summary = audit_discovery_filter(
+                raw_dir=_validate_private_output_dir(args.raw_dir),
+                output_path=_validate_private_path(args.output),
+                duplicate_keys=(
+                    load_database_duplicate_keys(database_url)
+                    if database_url
+                    else {
+                        key: set()
+                        for key in ("source", "name", "phone", "address", "slug")
+                    }
+                ),
+                registry=load_source_registry(args.registry),
+                nationwide=args.nationwide,
+            )
+        except (
+            CandidateBatchError,
+            OfficeDiscoveryError,
+            OSError,
+            psycopg.Error,
+        ) as exc:
+            print(
+                json.dumps(
+                    {"ok": False, "error": str(exc)},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            return 2
+        print(
+            json.dumps(
+                {"ok": True, **summary.__dict__},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+        return 0
+
+    if args.command == "plan-discovery-research":
+        try:
+            summary = plan_discovery_research(
+                research_path=_validate_private_path(args.input),
+                output_path=_validate_private_path(args.output),
+            )
+        except (OfficeDiscoveryError, OSError) as exc:
+            print(
+                json.dumps(
+                    {"ok": False, "error": str(exc)},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            return 2
+        print(
+            json.dumps(
+                {"ok": True, **summary.__dict__},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+        return 0
+
+    if args.command == "enrich-discovery-research":
+        try:
+            summary = enrich_discovery_research(
+                research_path=_validate_private_path(args.input),
+                output_path=_validate_private_path(args.output),
+                user_agent=args.user_agent,
+                max_candidates=args.max_candidates,
+                max_pages_per_candidate=args.max_pages,
+            )
+        except (OfficeDiscoveryError, OSError) as exc:
+            print(
+                json.dumps(
+                    {"ok": False, "error": str(exc)},
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+            return 2
+        print(
+            json.dumps(
+                {"ok": True, **summary.__dict__},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
+        return 0
 
     if args.command == "prepare-local-source-links":
         database_url = os.environ.get("DATABASE_URL")
@@ -461,6 +574,12 @@ def main() -> int:
                             _validate_private_path(path)
                             for path in args.regions_from_raw
                         )
+                    )
+                )
+            if args.regions_from_raw_dir:
+                regions.extend(
+                    load_region_queries_from_directory(
+                        _validate_private_output_dir(args.regions_from_raw_dir)
                     )
                 )
             if args.region_offset < 0 or (

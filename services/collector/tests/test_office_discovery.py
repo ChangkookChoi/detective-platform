@@ -13,19 +13,24 @@ from collector.naver_api_hub import NaverSearchResponse
 from collector.office_discovery import (
     _html_fallback_facts,
     OfficialSourceFactRecord,
+    DiscoveryResearchRecord,
     OfficeEmailTarget,
     OfficeDiscoveryError,
     RawOfficeDiscoveryRecord,
     assess_business_relevance,
+    audit_discovery_filter,
     build_discovery_review_queue,
     build_query_plan,
     collect_office_email_candidates,
+    enrich_discovery_research,
     extract_official_source_facts,
     extract_official_business_emails,
     filter_discovery_record,
     load_raw_discovery_records,
+    load_region_queries_from_directory,
     load_region_queries_from_raw,
     normalize_result_text,
+    plan_discovery_research,
     prepare_direct_local_source_candidates,
     probe_web_source_candidates,
     purge_expired_discovery_files,
@@ -232,6 +237,53 @@ class OfficeDiscoveryTests(unittest.TestCase):
             assess_business_relevance("정의 탐정", "생활서비스").status,
             "ambiguous",
         )
+        self.assertEqual(
+            assess_business_relevance(
+                "명탐정 코난 탐정사무소 팝업", "탐정,민간조사"
+            ).status,
+            "irrelevant",
+        )
+
+    def test_audits_filter_changes_without_candidate_identities(self) -> None:
+        now = datetime(2026, 8, 20, tzinfo=timezone.utc)
+        candidate = _raw(
+            run_id="naver-local-audit",
+            title="명탐정 코난 탐정사무소 팝업",
+            category="탐정,민간조사",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw_path = root / "naver-local-audit.raw.jsonl"
+            filtered_path = root / "naver-local-audit.filtered.jsonl"
+            output_path = root / "audit.json"
+            raw_path.write_text(
+                json.dumps(asdict(candidate), ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            filtered_path.write_text(
+                json.dumps(
+                    {
+                        "record_id": candidate.record_id,
+                        "status": "source_check_required",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            summary = audit_discovery_filter(
+                raw_dir=root,
+                output_path=output_path,
+                duplicate_keys=_empty_duplicate_keys(),
+                registry={},
+                now=now,
+            )
+            report_text = output_path.read_text(encoding="utf-8")
+
+        self.assertEqual(summary.raw_count, 1)
+        self.assertEqual(summary.changed_status_count, 1)
+        self.assertEqual(summary.newly_rejected_count, 1)
+        self.assertNotIn(candidate.title, report_text)
+        self.assertNotIn(candidate.record_id, report_text)
 
     def test_builds_deduplicated_bounded_query_plan(self) -> None:
         plan = build_query_plan(
@@ -247,6 +299,31 @@ class OfficeDiscoveryTests(unittest.TestCase):
             OfficeDiscoveryError, "discovery_query_budget_exceeded"
         ):
             build_query_plan(["강남구", "송파구"], ["탐정", "흥신소"], max_queries=3)
+
+    def test_loads_regions_from_only_active_raw_files_in_directory(self) -> None:
+        now = datetime(2026, 8, 20, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            active = _raw(
+                run_id="naver-local-active",
+                record_id="active",
+                road_address="부산광역시 해운대구 테스트로 1",
+            )
+            expired = _raw(
+                run_id="naver-local-expired",
+                record_id="expired",
+                road_address="대구광역시 중구 테스트로 1",
+                expires_at="2026-08-19T00:00:00+00:00",
+            )
+            for name, record in (("active", active), ("expired", expired)):
+                (root / f"naver-local-{name}.raw.jsonl").write_text(
+                    json.dumps(asdict(record), ensure_ascii=False) + "\n",
+                    encoding="utf-8",
+                )
+
+            regions = load_region_queries_from_directory(root, now=now)
+
+        self.assertEqual(regions, ("부산광역시 해운대구",))
 
     def test_normalizes_search_markup(self) -> None:
         self.assertEqual(
@@ -443,7 +520,7 @@ class OfficeDiscoveryTests(unittest.TestCase):
             json.loads(raw_lines[0])["expires_at"], "2026-08-27T00:00:00+00:00"
         )
         self.assertEqual(
-            json.loads(filtered_lines[0])["rules_version"], "office-discovery-v3"
+            json.loads(filtered_lines[0])["rules_version"], "office-discovery-v4"
         )
         self.assertFalse(json.loads(filtered_lines[0])["promotion_allowed"])
         self.assertEqual(raw_mode, 0o600)
@@ -977,6 +1054,140 @@ class OfficeDiscoveryTests(unittest.TestCase):
                 OfficeDiscoveryError, "discovery_raw_record_invalid_at_line_1"
             ):
                 load_raw_discovery_records(path)
+
+    def test_routes_research_candidates_without_identity_summary_output(self) -> None:
+        now = datetime(2026, 8, 20, tzinfo=timezone.utc)
+        base = {
+            "version": 1,
+            "rules_version": "office-discovery-research-v2",
+            "candidate_name": "비공개 후보",
+            "candidate_address": "서울특별시 강남구 테스트로 1",
+            "phone_normalized": None,
+            "phone_display": None,
+            "email_normalized": None,
+            "email_display": None,
+            "email_kind": None,
+            "source_url": "https://example.com/",
+            "evidence_status": "partial_fact_match",
+            "business_relevance": "probable",
+            "relevance_reason_codes": ("STRONG_OFFICE_NAME",),
+            "business_service_match": False,
+            "evidence_run_id": "fact-run",
+            "checked_at": now.isoformat(),
+            "expires_at": "2026-08-27T00:00:00+00:00",
+            "review_status": "research_required",
+            "promotion_allowed": False,
+        }
+        records = (
+            DiscoveryResearchRecord(
+                candidate_id="candidate-enrich",
+                research_reason_codes=("PHONE_REQUIRED",),
+                **base,
+            ),
+            DiscoveryResearchRecord(
+                candidate_id="candidate-branch",
+                research_reason_codes=("SHARED_SOURCE_BRANCH_REVIEW_REQUIRED",),
+                **base,
+            ),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            research_path = root / "research.jsonl"
+            output_path = root / "tasks.jsonl"
+            research_path.write_text(
+                "".join(
+                    json.dumps(asdict(record), ensure_ascii=False) + "\n"
+                    for record in records
+                ),
+                encoding="utf-8",
+            )
+            summary = plan_discovery_research(
+                research_path=research_path,
+                output_path=output_path,
+                now=now,
+            )
+            tasks = [
+                json.loads(line)
+                for line in output_path.read_text(encoding="utf-8").splitlines()
+            ]
+
+        self.assertEqual(summary.same_domain_enrichment_count, 1)
+        self.assertEqual(summary.manual_branch_review_count, 1)
+        self.assertEqual(
+            {task["route"] for task in tasks},
+            {"same_domain_enrichment", "manual_branch_review"},
+        )
+        self.assertNotIn("candidate-enrich", json.dumps(summary.__dict__))
+
+    def test_enriches_only_selected_same_domain_pages(self) -> None:
+        now = datetime(2026, 8, 20, tzinfo=timezone.utc)
+        record = DiscoveryResearchRecord(
+            version=1,
+            rules_version="office-discovery-research-v2",
+            candidate_id="candidate-enrich",
+            candidate_name="테스트 탐정사무소",
+            candidate_address="서울특별시 강남구 테스트로 1",
+            phone_normalized=None,
+            phone_display=None,
+            email_normalized=None,
+            email_display=None,
+            email_kind=None,
+            source_url="https://example.com/",
+            evidence_status="partial_fact_match",
+            business_relevance="probable",
+            relevance_reason_codes=("STRONG_OFFICE_NAME",),
+            business_service_match=False,
+            research_reason_codes=(
+                "STRONG_FACT_MATCH_REQUIRED",
+                "PHONE_REQUIRED",
+                "OFFICIAL_SERVICE_EVIDENCE_REQUIRED",
+            ),
+            evidence_run_id="fact-run",
+            checked_at=now.isoformat(),
+            expires_at="2026-08-27T00:00:00+00:00",
+            review_status="research_required",
+            promotion_allowed=False,
+        )
+
+        def fetcher(url: str, **_kwargs: object) -> bytes:
+            if url == "https://example.com/":
+                return b'<a href="/contact">contact</a><a href="https://other.test/">other</a>'
+            return """
+                <h1>테스트 탐정사무소</h1>
+                <p>서울특별시 강남구 테스트로 1</p>
+                <p>탐정 업무 상담과 사실 조사를 제공합니다.</p>
+                <a href="tel:02-1234-5678">전화</a>
+            """.encode("utf-8")
+
+        def checker(_url: str, **_kwargs: object) -> NetworkCheck:
+            return NetworkCheck("eligible", 200, 200, _url, 100, None)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            research_path = root / "research.jsonl"
+            output_path = root / "enriched.jsonl"
+            research_path.write_text(
+                json.dumps(asdict(record), ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            summary = enrich_discovery_research(
+                research_path=research_path,
+                output_path=output_path,
+                user_agent="CollectorTest/1.0",
+                now=now,
+                checker=checker,
+                fetcher=fetcher,
+            )
+            enriched = json.loads(output_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(summary.completed_count, 1)
+        self.assertEqual(summary.fetched_page_count, 2)
+        self.assertEqual(enriched["checked_urls"], [
+            "https://example.com/",
+            "https://example.com/contact",
+        ])
+        self.assertEqual(enriched["status"], "enrichment_complete")
+        self.assertFalse(enriched["promotion_allowed"])
 
 
 if __name__ == "__main__":
