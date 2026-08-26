@@ -57,3 +57,33 @@ export function suggestRegionSlugFromAddress(
     ? best.slug
     : "";
 }
+
+export function regionNameTermsForSlug(
+  regionSlug: string,
+  regionGroups: ReadonlyArray<RegionSuggestionGroup>,
+) {
+  const group = regionGroups.find((candidate) =>
+    candidate.regions.some((region) => region.slug === regionSlug),
+  );
+  const region = group?.regions.find((candidate) => candidate.slug === regionSlug);
+  if (!group || !region) return [];
+
+  const administrativeNames = [group.name, ...region.label.split("/")].map(
+    (name) => name.trim(),
+  );
+  const shortenedNames = administrativeNames.map((name) =>
+    name.replace(
+      /(?:특별자치도|특별자치시|특별시|광역시|도|시|군|구)$/u,
+      "",
+    ),
+  );
+  const slugNames = regionSlug.split("-").filter((name) => name.length >= 3);
+
+  return [
+    ...new Set(
+      [...administrativeNames, ...shortenedNames, ...slugNames].filter(
+        (name) => name.length >= 2,
+      ),
+    ),
+  ].sort((left, right) => right.length - left.length);
+}
