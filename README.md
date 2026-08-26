@@ -184,6 +184,11 @@ preflight를 한 번 제출하고 정상 건만 선택해 일괄 승인할 수 �
 않습니다. 상세 절차는 [업체 데이터 확대](docs/operations/OFFICE_DATA_EXPANSION.md)를
 따릅니다.
 
+NAVER 후보 발굴 뒤 공식 홈페이지 최소 사실까지 강하게 일치한 최신 후보는
+식별정보를 CLI에 출력하지 않는 discovery intake의 기본 dry-run으로 재검사할 수
+있습니다. 명시적 `--apply`도 로컬 개발 DB에 관리자 `pending` 검수 항목만 만들며
+공개 slug·최하위 지역·업무 분야는 Clerk 관리자가 원문을 확인해 결정합니다.
+
 ## 문서 안내
 
 - 제품: [PRD](docs/product/PRD.md), [MVP 범위](docs/product/MVP_SCOPE.md), [사용자 흐름](docs/product/USER_FLOWS.md)

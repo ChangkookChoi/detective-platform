@@ -17,6 +17,10 @@ test("검수 대기열의 운영 원인 코드를 사람이 읽을 수 있는 �
     "관리자가 공식 출처를 확인해 수동 등록",
   );
   assert.equal(
+    reviewCauseLabels.official_discovery_candidate,
+    "자동 발굴 후 공식 홈페이지 최소 사실을 재확인해 검수 대기열에 등록",
+  );
+  assert.equal(
     reviewCauseLabels.public_correction_request,
     "공개된 업체 정보에 대한 정정 요청 접수",
   );

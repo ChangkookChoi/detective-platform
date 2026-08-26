@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:unit": "tsx --test src/modules/moderation/review-source-evidence.test.ts src/modules/moderation/review-presentation.test.ts",
+    "test:unit": "tsx --test src/modules/moderation/discovery-review-intake.test.ts src/modules/moderation/review-source-evidence.test.ts src/modules/moderation/review-presentation.test.ts",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:admin": "../../scripts/verify-admin-e2e-postgres.sh",
     "test:e2e:admin:browser": "playwright test --config=playwright.admin.config.ts",
@@ -35,7 +35,9 @@
     "db:verify-publication": "tsx scripts/verify-publication.ts",
     "db:inspect-review-state": "tsx scripts/inspect-review-state.ts",
     "db:stage-office-emails": "tsx scripts/stage-office-email-candidates.ts",
+    "db:stage-discovery-reviews": "tsx scripts/stage-discovery-review-candidates.ts",
     "db:verify-manual-candidates": "tsx scripts/verify-manual-candidates.ts",
+    "db:verify-discovery-intake": "tsx scripts/verify-discovery-review-intake.ts",
     "db:verify-office-review-batch": "tsx scripts/verify-office-review-batch.ts",
     "db:verify-analytics": "tsx scripts/verify-analytics.ts",
     "db:verify-corrections": "tsx scripts/verify-corrections.ts"

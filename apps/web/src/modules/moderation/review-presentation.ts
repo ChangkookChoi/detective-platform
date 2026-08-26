@@ -28,6 +28,10 @@ const fieldLabels: Record<string, string> = {
   source_type: "출처 유형",
   batchId: "배치 ID",
   evidenceNote: "검증 근거 메모",
+  discoveryCandidateId: "발굴 후보 식별자",
+  discoveryEvidenceRunId: "공식 출처 확인 실행",
+  discoveryCheckedAt: "공식 출처 확인 시각",
+  discoveryEvidenceStatus: "공식 출처 사실 일치",
   distinctBranchReviewed: "공식 지점 구분 검토",
   requestedField: "정정 요청 항목",
   requesterRole: "요청자 관계",
@@ -146,6 +150,8 @@ export const reviewCauseLabels: Record<string, string> = {
   manual_official_source_batch: "사전검증된 공식 출처 후보를 일괄 등록",
   official_business_email_discovered:
     "공식 홈페이지에서 업무용 이메일 발견",
+  official_discovery_candidate:
+    "자동 발굴 후 공식 홈페이지 최소 사실을 재확인해 검수 대기열에 등록",
   public_correction_request: "공개된 업체 정보에 대한 정정 요청 접수",
   synthetic_field_change: "합성 검증용 필드 변경",
   synthetic_missing_evidence: "합성 검증용 근거 누락",

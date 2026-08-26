@@ -205,6 +205,14 @@ uv run python main.py build-discovery-review-queue \
   --output ../../data/private/discovery-runs/<review-run-id>.jsonl
 ```
 
+`pending` 큐는 자동 공개 입력이 아니다. 공식 최소 사실이 모두 일치하고 확인 후
+24시간이 지나지 않은 레코드만 웹 애플리케이션의 기본 dry-run intake로 다시
+검사할 수 있다. 명시적 `--apply`도 로컬 개발 DB에 `pending/new_office/high`
+검수 항목만 만들며, 지역·업무 분야·slug는 Clerk 관리자가 공식 원문을 확인해
+승인 화면에서 선택한다. 실행법은
+[업체 데이터 확대](../../docs/operations/OFFICE_DATA_EXPANSION.md#discovery-검수-항목-적재)를
+따른다.
+
 추가 조사 큐는 코드가 동일 도메인 보강, 지점 충돌 수동 검토, 관련성 수동 검토와
 기타 출처 검토로 나눈다. 동일 도메인 보강은 기존 공식 URL에서 연결된 회사소개·
 문의·오시는 길·업무 안내 중 후보당 최대 3페이지만 robots와 안전성을 다시

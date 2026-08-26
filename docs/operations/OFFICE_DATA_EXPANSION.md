@@ -70,19 +70,25 @@ Clerk 관리자 배치 브라우저 실행은 하나의 운영 계약이다. 절
    전화, 공식 페이지 업무 증거, 비공식 host 제외와 현재 DB 중복 부재를 모두
    충족한 후보만 둔다. 일부 조건이 부족하거나 같은 상호·host가 반복된 후보는
    별도 `research_required` 큐로 보낸다. 두 큐 모두 기존 office batch manifest가
-   아니며 지역 slug, 업무 분야, 출처 유형과 사람의 원문 대조를 추가하기 전에는
-   관리자 등록에 사용할 수 없다.
-10. `plan-discovery-research`는 부족한 조건을 동일 도메인 보강과 지점·관련성·
+   아니며 자동 승인·공개 입력으로 사용할 수 없다.
+10. `pending` 큐는 아래 명시적 intake에서만 개발 DB 관리자 검수 항목으로 옮긴다.
+    상호·상세 주소·대표 전화·탐정 업무 근거·이름/주소/지역 일치가 모두 참이고
+    공식 사실 확인이 24시간 이내인 레코드만 허용한다. 기본 dry-run은 DB를
+    변경하지 않고, `--apply`는 Clerk reviewer/admin actor와 로컬 PostgreSQL을
+    함께 요구한다. 공개·미해결 후보 중복은 건너뛰며 실제 후보 값은 CLI에
+    출력하지 않는다. 생성 결과는 `pending/new_office/high`이고, 관리자가 공식
+    원문에서 최하위 지역·업무 분야·slug를 최종 선택하기 전에는 승인할 수 없다.
+11. `plan-discovery-research`는 부족한 조건을 동일 도메인 보강과 지점·관련성·
     기타 수동 검토로 자동 분류한다. 동일 도메인 보강은 공식 시작 페이지에
     연결된 회사소개·문의·오시는 길·업무 안내 중 최대 3페이지만 각 URL의
     robots와 안전성 재검사 후 읽고 원문을 저장하지 않는다. 결과는 계속 비공개며
     관리자 승인 후보나 운영값으로 자동 변환하지 않는다.
-11. `audit-naver-discovery-filter`는 활성 Raw와 이전 filtered를 재호출 없이
+12. `audit-naver-discovery-filter`는 활성 Raw와 이전 filtered를 재호출 없이
     비교하고 실제 업체 식별정보 없는 집계 보고서만 만든다. 반복 실행은
     `scripts/run-naver-discovery-cycle.sh`로 연결하되 각 API 실행의 100회 상한과
     후보당 페이지 상한을 유지한다.
-12. 2026-09-07 개정 약관 시행 전 전문가·NAVER 서면 답변이 없으면 실제 호출과
-   저장을 중단하고 파일을 파기한다.
+13. 2026-09-07 개정 약관 시행 전 전문가·NAVER 서면 답변이 없으면 실제 호출과
+    저장을 중단하고 파일을 파기한다.
 
 전국 후보 수집은 명시적 `--nationwide` 실행에서만 허용한다. 광역 지역 Raw의
 주소에서 시·군·구 질의를 결정론적으로 만들 때는 `--regions-from-raw`를 쓰고,
@@ -94,6 +100,35 @@ API 실행당 100회 예산을 넘지 않도록 `--region-offset`과 `--region-l
 
 실행 예시와 환경변수는 수집기 README, 약관 쟁점은
 [전문가 검토 요청서](NAVER_API_LEGAL_REVIEW_BRIEF.md)를 따른다.
+
+### discovery 검수 항목 적재
+
+먼저 개발 DB에 대해 읽기 전용 dry-run을 실행한다. 입력은 Git 제외
+`data/private` 아래의 `office-discovery-review-v2` JSONL이어야 하고 권한은
+소유자만 읽고 쓸 수 있는 `0600`이어야 한다.
+
+```bash
+cd apps/web
+npm run db:stage-discovery-reviews -- \
+  --input ../../data/private/discovery-runs/<review-run-id>.jsonl
+```
+
+집계에서 적재 예정 수와 중복·기한 만료 수를 확인한 뒤에만 같은 파일에
+`--apply`를 명시한다. `DISCOVERY_INTAKE_ACTOR_ID`는
+`CLERK_REVIEWER_USER_IDS` 또는 `CLERK_ADMIN_USER_IDS`에 등록된 현재 실행자여야
+한다. 명령은 `localhost`, `127.0.0.1`, `::1` 이외 DB에는 쓰기를 거부한다.
+
+```bash
+cd apps/web
+DISCOVERY_INTAKE_ACTOR_ID="user_..." \
+npm run db:stage-discovery-reviews -- \
+  --input ../../data/private/discovery-runs/<review-run-id>.jsonl \
+  --apply
+```
+
+적재 뒤에는 `/admin/reviews`에서 원문 링크와 상호·주소·대표전화를 대조하고,
+정확한 최하위 소재 지역과 직접 확인되는 업무 분야, 공개 slug를 선택해 개별
+결정을 남긴다. 묶음 자동 승인이나 Production 연결에는 이 명령을 사용하지 않는다.
 
 ## 3. manifest
 
