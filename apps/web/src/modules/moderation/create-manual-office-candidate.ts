@@ -42,6 +42,13 @@ type CreateManualOfficeCandidateInput = {
   addressText: string;
   officialSourceConfirmed: boolean;
   sensitiveContentConfirmed: boolean;
+  discovery?: {
+    candidateId: string;
+    evidenceRunId: string;
+    evidenceStatus: "strong_fact_match";
+    checkedAt: Date;
+    evidenceNote: string;
+  };
   batch?: {
     batchId: string;
     slug: string;
@@ -100,6 +107,14 @@ function normalizePhone(value: string) {
 export async function createManualOfficeCandidate(
   input: CreateManualOfficeCandidateInput,
 ) {
+  if (
+    (input.discovery && input.batch) ||
+    (input.discovery &&
+      (!/^[a-f0-9]{64}$/.test(input.discovery.candidateId) ||
+        Number.isNaN(input.discovery.checkedAt.getTime())))
+  ) {
+    throw new ManualOfficeCandidateError("invalid_source_url");
+  }
   if (input.officialSourceConfirmed !== true) {
     throw new ManualOfficeCandidateError(
       "official_source_confirmation_required",
@@ -152,6 +167,31 @@ export async function createManualOfficeCandidate(
         }
       : {}),
     addressText,
+    ...(input.discovery
+      ? {
+          discoveryCandidateId: normalizeRequiredText(
+            input.discovery.candidateId,
+            64,
+            64,
+            "invalid_source_url",
+          ),
+          discoveryEvidenceRunId: normalizeRequiredText(
+            input.discovery.evidenceRunId,
+            3,
+            200,
+            "invalid_source_url",
+          ),
+          discoveryCheckedAt: input.discovery.checkedAt.toISOString(),
+          discoveryEvidenceStatus: input.discovery.evidenceStatus,
+          sourceType: "official_website",
+          evidenceNote: normalizeRequiredText(
+            input.discovery.evidenceNote,
+            10,
+            1000,
+            "invalid_source_url",
+          ),
+        }
+      : {}),
     ...(input.batch
       ? {
           batchId: normalizeRequiredText(
@@ -226,9 +266,19 @@ export async function createManualOfficeCandidate(
     const [run] = await tx
       .insert(collectionRuns)
       .values({
-        sourceName: "manual-admin",
-        adapterName: input.batch ? "manual_admin_batch" : "manual_admin",
-        extractorVersion: input.batch ? "manual-batch-v1" : "manual-v1",
+        sourceName: input.discovery
+          ? "official-discovery-intake"
+          : "manual-admin",
+        adapterName: input.discovery
+          ? "official_discovery_review"
+          : input.batch
+            ? "manual_admin_batch"
+            : "manual_admin",
+        extractorVersion: input.discovery
+          ? "office-discovery-review-v2"
+          : input.batch
+            ? "manual-batch-v1"
+            : "manual-v1",
         status: "succeeded",
         startedAt: createdAt,
         finishedAt: createdAt,
@@ -267,9 +317,11 @@ export async function createManualOfficeCandidate(
         risk: "high",
         status: "pending",
         proposedValues,
-        cause: input.batch
-          ? "manual_official_source_batch"
-          : "manual_official_source_candidate",
+        cause: input.discovery
+          ? "official_discovery_candidate"
+          : input.batch
+            ? "manual_official_source_batch"
+            : "manual_official_source_candidate",
         submittedByActorId: actorId,
         createdAt,
         updatedAt: createdAt,
