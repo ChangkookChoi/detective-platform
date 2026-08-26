@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { suggestRegionSlugFromAddress } from "./region-suggestion";
+import {
+  regionNameTermsForSlug,
+  suggestRegionSlugFromAddress,
+} from "./region-suggestion";
 
 const regionGroups = [
   {
@@ -62,5 +65,12 @@ test("지원 범위 밖이거나 지역명이 부족한 주소는 추측하지 �
   assert.equal(
     suggestRegionSlugFromAddress("인천광역시 소재", regionGroups),
     "",
+  );
+});
+
+test("slug 생성에서 제거할 현재 행정구역의 전체명과 축약명을 제공한다", () => {
+  assert.deepEqual(
+    regionNameTermsForSlug("incheon-yeonsu", regionGroups),
+    ["incheon", "yeonsu", "인천광역시", "연수구", "인천", "연수"],
   );
 });

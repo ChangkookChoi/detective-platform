@@ -13,10 +13,18 @@ import {
   reviewTypeLabels,
 } from "@/modules/moderation/review-presentation";
 import {
+  getOfficeSlugSuggestionContext,
   getReviewItem,
   listReviewFormOptions,
 } from "@/modules/moderation/review-repository";
-import { suggestRegionSlugFromAddress } from "@/modules/moderation/region-suggestion";
+import {
+  createOfficeSlugBase,
+  suggestAvailableOfficeSlug,
+} from "@/modules/moderation/office-slug";
+import {
+  regionNameTermsForSlug,
+  suggestRegionSlugFromAddress,
+} from "@/modules/moderation/region-suggestion";
 import { presentReviewSourceEvidence } from "@/modules/moderation/review-source-evidence";
 
 import {
@@ -137,10 +145,11 @@ export default async function ReviewDetailPage({
 }: ReviewDetailPageProps) {
   const { id } = await params;
   await requireReviewer(`/admin/reviews/${id}`);
-  const [item, query, formOptions] = await Promise.all([
+  const [item, query, formOptions, slugContext] = await Promise.all([
     getReviewItem(id),
     searchParams,
     listReviewFormOptions(),
+    getOfficeSlugSuggestionContext(id),
   ]);
 
   if (!item) {
@@ -178,13 +187,41 @@ export default async function ReviewDetailPage({
       item.office?.addressText,
     ),
   };
-  const suggestedSlug = textValue(proposedRecord.slug, "");
   const suggestedRegionSlug =
     textValue(proposedRecord.regionSlug, "") ||
     suggestRegionSlugFromAddress(
       candidateValues.addressText,
       formOptions.regionGroups,
     );
+  const suggestedSlug =
+    textValue(proposedRecord.slug, "") ||
+    suggestAvailableOfficeSlug({
+      name: candidateValues.name,
+      regionSlug: suggestedRegionSlug,
+      regionNames: regionNameTermsForSlug(
+        suggestedRegionSlug,
+        formOptions.regionGroups,
+      ),
+      unavailableSlugs: [
+        ...slugContext.unavailableSlugs,
+        ...slugContext.unresolvedCandidates.flatMap((candidate) => {
+          const regionSlug = suggestRegionSlugFromAddress(
+            candidate.addressText,
+            formOptions.regionGroups,
+          );
+          return regionSlug
+            ? [
+                createOfficeSlugBase(
+                  candidate.name,
+                  regionSlug,
+                  regionNameTermsForSlug(regionSlug, formOptions.regionGroups),
+                ),
+              ]
+            : [];
+        }),
+      ],
+      stableKey: item.id,
+    });
   const suggestedSourceType = textValue(
     proposedRecord.sourceType,
     "official_website",
@@ -552,7 +589,7 @@ export default async function ReviewDetailPage({
                         신규 운영 업체 설정
                       </legend>
                       <label className="grid gap-2 text-sm font-bold">
-                        공개 URL slug
+                        공개 URL slug (자동 제안)
                         <input
                           name="slug"
                           required
@@ -563,6 +600,10 @@ export default async function ReviewDetailPage({
                           defaultValue={suggestedSlug}
                           className="rounded-lg border border-slate-300 p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                         />
+                        <span className="text-xs font-normal leading-5 text-slate-500">
+                          업체명과 소재 지역으로 자동 생성합니다. 이미 사용 중이면
+                          검수 항목 기반의 고정 suffix를 붙이며 필요할 때만 수정합니다.
+                        </span>
                       </label>
                       <RegionHierarchySelect
                         groups={formOptions.regionGroups}

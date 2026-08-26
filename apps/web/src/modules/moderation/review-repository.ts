@@ -1,4 +1,4 @@
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { getDatabase } from "@/db";
 import {
@@ -171,6 +171,64 @@ export async function listReviewFormOptions() {
     .filter((group) => group.regions.length > 0);
 
   return { regionGroups, categories: categoryRows };
+}
+
+export async function getOfficeSlugSuggestionContext(reviewItemId: string) {
+  const db = getDatabase();
+  const [officeRows, unresolvedReviewRows] = await Promise.all([
+    db.select({ slug: offices.slug }).from(offices),
+    db
+      .select({
+        id: reviewItems.id,
+        type: reviewItems.type,
+        proposedValues: reviewItems.proposedValues,
+      })
+      .from(reviewItems)
+      .where(inArray(reviewItems.status, ["pending", "on_hold"])),
+  ]);
+  const unavailable = new Set(officeRows.map((row) => row.slug));
+  const unresolvedCandidates: Array<{
+    id: string;
+    name: string;
+    addressText: string;
+  }> = [];
+
+  for (const review of unresolvedReviewRows) {
+    if (review.id === reviewItemId || review.type !== "new_office") continue;
+    if (
+      review.proposedValues &&
+      typeof review.proposedValues === "object" &&
+      !Array.isArray(review.proposedValues)
+    ) {
+      const slug = (review.proposedValues as Record<string, unknown>).slug;
+      if (typeof slug === "string" && slug.trim()) {
+        unavailable.add(slug.trim().toLowerCase());
+        continue;
+      }
+      const name = (review.proposedValues as Record<string, unknown>).name;
+      const addressText = (review.proposedValues as Record<string, unknown>)
+        .addressText;
+      if (
+        typeof name === "string" &&
+        name.trim() &&
+        typeof addressText === "string" &&
+        addressText.trim()
+      ) {
+        unresolvedCandidates.push({
+          id: review.id,
+          name: name.trim(),
+          addressText: addressText.trim(),
+        });
+      }
+    }
+  }
+
+  return {
+    unavailableSlugs: [...unavailable].sort(),
+    unresolvedCandidates: unresolvedCandidates.sort((left, right) =>
+      left.id.localeCompare(right.id),
+    ),
+  };
 }
 
 export async function getReviewItem(reviewItemId: string) {

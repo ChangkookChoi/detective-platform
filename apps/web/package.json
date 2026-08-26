@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:unit": "tsx --test src/modules/moderation/discovery-review-intake.test.ts src/modules/moderation/region-suggestion.test.ts src/modules/moderation/review-source-evidence.test.ts src/modules/moderation/review-presentation.test.ts",
+    "test:unit": "tsx --test src/modules/moderation/discovery-review-intake.test.ts src/modules/moderation/office-slug.test.ts src/modules/moderation/region-suggestion.test.ts src/modules/moderation/review-source-evidence.test.ts src/modules/moderation/review-presentation.test.ts",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:admin": "../../scripts/verify-admin-e2e-postgres.sh",
     "test:e2e:admin:browser": "playwright test --config=playwright.admin.config.ts",
