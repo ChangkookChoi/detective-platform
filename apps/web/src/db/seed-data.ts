@@ -13,11 +13,13 @@ type RegionSeedEntry = {
 
 const seoulId = "10000000-0000-4000-8000-000000000001";
 const gyeonggiId = "10000000-0000-4000-8000-000000000002";
+const incheonId = "10000000-0000-4000-8000-000000000007";
 const regionNamespace = "b7bce589-e0d9-5c8f-bab4-e93f760aa84f";
 
 const preservedRegionIds: Record<string, string> = {
   seoul: seoulId,
   gyeonggi: gyeonggiId,
+  incheon: incheonId,
   "seoul-gangnam": "10000000-0000-4000-8000-000000000003",
   "gyeonggi-suwon": "10000000-0000-4000-8000-000000000004",
   "gyeonggi-suwon-paldal": "10000000-0000-4000-8000-000000000005",
@@ -197,6 +199,22 @@ const gyeonggiMunicipalities = [
   districts: ReadonlyArray<readonly [string, string]>;
 }>;
 
+const incheonDistricts = [
+  ["ganghwa", "강화군", "county"],
+  ["ongjin", "옹진군", "county"],
+  ["jemulpo", "제물포구", "district"],
+  ["yeongjong", "영종구", "district"],
+  ["michuhol", "미추홀구", "district"],
+  ["yeonsu", "연수구", "district"],
+  ["namdong", "남동구", "district"],
+  ["bupyeong", "부평구", "district"],
+  ["gyeyang", "계양구", "district"],
+  ["seohae", "서해구", "district"],
+  ["geomdan", "검단구", "district"],
+] as const satisfies ReadonlyArray<
+  readonly [string, string, "county" | "district"]
+>;
+
 const seoulRegionSeed = seoulDistricts.map(([slug, name], index) =>
   region(`seoul-${slug}`, name, "district", seoulId, (index + 1) * 10),
 );
@@ -227,12 +245,19 @@ const gyeonggiDistrictSeed = gyeonggiMunicipalities.flatMap((municipality) => {
   );
 });
 
+const incheonRegionSeed = incheonDistricts.map(
+  ([slug, name, type], index) =>
+    region(`incheon-${slug}`, name, type, incheonId, (index + 1) * 10),
+);
+
 export const regionSeed: ReadonlyArray<RegionSeedEntry> = [
   region("seoul", "서울특별시", "province", null, 10),
   region("gyeonggi", "경기도", "province", null, 20),
+  region("incheon", "인천광역시", "province", null, 30),
   ...seoulRegionSeed,
   ...gyeonggiMunicipalitySeed,
   ...gyeonggiDistrictSeed,
+  ...incheonRegionSeed,
 ];
 
 export const serviceCategorySeed = [

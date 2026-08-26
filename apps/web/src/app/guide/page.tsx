@@ -19,7 +19,7 @@ export default function GuidePage() {
     <PublicInformationPage
       eyebrow="SERVICE GUIDE"
       title="이용 안내"
-      description="이 서비스는 서울·경기 탐정사무소의 공개 정보를 출처와 함께 비교할 수 있도록 돕는 정보 디렉터리입니다."
+      description="이 서비스는 서울·경기·인천 탐정사무소의 공개 정보를 출처와 함께 비교할 수 있도록 돕는 정보 디렉터리입니다."
       updatedAt="2026-08-05"
     >
       <InformationSection title="1. 업체 정보 찾기">

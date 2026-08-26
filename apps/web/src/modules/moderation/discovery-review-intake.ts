@@ -21,6 +21,8 @@ const maximumEvidenceAgeMilliseconds = 24 * 60 * 60 * 1000;
 const futureClockSkewMilliseconds = 5 * 60 * 1000;
 const candidateIdPattern = /^[a-f0-9]{64}$/;
 const localDatabaseHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const publicRegionAddressPattern =
+  /^(?:서울특별시|서울|경기도|경기|인천광역시|인천)(?:\s|$)/u;
 
 export type DiscoveryReviewCandidate = {
   candidateId: string;
@@ -83,8 +85,8 @@ function parseCandidate(
 ): { candidate?: DiscoveryReviewCandidate; ineligibleReason?: string } {
   const suffix = `:${lineNumber}`;
   if (
-    value.version !== 2 ||
-    value.rules_version !== "office-discovery-review-v2"
+    value.version !== 3 ||
+    value.rules_version !== "office-discovery-review-v3"
   ) {
     throw new Error(`discovery_intake_version_invalid${suffix}`);
   }
@@ -183,19 +185,25 @@ function parseCandidate(
     throw new Error(`discovery_intake_email_invalid${suffix}`);
   }
 
+  const name = requiredString(
+    value.candidate_name,
+    `discovery_intake_name_invalid${suffix}`,
+    200,
+  );
+  const addressText = requiredString(
+    value.candidate_address,
+    `discovery_intake_address_invalid${suffix}`,
+    500,
+  );
+  if (!publicRegionAddressPattern.test(addressText)) {
+    return { ineligibleReason: "PUBLIC_REGION_SCOPE_REQUIRED" };
+  }
+
   return {
     candidate: {
       candidateId,
-      name: requiredString(
-        value.candidate_name,
-        `discovery_intake_name_invalid${suffix}`,
-        200,
-      ),
-      addressText: requiredString(
-        value.candidate_address,
-        `discovery_intake_address_invalid${suffix}`,
-        500,
-      ),
+      name,
+      addressText,
       phoneDisplay,
       phoneNormalized,
       ...(email ? { emailDisplay: email.display } : {}),

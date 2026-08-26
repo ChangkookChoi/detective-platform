@@ -10,8 +10,8 @@ const now = new Date("2026-08-26T03:00:00.000Z");
 
 function record(overrides: Record<string, unknown> = {}) {
   return {
-    version: 2,
-    rules_version: "office-discovery-review-v2",
+    version: 3,
+    rules_version: "office-discovery-review-v3",
     candidate_id: "a".repeat(64),
     candidate_name: "검증 탐정사무소",
     candidate_address: "서울특별시 강남구 검증로 1",
@@ -47,6 +47,29 @@ test("공식 최소 사실이 모두 확인된 최신 후보만 intake 대상으
   assert.equal(parsed.candidates.length, 1);
   assert.equal(parsed.ineligibleCount, 0);
   assert.equal(parsed.candidates[0]?.sourceUrl, "https://official.example/office");
+});
+
+test("인천 공식 주소는 공개 intake 대상으로 읽고 범위 밖 주소는 제외한다", () => {
+  const content = [
+    record({
+      candidate_id: "f".repeat(64),
+      candidate_name: "SG탐정법인",
+      candidate_address:
+        "인천광역시 연수구 새말로96번길 30 202호(이강빌딩)",
+    }),
+    record({
+      candidate_id: "9".repeat(64),
+      candidate_address: "부산광역시 해운대구 센텀로 1",
+    }),
+  ]
+    .map((value) => JSON.stringify(value))
+    .join("\n");
+  const parsed = parseDiscoveryReviewCandidates(content, now);
+
+  assert.equal(parsed.candidates.length, 1);
+  assert.equal(parsed.candidates[0]?.name, "SG탐정법인");
+  assert.equal(parsed.ineligibleCount, 1);
+  assert.deepEqual(parsed.reasonCounts, { PUBLIC_REGION_SCOPE_REQUIRED: 1 });
 });
 
 test("주소 일치가 없거나 24시간보다 오래된 공식 사실은 적재 대상에서 제외한다", () => {

@@ -275,7 +275,7 @@ export async function createManualOfficeCandidate(
             ? "manual_admin_batch"
             : "manual_admin",
         extractorVersion: input.discovery
-          ? "office-discovery-review-v2"
+          ? "office-discovery-review-v3"
           : input.batch
             ? "manual-batch-v1"
             : "manual-v1",

@@ -22,7 +22,7 @@ export async function generateMetadata({
   return {
     title: "업체 찾기",
     description:
-      "서울·경기 지역과 업무 분야로 공개 승인된 탐정사무소 정보를 찾아보세요.",
+      "서울·경기·인천 지역과 업무 분야로 공개 승인된 탐정사무소 정보를 찾아보세요.",
     alternates: { canonical: "/offices" },
     ...(hasFilter ? { robots: { index: false, follow: true } } : {}),
   };
@@ -98,7 +98,7 @@ export default async function OfficesPage({ searchParams }: OfficesPageProps) {
                 defaultValue={region ?? ""}
                 className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-base font-normal text-slate-950 outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
               >
-                <option value="">서울·경기 전체</option>
+                <option value="">서울·경기·인천 전체</option>
                 {filterOptions.regions.map((option) => (
                   <option key={option.slug} value={option.slug}>
                     {option.label}
