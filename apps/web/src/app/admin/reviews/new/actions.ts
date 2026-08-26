@@ -19,6 +19,11 @@ function readString(formData: FormData, field: string) {
   return value;
 }
 
+function readOptionalString(formData: FormData, field: string) {
+  const value = formData.get(field);
+  return typeof value === "string" ? value : undefined;
+}
+
 export async function createManualOfficeCandidateAction(formData: FormData) {
   const principal = await requireReviewer("/admin/reviews/new");
   let reviewItemId: string | null = null;
@@ -31,6 +36,7 @@ export async function createManualOfficeCandidateAction(formData: FormData) {
       sourceUrl: readString(formData, "sourceUrl"),
       name: readString(formData, "name"),
       phoneDisplay: readString(formData, "phoneDisplay"),
+      emailDisplay: readOptionalString(formData, "emailDisplay"),
       addressText: readString(formData, "addressText"),
       officialSourceConfirmed:
         formData.get("officialSourceConfirmed") === "on",

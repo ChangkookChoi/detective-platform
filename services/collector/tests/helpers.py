@@ -14,7 +14,7 @@ def source_policy(**overrides: object) -> SourcePolicy:
         "allowed_hosts": ("example.com",),
         "allowed_path_prefixes": ("/offices/",),
         "allowed_fields": frozenset(
-            {"name", "telephone", "address", "description"}
+            {"name", "telephone", "email", "address", "description"}
         ),
         "allowed_schema_types": frozenset(
             {"LocalBusiness", "ProfessionalService", "Organization"}

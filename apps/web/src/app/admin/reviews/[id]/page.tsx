@@ -6,6 +6,7 @@ import { requireReviewer } from "@/modules/auth/admin-authorization";
 import { approvalSourceTypes } from "@/modules/moderation/approve-review";
 import {
   presentReviewValues,
+  reviewCauseLabels,
   reviewDecisionLabels,
   reviewRiskLabels,
   reviewStatusLabels,
@@ -15,6 +16,7 @@ import {
   getReviewItem,
   listReviewFormOptions,
 } from "@/modules/moderation/review-repository";
+import { presentReviewSourceEvidence } from "@/modules/moderation/review-source-evidence";
 
 import {
   approveReviewAction,
@@ -22,6 +24,7 @@ import {
   rejectReviewAction,
 } from "./actions";
 import { RegionHierarchySelect } from "./region-hierarchy-select";
+import { SourceEvidencePreview } from "./source-evidence-preview";
 
 export const metadata: Metadata = {
   title: "검수 상세",
@@ -165,11 +168,28 @@ export default async function ReviewDetailPage({
       proposedRecord.phoneDisplay,
       item.office?.phoneDisplay,
     ),
+    emailDisplay: textValue(
+      proposedRecord.emailDisplay,
+      item.office?.emailDisplay,
+    ),
     addressText: textValue(
       proposedRecord.addressText,
       item.office?.addressText,
     ),
   };
+  const suggestedSlug = textValue(proposedRecord.slug, "");
+  const suggestedRegionSlug = textValue(proposedRecord.regionSlug, "");
+  const suggestedSourceType = textValue(
+    proposedRecord.sourceType,
+    "official_website",
+  );
+  const suggestedCategorySlugs = Array.isArray(
+    proposedRecord.serviceCategorySlugs,
+  )
+    ? proposedRecord.serviceCategorySlugs.filter(
+        (value): value is string => typeof value === "string",
+      )
+    : [];
   const isNewCandidate = item.office === null && item.type === "new_office";
   const suggestedEvidenceUrl =
     typeof proposedRecord.evidenceUrl === "string"
@@ -182,8 +202,23 @@ export default async function ReviewDetailPage({
       isNewCandidate ||
       "phoneDisplay" in proposedRecord ||
       "phoneNormalized" in proposedRecord,
+    email:
+      isNewCandidate ||
+      "emailDisplay" in proposedRecord ||
+      "emailNormalized" in proposedRecord,
     address: isNewCandidate || "addressText" in proposedRecord,
   };
+  const sourceEvidenceRows = item.collection
+    ? presentReviewSourceEvidence({
+        candidateValues: isNewCandidate ? candidateValues : proposedRecord,
+        extractedValues: item.collection.extractedValues,
+        normalizedValues: item.collection.normalizedValues,
+      }).filter((row) => isNewCandidate || row.status !== "unavailable")
+    : [];
+  const evidenceNote =
+    typeof proposedRecord.evidenceNote === "string"
+      ? proposedRecord.evidenceNote
+      : null;
 
   return (
     <main className="flex-1">
@@ -214,7 +249,9 @@ export default async function ReviewDetailPage({
           <h1 className="mt-5 text-3xl font-bold tracking-[-0.04em]">
             {item.office?.name ?? "연결 전 신규 업체 후보"}
           </h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">{item.cause}</p>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            {reviewCauseLabels[item.cause] ?? item.cause}
+          </p>
           <p className="mt-4 text-xs text-slate-500">
             생성 {dateFormatter.format(item.createdAt)} · 최근 변경{" "}
             {dateFormatter.format(item.updatedAt)}
@@ -260,6 +297,45 @@ export default async function ReviewDetailPage({
               </dd>
             </dl>
           </section>
+        )}
+
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
+          <h2 className="text-lg font-bold">검수 순서</h2>
+          <ol className="mt-4 grid gap-3 text-sm leading-6 text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+            <li className="rounded-xl bg-slate-50 p-4">
+              <strong className="block text-slate-950">1. 공식성</strong>
+              실제 업체가 운영하는 출처인지 확인
+            </li>
+            <li className="rounded-xl bg-slate-50 p-4">
+              <strong className="block text-slate-950">2. 동일성</strong>
+              상호·지점·주소가 같은 업체인지 확인
+            </li>
+            <li className="rounded-xl bg-slate-50 p-4">
+              <strong className="block text-slate-950">3. 핵심 정보</strong>
+              전화·주소·업무 내용과 최신성 확인
+            </li>
+            <li className="rounded-xl bg-slate-50 p-4">
+              <strong className="block text-slate-950">4. 결정</strong>
+              승인·수정·보류·반려 사유 기록
+            </li>
+          </ol>
+        </section>
+
+        {item.collection && (
+          <SourceEvidencePreview
+            sourceUrl={item.collection.sourceUrl}
+            isLinkable={item.collection.isLinkable}
+            sourceTypeLabel={
+              sourceTypeLabels[suggestedSourceType] ?? suggestedSourceType
+            }
+            collectedAtLabel={
+              item.collection.collectedAt
+                ? dateFormatter.format(item.collection.collectedAt)
+                : null
+            }
+            evidenceNote={evidenceNote}
+            rows={sourceEvidenceRows}
+          />
         )}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -426,6 +502,21 @@ export default async function ReviewDetailPage({
                         className="rounded-lg border border-slate-300 p-3 font-normal outline-none read-only:bg-slate-100 focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                       />
                     </label>
+                    <label className="grid gap-2 text-sm font-bold">
+                      공식 업무용 이메일 (선택)
+                      <input
+                        name="emailDisplay"
+                        type="email"
+                        maxLength={254}
+                        defaultValue={candidateValues.emailDisplay}
+                        readOnly={!editableFields.email}
+                        className="rounded-lg border border-slate-300 p-3 font-normal outline-none read-only:bg-slate-100 focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+                      />
+                      <span className="text-xs font-normal leading-5 text-slate-500">
+                        공식 페이지에 업무 연락처로 공개된 주소인지 확인합니다.
+                        저장해도 메일 발송 동의로 취급하지 않습니다.
+                      </span>
+                    </label>
                     <label className="grid gap-2 text-sm font-bold md:col-span-2">
                       주소
                       <input
@@ -463,10 +554,14 @@ export default async function ReviewDetailPage({
                           maxLength={80}
                           pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
                           placeholder="sample-office"
+                          defaultValue={suggestedSlug}
                           className="rounded-lg border border-slate-300 p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
                         />
                       </label>
-                      <RegionHierarchySelect groups={formOptions.regionGroups} />
+                      <RegionHierarchySelect
+                        groups={formOptions.regionGroups}
+                        defaultRegionSlug={suggestedRegionSlug}
+                      />
                       <fieldset className="rounded-lg border border-slate-300 p-4 md:col-span-2">
                         <legend className="px-2 text-sm font-bold">
                           대표 출처 유형
@@ -481,7 +576,9 @@ export default async function ReviewDetailPage({
                                 type="radio"
                                 name="sourceType"
                                 value={sourceType}
-                                defaultChecked={sourceType === "official_website"}
+                                defaultChecked={
+                                  sourceType === suggestedSourceType
+                                }
                                 required
                               />
                               {sourceTypeLabels[sourceType]}
@@ -503,6 +600,9 @@ export default async function ReviewDetailPage({
                                 type="checkbox"
                                 name="serviceCategorySlugs"
                                 value={category.slug}
+                                defaultChecked={suggestedCategorySlugs.includes(
+                                  category.slug,
+                                )}
                               />
                               {category.name}
                             </label>

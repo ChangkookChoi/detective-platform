@@ -360,6 +360,14 @@ test("실제 Clerk 관리자가 수동 후보의 중복을 확인하고 반려�
     sourceTypeGroup.getByRole("radio", { name: "공식 웹사이트" }),
   ).toBeChecked();
   await expect(sourceTypeGroup.getByRole("radio")).toHaveCount(5);
+  await expect(
+    page.getByRole("heading", { name: "공식 출처 증거 미리보기" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /공식 홈페이지 원문 열기/ }),
+  ).toHaveAttribute("href", candidateSourceUrl);
+  await expect(page.getByRole("cell", { name: candidateName })).toHaveCount(2);
+  await expect(page.getByText("값 일치", { exact: true })).toHaveCount(3);
 
   expect(await countOffices()).toBe(officeCountBefore);
 
@@ -437,9 +445,27 @@ test("실제 Clerk 관리자가 수동 후보를 보류한다", async ({ page })
   await fillManualCandidateForm(page, `${candidateSourceUrl}#hold`);
   await page.getByRole("button", { name: "검수 후보로 등록" }).click();
   await expect(page).toHaveURL(/\/admin\/reviews\/[0-9a-f-]+\?result=created$/);
-
   const reviewItemId = new URL(page.url()).pathname.split("/").at(-1);
   expect(reviewItemId).toBeTruthy();
+
+  await page.getByRole("link", { name: "← 검수 대기열" }).click();
+  const queueHeadings = page.getByLabel("검수 대기열 열 제목");
+  await expect(queueHeadings.getByText("위험도", { exact: true })).toBeVisible();
+  await expect(queueHeadings.getByText("검수 종류", { exact: true })).toBeVisible();
+  await expect(
+    queueHeadings.getByText("업체 · 발생 사유", { exact: true }),
+  ).toBeVisible();
+  await expect(queueHeadings.getByText("등록 시각", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("관리자가 공식 출처를 확인해 수동 등록", { exact: true }),
+  ).toBeVisible();
+  const candidateLink = page.getByRole("link", { name: new RegExp(candidateName) });
+  await expect(candidateLink).toHaveAttribute(
+    "href",
+    `/admin/reviews/${reviewItemId}`,
+  );
+  await candidateLink.click();
+  await expect(page).toHaveURL(/\/admin\/reviews\/[0-9a-f-]+$/);
   await page.getByLabel("보류 사유").fill(holdReason);
   await page.getByRole("button", { name: "보류", exact: true }).click();
   await expect(page).toHaveURL(

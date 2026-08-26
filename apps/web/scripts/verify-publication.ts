@@ -7,6 +7,7 @@ import { closeDatabase, getDatabase } from "../src/db";
 import {
   collectedRecords,
   collectionRuns,
+  officeEmailMarketingConsents,
   officeServiceCategories,
   officeSourceEvidence,
   officeSources,
@@ -290,6 +291,9 @@ async function main() {
           name: "신규 수집 사무소",
           phoneNormalized: "18006624",
           phoneDisplay: "1800-6624",
+          emailNormalized: "contact@example.invalid",
+          emailDisplay: "contact@example.invalid",
+          emailKind: "generic_business",
           addressText: "경기도 수원시 팔달구 신규로 3",
           summary: "신규 수집 소개",
         },
@@ -356,6 +360,9 @@ async function main() {
             name: "신규 수집 사무소",
             phoneNormalized: "18006624",
             phoneDisplay: "1800-6624",
+            emailNormalized: "contact@example.invalid",
+            emailDisplay: "contact@example.invalid",
+            emailKind: "generic_business",
             addressText: "경기도 수원시 팔달구 신규로 3",
             summary: "신규 수집 소개",
           },
@@ -530,12 +537,30 @@ async function main() {
     assert.equal(newDetail.office?.id, newApproval.id);
     assert.equal(newDetail.office?.name, "신규 수집 사무소");
     assert.equal(newDetail.office?.phoneDisplay, "1800-6624");
+    assert.equal(newDetail.office?.emailDisplay, "contact@example.invalid");
     assert.equal(newDetail.actions[0]?.editedValues, null);
     assert.deepEqual(
       newDetail.office?.categories.map((item) => item.slug),
       ["family"],
     );
     assert.equal(newDetail.office?.sources[0]?.verifiedAt instanceof Date, true);
+    const emailEvidenceRows = await db
+      .select({ fieldName: officeSourceEvidence.fieldName })
+      .from(officeSourceEvidence)
+      .where(
+        eq(
+          officeSourceEvidence.officeSourceId,
+          newDetail.office!.sources[0]!.id,
+        ),
+      );
+    assert.equal(
+      emailEvidenceRows.some((item) => item.fieldName === "email"),
+      true,
+    );
+    const emailConsentRows = await db
+      .select({ officeId: officeEmailMarketingConsents.officeId })
+      .from(officeEmailMarketingConsents);
+    assert.deepEqual(emailConsentRows, []);
 
     await assert.rejects(
       approveReview({

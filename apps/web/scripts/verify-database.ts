@@ -19,6 +19,7 @@ const requiredTables = [
   "office_source_evidence",
   "office_sources",
   "office_daily_metrics",
+  "office_email_marketing_consents",
   "offices",
   "placements",
   "regions",
@@ -30,6 +31,8 @@ const requiredTables = [
 const requiredChecks = [
   "office_source_evidence_category_check",
   "office_daily_metrics_nonnegative_check",
+  "office_email_marketing_consents_status_check",
+  "offices_email_pair_check",
   "offices_published_fields_check",
   "placements_valid_window_check",
   "regions_not_self_parent_check",
@@ -141,6 +144,28 @@ async function main() {
     assert(
       !phoneIndexResult.rows[0]?.indexdef.includes("UNIQUE INDEX"),
       "phone_normalized must not be globally unique",
+    );
+
+    const emailIndexResult = await pool.query<{ indexdef: string }>(
+      `select indexdef
+       from pg_indexes
+       where schemaname = 'public'
+         and tablename = 'offices'
+         and indexdef ilike '%email_normalized%'`,
+    );
+    assert.equal(emailIndexResult.rowCount, 1);
+    assert(
+      !emailIndexResult.rows[0]?.indexdef.includes("UNIQUE INDEX"),
+      "email_normalized must not be globally unique",
+    );
+
+    const consentCountResult = await pool.query<{ count: string }>(
+      "select count(*)::text as count from office_email_marketing_consents",
+    );
+    assert.equal(
+      Number(consentCountResult.rows[0]?.count),
+      0,
+      "Collection and seed must not create marketing consent records",
     );
 
     const client = await pool.connect();

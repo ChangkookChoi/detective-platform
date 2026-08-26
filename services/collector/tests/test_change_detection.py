@@ -23,6 +23,9 @@ class ChangeDetectionTest(unittest.TestCase):
             name="테스트 탐정사무소",
             phone_normalized="0212345678",
             phone_display="02-1234-5678",
+            email_normalized=None,
+            email_display=None,
+            email_kind=None,
             address_text="서울 강남구",
             summary="기존 설명",
         )
@@ -63,6 +66,26 @@ class ChangeDetectionTest(unittest.TestCase):
                 "phoneNormalized": "0211112222",
                 "phoneDisplay": "02-1111-2222",
             },
+        )
+
+    def test_new_official_email_creates_medium_risk_field_review(self) -> None:
+        review = propose_review(
+            _record(
+                {
+                    "name": self.office.name,
+                    "emailNormalized": "info@example.com",
+                    "emailDisplay": "info@example.com",
+                    "emailKind": "generic_business",
+                    "addressText": self.office.address_text or "",
+                }
+            ),
+            self.office,
+        )
+        self.assertIsNotNone(review)
+        assert review is not None
+        self.assertEqual(review.risk, "medium")
+        self.assertEqual(
+            review.proposed_values["emailNormalized"], "info@example.com"
         )
 
     def test_new_office_requires_name_and_contact_or_address(self) -> None:

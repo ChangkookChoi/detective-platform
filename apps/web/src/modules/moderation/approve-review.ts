@@ -13,6 +13,7 @@ import {
   serviceCategories,
 } from "@/db/schema";
 import { normalizeDomesticPhoneDigits } from "@/modules/shared/domestic-phone";
+import { normalizeOptionalBusinessEmail } from "@/modules/shared/business-email";
 import { isPublicHttpUrl } from "@/modules/shared/public-url";
 
 export const approvalDecisions = ["approved", "approved_with_edits"] as const;
@@ -62,6 +63,7 @@ export type EditableOfficeValues = {
   name: string;
   summary: string;
   phoneDisplay: string;
+  emailDisplay?: string;
   addressText: string;
 };
 
@@ -97,6 +99,9 @@ type OfficeSnapshot = {
   summary: string | null;
   phone_normalized: string | null;
   phone_display: string | null;
+  email_normalized: string | null;
+  email_display: string | null;
+  email_kind: "generic_business" | "unknown" | null;
   address_text: string | null;
   region_id: string;
   published_at: Date | null;
@@ -108,6 +113,9 @@ type AcceptedValues = {
   summary: string | null;
   phoneNormalized: string;
   phoneDisplay: string;
+  emailNormalized: string | null;
+  emailDisplay: string | null;
+  emailKind: "generic_business" | "unknown" | null;
   addressText: string;
 };
 
@@ -178,6 +186,21 @@ function includesPhone(values: Record<string, unknown>) {
   return "phoneDisplay" in values || "phoneNormalized" in values;
 }
 
+function includesEmail(values: Record<string, unknown>) {
+  return "emailDisplay" in values || "emailNormalized" in values;
+}
+
+function normalizeBusinessEmail(
+  value: unknown,
+  failure: "invalid_edited_values" | "invalid_proposed_values",
+) {
+  try {
+    return normalizeOptionalBusinessEmail(value);
+  } catch {
+    throw new ReviewApprovalError(failure);
+  }
+}
+
 function buildAcceptedValues(
   proposed: Record<string, unknown>,
   office: OfficeSnapshot | null,
@@ -213,6 +236,12 @@ function buildAcceptedValues(
       : "addressText" in proposed
         ? proposed.addressText
         : office?.address_text;
+  const emailSource =
+    edits && (isNew || includesEmail(proposed))
+      ? edits.emailDisplay
+      : "emailDisplay" in proposed
+        ? proposed.emailDisplay
+        : office?.email_display;
   const summarySource =
     edits && (isNew || "summary" in proposed)
       ? edits.summary
@@ -222,6 +251,7 @@ function buildAcceptedValues(
 
   const name = normalizeRequiredText(nameSource, 200, failure);
   const phone = normalizePhone(phoneSource, failure);
+  const email = normalizeBusinessEmail(emailSource, failure);
   const addressText = normalizeRequiredText(addressSource, 500, failure);
   const summary = normalizeSummary(summarySource, failure);
 
@@ -232,12 +262,22 @@ function buildAcceptedValues(
   ) {
     throw new ReviewApprovalError("invalid_proposed_values");
   }
+  if (
+    decision === "approved" &&
+    typeof proposed.emailNormalized === "string" &&
+    proposed.emailNormalized !== email?.normalized
+  ) {
+    throw new ReviewApprovalError("invalid_proposed_values");
+  }
 
   return {
     name,
     summary,
     phoneNormalized: phone.normalized,
     phoneDisplay: phone.display,
+    emailNormalized: email?.normalized ?? null,
+    emailDisplay: email?.display ?? null,
+    emailKind: email?.kind ?? null,
     addressText,
   } satisfies AcceptedValues;
 }
@@ -406,7 +446,8 @@ export async function approveReview(input: ApproveReviewInput) {
     if (review.office_id) {
       const officeResult = await tx.execute<OfficeSnapshot>(sql`
         select id, status, slug, name, summary, phone_normalized,
-               phone_display, address_text, region_id, published_at, updated_at
+               phone_display, email_normalized, email_display, email_kind,
+               address_text, region_id, published_at, updated_at
         from ${offices}
         where ${offices.id} = ${review.office_id}
         for update
@@ -542,6 +583,9 @@ export async function approveReview(input: ApproveReviewInput) {
           summary: accepted.summary,
           phoneNormalized: accepted.phoneNormalized,
           phoneDisplay: accepted.phoneDisplay,
+          emailNormalized: accepted.emailNormalized,
+          emailDisplay: accepted.emailDisplay,
+          emailKind: accepted.emailKind,
           addressText: accepted.addressText,
           regionId: region.id,
           status: "draft",
@@ -584,6 +628,15 @@ export async function approveReview(input: ApproveReviewInput) {
       await tx.insert(officeSourceEvidence).values([
         { officeSourceId: sourceId, fieldName: "name", verifiedAt: now },
         { officeSourceId: sourceId, fieldName: "phone", verifiedAt: now },
+        ...(accepted.emailNormalized
+          ? [
+              {
+                officeSourceId: sourceId,
+                fieldName: "email" as const,
+                verifiedAt: now,
+              },
+            ]
+          : []),
         { officeSourceId: sourceId, fieldName: "address", verifiedAt: now },
         ...(accepted.summary
           ? [
@@ -692,6 +745,9 @@ export async function approveReview(input: ApproveReviewInput) {
           summary: accepted.summary,
           phoneNormalized: accepted.phoneNormalized,
           phoneDisplay: accepted.phoneDisplay,
+          emailNormalized: accepted.emailNormalized,
+          emailDisplay: accepted.emailDisplay,
+          emailKind: accepted.emailKind,
           addressText: accepted.addressText,
           lastVerifiedAt: now,
           updatedAt: now,
@@ -710,10 +766,15 @@ export async function approveReview(input: ApproveReviewInput) {
         typeof evidenceSource.phoneNormalized === "string"
           ? "phone"
           : null,
+        accepted.emailNormalized &&
+        (typeof evidenceSource.emailDisplay === "string" ||
+          typeof evidenceSource.emailNormalized === "string")
+          ? "email"
+          : null,
         typeof evidenceSource.addressText === "string" ? "address" : null,
         typeof evidenceSource.summary === "string" ? "summary" : null,
       ].filter(
-        (field): field is "name" | "phone" | "address" | "summary" =>
+        (field): field is "name" | "phone" | "email" | "address" | "summary" =>
           field !== null,
       );
 
@@ -882,6 +943,13 @@ export async function approveReview(input: ApproveReviewInput) {
             summary: accepted.summary,
             phoneNormalized: accepted.phoneNormalized,
             phoneDisplay: accepted.phoneDisplay,
+            ...(includesEmail(proposed) || office?.email_normalized
+              ? {
+                  emailNormalized: accepted.emailNormalized,
+                  emailDisplay: accepted.emailDisplay,
+                  emailKind: accepted.emailKind,
+                }
+              : {}),
             addressText: accepted.addressText,
             ...(metadata
               ? {

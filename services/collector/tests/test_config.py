@@ -52,7 +52,7 @@ class SourceConfigTest(unittest.TestCase):
             encoding="utf-8"
         )
         with self.assertRaisesRegex(ConfigError, "unsupported_allowed_field"):
-            self._load(document.replace('"description"]', '"description", "email"]'))
+            self._load(document.replace('"description"]', '"description", "fax"]'))
 
     def test_rejects_initial_backoff_above_maximum(self) -> None:
         document = (Path(__file__).parents[1] / "sources.example.toml").read_text(

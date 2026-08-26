@@ -18,6 +18,7 @@ const errorMessages: Record<string, string> = {
     "같은 공식 출처 URL과 소재지 주소의 미처리 신규 후보가 이미 있습니다.",
   invalid_actor: "로그인한 운영자 정보를 확인할 수 없습니다.",
   invalid_address: "주소는 공백을 제외하고 5~500자로 입력하세요.",
+  invalid_email: "공식 업무용 이메일 형식을 확인하세요.",
   invalid_name: "업체명은 공백을 제외하고 2~200자로 입력하세요.",
   invalid_phone: "국내 대표 전화번호 형식을 확인하세요.",
   invalid_source_url: "공식 출처는 안전한 HTTP(S) URL이어야 합니다.",
@@ -125,6 +126,22 @@ export default async function NewReviewPage({
               rows={3}
               className="resize-y rounded-lg border border-slate-300 p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
             />
+          </label>
+
+          <label className="grid gap-2 text-sm font-bold">
+            공식 업무용 이메일 (선택)
+            <input
+              name="emailDisplay"
+              type="email"
+              inputMode="email"
+              maxLength={254}
+              placeholder="info@example.com"
+              className="rounded-lg border border-slate-300 p-3 font-normal outline-none focus:border-sky-700 focus:ring-2 focus:ring-sky-100"
+            />
+            <span className="font-normal leading-5 text-slate-500">
+              공식 페이지에 업무 연락처로 공개된 주소만 입력합니다. 이 값은
+              메일 발송 동의를 의미하지 않습니다.
+            </span>
           </label>
 
           <fieldset className="grid gap-4 rounded-xl border border-slate-200 p-4">

@@ -1,6 +1,6 @@
 # 탐정사무소 정보 플랫폼
 
-서울·경기 지역의 탐정사무소 정보를 신뢰 가능한 출처와 함께 제공하고, 개인 고객이 지역과 업무 분야에 맞는 업체를 찾아 무료로 전화 연결할 수 있도록 돕는 서비스입니다. 초기에는 약 100개 업체를 다루는 정보 디렉터리로 시작하며, 검증된 수요를 바탕으로 상담·견적·업체 참여 기능을 갖춘 플랫폼으로 확장합니다.
+서울·경기 지역의 탐정사무소 정보를 신뢰 가능한 출처와 함께 제공하고, 개인 고객이 지역과 업무 분야에 맞는 업체를 찾아 무료로 전화 연결할 수 있도록 돕는 서비스입니다. 초기 공개는 약 100개 업체로 시작하되 전국 비공개 후보를 500곳 이상 확보·검수하는 데이터 목표를 병행하며, 검증된 수요를 바탕으로 상담·견적·업체 참여 기능을 갖춘 플랫폼으로 확장합니다.
 
 > 이 서비스는 업체 정보를 비교·탐색하기 위한 정보 제공 서비스입니다. 특정 업체의 서비스 품질이나 조사 결과를 보증하지 않으며, 긴급 상황이나 범죄 피해는 경찰 등 관계 기관에 문의해야 합니다.
 
@@ -29,9 +29,20 @@ Development의 실제 Google 로그인·관리자 검수와 감사 처리자 기
 공개 그래프 일치를 확인한 뒤 Production Neon에도 31번째 업체를 증분
 승격했습니다. 이어 해담 탐정사무소의 현재 공식 원문과 최소 사실 필드를
 재확인해 서울 서초·업무 분야 2개로 승인했습니다. 지속형 개발 DB는 공개 업체
-32곳입니다. Production 31곳 전체의 최신 암호화 백업과 14일 보존을 확인한 뒤
+32곳이 됐습니다. 이어 정암 공인탐정·민간조사 서현·베테랑·더PIA 네 곳의
+현재 공식 원문과 접근 정책을 확인하고 실제 관리자 경로로 승인해 지속형 개발
+DB는 공개 업체 36곳이었고, 영구 배치 사전검증·Clerk 관리자 실행 절차로 청명·
+정보그룹 정탐·탐정수일·라이프온·고민해결 5곳을 추가했습니다. 이어 자동
+중복 검사의 한국 전화 국가번호·주소 우편번호 정규화를 보강하고 코난·리더스·
+대한특수탐정 더원 수원지점·서울 종로 광역센터 4곳을 같은 영구 배치 절차로
+공개했습니다. 이어 공식 지점별 주소를 직접 확인한 디테일탐정사무소 경기지사·
+대한특수탐정 더원 서울서초지점과 픽서컴퍼니를 일괄 승인해 현재 개발 DB는
+48곳입니다. 공유 공식 URL·대표번호는 명시적으로 지점을 구분한 경우에만
+허용하고 주소·slug 중복은 계속 차단합니다.
+Production 31곳 전체의 최신 암호화 백업과 14일 보존을 확인한 뒤
 해담 1곳을 같은 증분 승격 절차로 반영해 Production Neon도 32곳이며, 무변경
-재실행과 실제 Production 상세 HTTP 200을 확인했습니다.
+재실행과 실제 Production 상세 HTTP 200을 확인했습니다. 개발 DB의 후속 신규
+16곳은 사용자 요청에 따라 Production에 아직 승격하지 않았습니다.
 충남 소재 업체와 공식 도메인 내부 운영 주체가 충돌하는 업체는 등록하지
 않았습니다. 추가 비용 없는 Vercel Hobby 프로젝트와 Neon Free Singapore
 출시 리허설 DB를 만들고 migration·seed를 적용했습니다. 최소 권한 runtime과
@@ -52,6 +63,7 @@ Vercel Production 리허설 배포는 만들었지만 Clerk Production 도메인
 ## MVP
 
 - 서울·경기 탐정사무소 약 100곳
+- 전국 비공개 후보 500곳 이상 수집·중복 제거, 공식 출처 확인 후 단계적 검수
 - 지역 및 업무 분야별 탐색
 - 업체 기본 정보, 출처 URL, 최종 확인일 제공
 - 전화번호 노출 및 무료 전화 연결 버튼
@@ -166,12 +178,18 @@ uv run python main.py validate-config --config sources.toml
 
 실제 출처 등록과 실행은 [수집기 운영 절차](docs/operations/COLLECTOR_RUNBOOK.md)를 따릅니다. 비밀값은 커밋하지 않고 필요한 키는 `.env.example`에 이름과 설명만 추가합니다.
 
+사전검증된 여러 공식 후보는 관리자 `/admin/reviews/batch`에서 manifest와
+preflight를 한 번 제출하고 정상 건만 선택해 일괄 승인할 수 있습니다. 이
+경로도 업체별 검수 항목·감사 이력·출처 근거를 남기며 승인 전에는 공개하지
+않습니다. 상세 절차는 [업체 데이터 확대](docs/operations/OFFICE_DATA_EXPANSION.md)를
+따릅니다.
+
 ## 문서 안내
 
 - 제품: [PRD](docs/product/PRD.md), [MVP 범위](docs/product/MVP_SCOPE.md), [사용자 흐름](docs/product/USER_FLOWS.md)
 - 설계: [아키텍처](docs/architecture/ARCHITECTURE.md), [데이터 모델](docs/architecture/DATA_MODEL.md), [API 규칙](docs/architecture/API_CONVENTIONS.md)
-- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [출처 등록부](docs/operations/SOURCE_REGISTRY.md), [수집기 절차](docs/operations/COLLECTOR_RUNBOOK.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [관리자 인증](docs/operations/ADMIN_AUTH.md), [최소 분석](docs/operations/ANALYTICS.md), [지역 seed](docs/operations/REGION_SEED.md), [로컬 PostgreSQL](docs/operations/LOCAL_DATABASE.md), [운영 PostgreSQL 준비](docs/operations/PRODUCTION_DATABASE.md), [데이터베이스 백업·복구](docs/operations/DATABASE_BACKUP.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
-- 결정: [ADR-0001](docs/decisions/ADR-0001-monorepo.md), [ADR-0002](docs/decisions/ADR-0002-nextjs-monolith.md), [ADR-0003](docs/decisions/ADR-0003-postgresql.md), [ADR-0004](docs/decisions/ADR-0004-drizzle-orm.md), [ADR-0005](docs/decisions/ADR-0005-clerk-admin-auth.md), [ADR-0006](docs/decisions/ADR-0006-privacy-minimal-analytics.md), [ADR-0007](docs/decisions/ADR-0007-python-collector-foundation.md), [ADR-0008](docs/decisions/ADR-0008-managed-postgres-prelaunch.md), [ADR-0009](docs/decisions/ADR-0009-encrypted-logical-backups.md)
+- 운영: [수집 정책](docs/operations/DATA_COLLECTION_POLICY.md), [출처 등록부](docs/operations/SOURCE_REGISTRY.md), [업체 데이터 확대](docs/operations/OFFICE_DATA_EXPANSION.md), [수집기 절차](docs/operations/COLLECTOR_RUNBOOK.md), [검증 정책](docs/operations/DATA_VERIFICATION_POLICY.md), [관리자 인증](docs/operations/ADMIN_AUTH.md), [최소 분석](docs/operations/ANALYTICS.md), [지역 seed](docs/operations/REGION_SEED.md), [로컬 PostgreSQL](docs/operations/LOCAL_DATABASE.md), [운영 PostgreSQL 준비](docs/operations/PRODUCTION_DATABASE.md), [데이터베이스 백업·복구](docs/operations/DATABASE_BACKUP.md), [SEO](docs/operations/SEO_POLICY.md), [보안](docs/operations/SECURITY.md)
+- 결정: [ADR-0001](docs/decisions/ADR-0001-monorepo.md), [ADR-0002](docs/decisions/ADR-0002-nextjs-monolith.md), [ADR-0003](docs/decisions/ADR-0003-postgresql.md), [ADR-0004](docs/decisions/ADR-0004-drizzle-orm.md), [ADR-0005](docs/decisions/ADR-0005-clerk-admin-auth.md), [ADR-0006](docs/decisions/ADR-0006-privacy-minimal-analytics.md), [ADR-0007](docs/decisions/ADR-0007-python-collector-foundation.md), [ADR-0008](docs/decisions/ADR-0008-managed-postgres-prelaunch.md), [ADR-0009](docs/decisions/ADR-0009-encrypted-logical-backups.md), [ADR-0010](docs/decisions/ADR-0010-naver-api-discovery-pilot.md)
 
 ## 작업 원칙
 

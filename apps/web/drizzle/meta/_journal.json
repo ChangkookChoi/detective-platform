@@ -36,6 +36,13 @@
       "when": 1784817195601,
       "tag": "0004_neat_titania",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787281929559,
+      "tag": "0005_rich_chamber",
+      "breakpoints": true
     }
   ]
 }

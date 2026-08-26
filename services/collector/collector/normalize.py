@@ -8,6 +8,29 @@ from typing import Any
 from collector.models import ExtractedRecord, NormalizedRecord
 
 _WHITESPACE = re.compile(r"\s+")
+_EMAIL_PATTERN = re.compile(
+    r"^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?"
+    r"(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$",
+    re.IGNORECASE,
+)
+_GENERIC_BUSINESS_EMAIL_LOCALS = frozenset(
+    {
+        "admin",
+        "biz",
+        "business",
+        "contact",
+        "cs",
+        "help",
+        "hello",
+        "info",
+        "inquiry",
+        "mail",
+        "master",
+        "office",
+        "support",
+    }
+)
 
 
 def normalize_text(value: object) -> str | None:
@@ -28,6 +51,27 @@ def normalize_phone(value: object) -> tuple[str | None, str | None]:
     if not 9 <= len(digits) <= 11 or not digits.startswith("0"):
         return None, display
     return digits, display
+
+
+def normalize_email(
+    value: object,
+) -> tuple[str | None, str | None, str | None]:
+    display = normalize_text(value)
+    if display is None:
+        return None, None, None
+    if display.lower().startswith("mailto:"):
+        display = display[7:].strip()
+    display = display.split("?", 1)[0].strip()
+    if len(display) > 254 or not _EMAIL_PATTERN.fullmatch(display):
+        return None, display, None
+    local, domain = display.rsplit("@", 1)
+    normalized = f"{local.lower()}@{domain.lower()}"
+    kind = (
+        "generic_business"
+        if local.lower() in _GENERIC_BUSINESS_EMAIL_LOCALS
+        else "unknown"
+    )
+    return normalized, display, kind
 
 
 def normalize_address(value: object) -> str | None:
@@ -64,10 +108,16 @@ def canonical_hash(values: dict[str, Any]) -> str:
 def normalize_record(record: ExtractedRecord) -> NormalizedRecord:
     extracted = record.extracted_values
     phone_normalized, phone_display = normalize_phone(extracted.get("telephone"))
+    email_normalized, email_display, email_kind = normalize_email(
+        extracted.get("email")
+    )
     values = {
         "name": normalize_text(extracted.get("name")),
         "phoneNormalized": phone_normalized,
         "phoneDisplay": phone_display,
+        "emailNormalized": email_normalized,
+        "emailDisplay": email_display if email_normalized else None,
+        "emailKind": email_kind,
         "addressText": normalize_address(extracted.get("address")),
         "summary": normalize_text(extracted.get("description")),
     }

@@ -55,6 +55,9 @@ jobs:
       - name: Lint web application
         run: npm --prefix apps/web run lint
 
+      - name: Run web unit tests
+        run: npm --prefix apps/web run test:unit
+
       - name: Build without Production secrets
         env:
           CLERK_ADMIN_USER_IDS: ""
