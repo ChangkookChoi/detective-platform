@@ -16,6 +16,7 @@ import {
   getReviewItem,
   listReviewFormOptions,
 } from "@/modules/moderation/review-repository";
+import { suggestRegionSlugFromAddress } from "@/modules/moderation/region-suggestion";
 import { presentReviewSourceEvidence } from "@/modules/moderation/review-source-evidence";
 
 import {
@@ -178,7 +179,12 @@ export default async function ReviewDetailPage({
     ),
   };
   const suggestedSlug = textValue(proposedRecord.slug, "");
-  const suggestedRegionSlug = textValue(proposedRecord.regionSlug, "");
+  const suggestedRegionSlug =
+    textValue(proposedRecord.regionSlug, "") ||
+    suggestRegionSlugFromAddress(
+      candidateValues.addressText,
+      formOptions.regionGroups,
+    );
   const suggestedSourceType = textValue(
     proposedRecord.sourceType,
     "official_website",

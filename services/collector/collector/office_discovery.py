@@ -76,7 +76,14 @@ _NON_OFFICIAL_HOST_SUFFIXES = (
     "wordpress.com",
     "notion.site",
 )
-_TARGET_ADDRESS_PREFIXES = ("서울", "서울특별시", "경기", "경기도")
+_TARGET_ADDRESS_PREFIXES = (
+    "서울",
+    "서울특별시",
+    "경기",
+    "경기도",
+    "인천",
+    "인천광역시",
+)
 _NATIONWIDE_ADDRESS_PREFIXES = (
     "서울",
     "부산",
@@ -2609,8 +2616,8 @@ def build_discovery_review_queue(
         for _rank, fact, _parent in ranked_by_identity.values()
     )
     candidate_name_counts = Counter(
-        normalize_result_text(parent.title).lower()
-        for _rank, _fact, parent in ranked_by_identity.values()
+        normalize_result_text(fact.extracted_name or parent.title).lower()
+        for _rank, fact, parent in ranked_by_identity.values()
     )
     review_records: list[DiscoveryReviewRecord] = []
     research_records: list[DiscoveryResearchRecord] = []
@@ -2624,11 +2631,15 @@ def build_discovery_review_queue(
         if fact.status not in {"strong_fact_match", "partial_fact_match"}:
             reason_counts[f"FACT_STATUS_{fact.status.upper()}"] += 1
     for identity_hash, (_rank, fact, parent) in ranked_by_identity.items():
-        candidate_address = normalize_result_text(
+        discovered_address = normalize_result_text(
             parent.road_address or parent.address
         )
-        candidate_name = normalize_result_text(parent.title)
-        relevance = assess_business_relevance(candidate_name, parent.category)
+        discovered_name = normalize_result_text(parent.title)
+        official_name = normalize_result_text(fact.extracted_name or "")
+        official_address = normalize_result_text(fact.address_text or "")
+        candidate_name = official_name or discovered_name
+        candidate_address = official_address or discovered_address
+        relevance = assess_business_relevance(discovered_name, parent.category)
         research_reasons: list[str] = []
         exclusion_reasons: list[str] = []
         if relevance.status == "irrelevant":
@@ -2641,6 +2652,10 @@ def build_discovery_review_queue(
             research_reasons.append("PHONE_REQUIRED")
         if not fact.business_service_match:
             research_reasons.append("OFFICIAL_SERVICE_EVIDENCE_REQUIRED")
+        if not official_name:
+            research_reasons.append("OFFICIAL_NAME_REQUIRED")
+        if not official_address:
+            research_reasons.append("OFFICIAL_ADDRESS_REQUIRED")
 
         source_host = _canonical_host(fact.source_url)
         if _is_non_official_host(source_host):
@@ -2700,8 +2715,8 @@ def build_discovery_review_queue(
             continue
         review_records.append(
             DiscoveryReviewRecord(
-                version=2,
-                rules_version="office-discovery-review-v2",
+                version=3,
+                rules_version="office-discovery-review-v3",
                 candidate_id=identity_hash,
                 candidate_name=candidate_name,
                 candidate_address=candidate_address,

@@ -1,7 +1,8 @@
 # 지역 기준 데이터 관리
 
 - 최초 기준일: 2026-07-22
-- 범위: 서울특별시와 경기도의 시·군·구
+- 현재 확인일: 2026-08-26
+- 범위: 서울특별시·경기도·인천광역시의 시·군·구
 - 제외: 읍·면·동, 서비스 가능 지역, 좌표와 거리 정보
 
 ## 목적
@@ -16,17 +17,21 @@
 - 부천시 원미구·소사구·오정구: [부천시 정비사업 검색](https://bucheon.go.kr/site/program/reconstruct/list?currentpage=2&menuid=173005002)
 - 화성시 만세구·효행구·병점구·동탄구: [화성특례시 2026년 구청 체제 안내](https://atc.hscity.go.kr/notice/promote_view.jsp?private_code=cbd43a331bc36361e2314e4f9a26b236eaf568d7855096c0535d37e7140e2fe9)
 - 화성시 일반구 신설 변경 근거: [행정안전부 2026년 2월 1일 행정구역 변경 알림](https://www.mois.go.kr/frt/bbs/type001/commonSelectBoardArticle.do?bbsId=BBSMSTR_000000000052&nttId=122595)
+- 인천광역시 2군·9구: [인천광역시 행정구역](https://www.incheon.go.kr/IC040102)
+- 인천광역시 2026년 행정체제 개편 근거: [행정안전부 법률 공포 안내](https://www.mois.go.kr/frt/bbs/type010/commonSelectBoardArticle.do?bbsId=BBSMSTR_000000000008&nttId=106339)
+- 인천광역시 현행 구 설치 법률: [국가법령정보센터](https://www.law.go.kr/LSW/lsInfoP.do?ancYnChk=0&chrClsCd=010202&efYd=20260701&lsId=&lsiSeq=281877&urlMode=lsEfInfoR&viewCls=lsRvsDocInfoR)
 
-최초 seed에는 서울 25개 자치구, 경기 31개 시·군과 현재 일반구가 있는 경기 8개 시의 일반구 24개를 포함한다. 화성시의 네 일반구는 2026년 2월 1일 시행 기준을 반영한다.
+최초 seed에는 서울 25개 자치구, 경기 31개 시·군과 현재 일반구가 있는 경기 8개 시의 일반구 24개를 포함한다. 화성시의 네 일반구는 2026년 2월 1일 시행 기준을 반영한다. 2026년 8월 확장 seed에는 2026년 7월 1일 시행된 인천의 강화군·옹진군과 제물포구·영종구·미추홀구·연수구·남동구·부평구·계양구·서해구·검단구를 추가한다. 폐지된 중구·동구와 개편 전 서구는 신규 seed에 넣지 않는다.
 
 ## 식별자와 계층
 
-- slug는 `seoul-{district}`, `gyeonggi-{municipality}`, `gyeonggi-{municipality}-{district}` 형식을 사용한다.
+- slug는 `seoul-{district}`, `gyeonggi-{municipality}`, `gyeonggi-{municipality}-{district}`, `incheon-{district}` 형식을 사용한다.
 - 기존에 사용한 여섯 UUID는 참조 안정성을 위해 유지한다.
 - 신규 지역 UUID는 고정 namespace와 slug로 결정적으로 생성한다.
 - slug는 비활성화 후에도 재사용하지 않는다.
 - 서울 자치구는 서울특별시를 부모로 둔다.
 - 경기 시·군은 경기도를 부모로 두고, 일반구는 해당 시를 부모로 둔다.
+- 인천 군·구는 인천광역시를 부모로 둔다.
 - 업체는 주소를 분류할 수 있는 가장 하위의 활성 지역을 참조한다.
 
 ## 갱신 절차
@@ -40,10 +45,11 @@
 
 ## 검증 기준
 
-- 전체 지역 82개
+- 전체 지역 94개
 - 서울 직계 자치구 25개
 - 경기 직계 시·군 31개
 - 경기 시 하위 일반구 24개
+- 인천 직계 군·구 11개(2군·9구)
 - UUID와 slug 중복 0건
 - 모든 부모가 자식보다 먼저 정의됨
 - 자기 참조와 고아 지역 0건

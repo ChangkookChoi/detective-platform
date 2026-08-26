@@ -382,7 +382,7 @@ class OfficeDiscoveryTests(unittest.TestCase):
         self.assertEqual(filtered["reason_codes"], ["DIRECT_LOCAL_SOURCE_LINK"])
         self.assertFalse(filtered["promotion_allowed"])
 
-    def test_rejects_out_of_region_and_unrelated_result(self) -> None:
+    def test_accepts_incheon_scope_but_rejects_unrelated_result(self) -> None:
         result = filter_discovery_record(
             _raw(
                 title="일반 심부름센터",
@@ -394,7 +394,7 @@ class OfficeDiscoveryTests(unittest.TestCase):
             seen_identities=set(),
         )
         self.assertEqual(result.status, "rejected")
-        self.assertIn("OUTSIDE_TARGET_REGION", result.reason_codes)
+        self.assertNotIn("OUTSIDE_TARGET_REGION", result.reason_codes)
         self.assertIn("UNRELATED_CATEGORY", result.reason_codes)
 
     def test_accepts_nationwide_address_only_when_explicitly_enabled(self) -> None:
@@ -888,10 +888,13 @@ class OfficeDiscoveryTests(unittest.TestCase):
             "run_id": "web-run",
             "source_url": "https://example.com/",
             "reason_code": None,
-            "extracted_name": "테스트 탐정사무소",
+            "extracted_name": "SG탐정법인",
             "phone_normalized": "0212345678",
             "phone_display": "02-1234-5678",
-            "address_text": "서울특별시 강남구 테스트로 1",
+            "address_text": (
+                "인천광역시 연수구 새말로96번길 30 "
+                "202호(이강빌딩)"
+            ),
             "name_match": True,
             "address_match": True,
             "region_match": True,
@@ -947,6 +950,13 @@ class OfficeDiscoveryTests(unittest.TestCase):
         self.assertEqual(summary.candidate_count, 1)
         self.assertEqual(summary.duplicate_count, 1)
         self.assertEqual(review["evidence_status"], "strong_fact_match")
+        self.assertEqual(review["version"], 3)
+        self.assertEqual(review["rules_version"], "office-discovery-review-v3")
+        self.assertEqual(review["candidate_name"], "SG탐정법인")
+        self.assertEqual(
+            review["candidate_address"],
+            "인천광역시 연수구 새말로96번길 30 202호(이강빌딩)",
+        )
         self.assertEqual(review["review_status"], "pending")
         self.assertFalse(review["promotion_allowed"])
 

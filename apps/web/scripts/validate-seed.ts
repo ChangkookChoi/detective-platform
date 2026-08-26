@@ -25,10 +25,16 @@ for (const region of regionSeed) {
 
 const seoul = regionSeed.find((region) => region.slug === "seoul");
 const gyeonggi = regionSeed.find((region) => region.slug === "gyeonggi");
+const incheon = regionSeed.find((region) => region.slug === "incheon");
 
 assert(seoul, "Seoul root region is required");
 assert(gyeonggi, "Gyeonggi root region is required");
-assert.equal(regionSeed.length, 82, "Expected 82 Seoul and Gyeonggi regions");
+assert(incheon, "Incheon root region is required");
+assert.equal(
+  regionSeed.length,
+  94,
+  "Expected 94 Seoul, Gyeonggi, and Incheon regions",
+);
 assert.equal(
   regionSeed.filter((region) => region.parentId === seoul.id).length,
   25,
@@ -46,6 +52,27 @@ assert.equal(
   }).length,
   24,
   "Gyeonggi requires 24 general districts",
+);
+const incheonChildren = regionSeed.filter(
+  (region) => region.parentId === incheon.id,
+);
+assert.equal(incheonChildren.length, 11, "Incheon requires 2 counties and 9 districts");
+assert.deepEqual(
+  new Set(incheonChildren.map((region) => region.slug)),
+  new Set([
+    "incheon-ganghwa",
+    "incheon-ongjin",
+    "incheon-jemulpo",
+    "incheon-yeongjong",
+    "incheon-michuhol",
+    "incheon-yeonsu",
+    "incheon-namdong",
+    "incheon-bupyeong",
+    "incheon-gyeyang",
+    "incheon-seohae",
+    "incheon-geomdan",
+  ]),
+  "Incheon seed must follow the administrative structure effective 2026-07-01",
 );
 
 for (const region of regionSeed) {

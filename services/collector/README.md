@@ -100,9 +100,9 @@ uv run --env-file ../../apps/web/.env.local python main.py discover-naver-local 
   --retention-days 7
 ```
 
-개발 DB에 등록된 서울·경기 활성 최하위 지역 전체를 대상으로 실행할 때는 개별
-`--region` 대신 `--regions-from-database`를 사용한다. 검색어 하나당 현재 72개
-질의이므로 `--max-requests 100` 안에서 실행한다.
+개발 DB에 등록된 서울·경기·인천 활성 최하위 지역 전체를 대상으로 실행할 때는
+개별 `--region` 대신 `--regions-from-database`를 사용한다. 검색어 하나당 현재
+83개 질의이므로 `--max-requests 100` 안에서 실행한다.
 
 ```bash
 uv run --env-file ../../apps/web/.env.local python main.py discover-naver-local \
@@ -197,7 +197,9 @@ uv run python main.py extract-discovery-facts \
 대표 전화, 공식 페이지 탐정 업무 증거, 비공식 host 제외와 현재 DB 중복 부재를
 모두 충족한 후보만 `review_status=pending` 큐에 둔다. 그 밖의 확인 가능 후보는
 같은 이름의 `.research.jsonl`에 `review_status=research_required`로 분리한다.
-두 출력 모두 office batch manifest가 아니며 `promotion_allowed=false`다.
+검토 큐의 상호와 상세 주소는 지역 검색 표시값이 아니라 공식 페이지에서 추출·
+대조된 값을 사용한다. 두 출력 모두 office batch manifest가 아니며
+`promotion_allowed=false`다.
 
 ```bash
 uv run python main.py build-discovery-review-queue \
@@ -208,8 +210,9 @@ uv run python main.py build-discovery-review-queue \
 `pending` 큐는 자동 공개 입력이 아니다. 공식 최소 사실이 모두 일치하고 확인 후
 24시간이 지나지 않은 레코드만 웹 애플리케이션의 기본 dry-run intake로 다시
 검사할 수 있다. 명시적 `--apply`도 로컬 개발 DB에 `pending/new_office/high`
-검수 항목만 만들며, 지역·업무 분야·slug는 Clerk 관리자가 공식 원문을 확인해
-승인 화면에서 선택한다. 실행법은
+검수 항목만 만든다. 공식 주소에서 서울·경기·인천의 최하위 지역을 자동 제안하되
+지역·업무 분야·slug는 Clerk 관리자가 공식 원문을 확인해 승인 화면에서 최종
+선택한다. 실행법은
 [업체 데이터 확대](../../docs/operations/OFFICE_DATA_EXPANSION.md#discovery-검수-항목-적재)를
 따른다.
 

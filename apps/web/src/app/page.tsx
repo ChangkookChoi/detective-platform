@@ -18,7 +18,7 @@ export default function Home() {
         <div className="mx-auto grid w-full max-w-6xl gap-12 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center">
           <div>
             <p className="mb-5 text-sm font-bold tracking-[0.18em] text-sky-800">
-              서울·경기 탐정사무소 정보
+              서울·경기·인천 탐정사무소 정보
             </p>
             <h1 className="max-w-3xl text-4xl font-bold leading-[1.15] tracking-[-0.045em] text-slate-950 sm:text-6xl">
               민감한 내용을 남기지 않고, 확인된 업체 정보를 살펴보세요.

@@ -18,8 +18,8 @@ const now = new Date("2026-08-26T03:00:00.000Z");
 
 function syntheticInput() {
   return JSON.stringify({
-    version: 2,
-    rules_version: "office-discovery-review-v2",
+    version: 3,
+    rules_version: "office-discovery-review-v3",
     candidate_id: "e".repeat(64),
     candidate_name: "가상 공식 탐정사무소",
     candidate_address: "서울특별시 강남구 가상로 16",
