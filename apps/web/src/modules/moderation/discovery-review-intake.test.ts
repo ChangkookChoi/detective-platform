@@ -55,7 +55,7 @@ test("인천 공식 주소는 공개 intake 대상으로 읽고 범위 밖 주�
       candidate_id: "f".repeat(64),
       candidate_name: "SG탐정법인",
       candidate_address:
-        "인천광역시 연수구 새말로96번길 30 202호(이강빌딩)",
+        "21925 인천광역시 연수구 새말로96번길 30 202호(이강빌딩)",
     }),
     record({
       candidate_id: "9".repeat(64),
@@ -68,6 +68,10 @@ test("인천 공식 주소는 공개 intake 대상으로 읽고 범위 밖 주�
 
   assert.equal(parsed.candidates.length, 1);
   assert.equal(parsed.candidates[0]?.name, "SG탐정법인");
+  assert.equal(
+    parsed.candidates[0]?.addressText,
+    "21925 인천광역시 연수구 새말로96번길 30 202호(이강빌딩)",
+  );
   assert.equal(parsed.ineligibleCount, 1);
   assert.deepEqual(parsed.reasonCounts, { PUBLIC_REGION_SCOPE_REQUIRED: 1 });
 });

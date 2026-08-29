@@ -22,7 +22,7 @@ const futureClockSkewMilliseconds = 5 * 60 * 1000;
 const candidateIdPattern = /^[a-f0-9]{64}$/;
 const localDatabaseHosts = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 const publicRegionAddressPattern =
-  /^(?:서울특별시|서울|경기도|경기|인천광역시|인천)(?:\s|$)/u;
+  /^(?:\d{5}\s+)?(?:서울특별시|서울|경기도|경기|인천광역시|인천)(?:\s|$)/u;
 
 export type DiscoveryReviewCandidate = {
   candidateId: string;
